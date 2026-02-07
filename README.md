@@ -1,0 +1,293 @@
+# Skylight Calendar - Family Organizer
+
+A modern family organization application with real-time synchronization, auto-save, multi-member support, and beautiful glassmorphism design.
+
+## ✨ Design Highlights
+
+- **Glassmorphism UI:** iOS-style frosted glass aesthetic with animated gradient backgrounds
+- **Modern Color Palette:** Vibrant animated gradients (purple, blue, pink, teal) with transparent glass panels
+- **Smooth Interactions:** All elements feature hover effects, scale animations, and backdrop blur
+- **Accessibility:** High contrast white text on colorful backgrounds with drop shadows
+
+## Project Vision
+
+Create a family-centric organization platform centered around **Family Members** that includes:
+
+### 1. 📅 Family Calendar ✅
+
+**Implemented Features:**
+- ✅ **Multi-View Calendar:** Day, Week, and Month views with smooth transitions
+- ✅ **Family Member Color Coding:** Events display in member colors (gray for unassigned)
+- ✅ **Recurring Events:** Daily, weekly, monthly, and yearly patterns with custom intervals
+- ✅ **Multi-Day Events:** Events can span multiple days
+- ✅ **Event Exceptions:** Edit/delete single instances, future instances, or entire series
+- ✅ **Overlapping Events:** Side-by-side layout like Google Calendar (no overlapping)
+- ✅ **Drag & Drop:** Move events to different times/dates with visual feedback
+- ✅ **Time Slot Click:** Click any time to create event at that specific time
+- ✅ **Form Validation:** End date/time cannot be before start date/time
+- ✅ **Real-time Sync:** Changes appear instantly across all devices
+- ✅ **Auto-Save:** All changes save automatically without manual save buttons
+- ✅ **Current Time Indicator:** Red line shows current time in day/week views
+
+**Deferred Features:**
+- Calendar Sync: Integrate with Outlook, Google Calendar, and Apple Calendar
+- Toggle Visibility: Show/hide individual calendars
+
+### 2. ✅ Habit & Chore Tracker
+- **Per-Member Tracking:** Each family member has their own row/column
+- **Three Categories:**
+  - Habits (daily routines)
+  - Chores (household tasks)
+  - To-Dos (one-off tasks)
+- **Reward System:** Award points/stars for completed items
+- **Progress Visualization:** GitHub-style activity squares showing completion patterns
+- **Multiple Views:** Day, week, month, year views
+
+**Current Status:** Not started
+**Next Phase:** Design database schema and UI
+
+### 3. 🍳 Recipe Organizer & Meal Planner
+- **Recipe Storage:** Save and organize family recipes
+- **Meal Planning:** Assign recipes to specific days (integrates with calendar)
+- **Smart Shopping Lists:**
+  - Select multiple recipes
+  - Auto-generate combined shopping list
+  - Consolidate duplicate ingredients (e.g., 2 tsp butter + 6 tsp butter = 8 tsp total)
+  - Export shopping list
+
+**Current Status:** Not started
+**Next Phase:** Design recipe schema and meal planning interface
+
+### Future Expansion
+- Mobile apps (iOS/Android)
+- Additional family organization features
+
+---
+
+## Tech Stack
+
+- **Frontend:** Next.js 15 (App Router) + TypeScript
+- **Styling:** Tailwind CSS with custom glassmorphism design
+- **Database:** Supabase (PostgreSQL with real-time subscriptions)
+- **Hosting:** Vercel
+- **Authentication:** Supabase Auth (to be implemented)
+- **Real-time Sync:** Supabase Realtime ✅
+- **Design System:**
+  - Animated gradient backgrounds with CSS keyframes
+  - Backdrop blur effects (backdrop-blur-xl, backdrop-blur-2xl)
+  - Transparent glass panels (bg-white/10, bg-white/20)
+  - Custom shadows with inner glow
+  - White text with drop shadows for readability
+
+---
+
+## Getting Started
+
+### Prerequisites
+- Node.js v24+ installed
+- Supabase account and project created
+
+### Installation
+
+1. **Clone and install dependencies:**
+```bash
+npm install
+```
+
+2. **Set up environment variables:**
+
+Create `.env.local` file:
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+3. **Run the development server:**
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to see the app.
+
+### Current Database Schema
+
+**family_members table:** ✅
+- `id` (bigint, primary key)
+- `name` (text, required) - Family member's name
+- `color` (text, required) - Hex color code for calendar events
+- `role` (text, optional) - Parent, Child, Teen, etc.
+- `avatar_url` (text, optional) - Profile picture URL
+- `is_active` (boolean, default true) - Soft delete flag
+- `created_at` (timestamp)
+- Realtime enabled ✅
+
+**events table:** ✅
+- `id` (bigint, primary key)
+- `title` (text, required)
+- `date` (date, required) - Start date
+- `end_date` (date, optional) - For multi-day events
+- `start_time` (text, optional) - 24-hour format (HH:MM)
+- `end_time` (text, optional) - 24-hour format (HH:MM)
+- `description` (text, optional)
+- `is_recurring` (boolean, default false)
+- `recurrence_pattern` (text, optional) - daily, weekly, monthly, yearly
+- `recurrence_interval` (integer, default 1) - Repeat every N days/weeks/months/years
+- `recurrence_end_date` (date, optional) - When recurring series ends
+- `recurrence_days` (text, optional) - JSON array for weekly recurrence (e.g., ["monday", "wednesday"])
+- `created_at` (timestamp)
+- Realtime enabled ✅
+
+**event_family_members table:** ✅ (junction table)
+- `id` (bigint, primary key)
+- `event_id` (bigint, foreign key → events.id, cascade delete)
+- `family_member_id` (bigint, foreign key → family_members.id, cascade delete)
+- `created_at` (timestamp)
+- Unique constraint on (event_id, family_member_id)
+- Realtime enabled ✅
+
+**event_exceptions table:** ✅
+- `id` (bigint, primary key)
+- `base_event_id` (bigint, foreign key → events.id, cascade delete)
+- `exception_date` (date, required) - Which instance this exception applies to
+- `is_deleted` (boolean, default false) - True if instance was deleted
+- `modified_title` (text, optional) - Override title for this instance
+- `modified_start_time` (text, optional) - Override start time
+- `modified_end_time` (text, optional) - Override end time
+- `modified_description` (text, optional) - Override description
+- `modified_family_member_ids` (text, optional) - JSON array of member IDs for this instance
+- `created_at` (timestamp)
+- Unique constraint on (base_event_id, exception_date)
+- Realtime enabled ✅
+
+---
+
+## Project Structure
+
+```
+skylight-calendar/
+├── app/
+│   ├── components/
+│   │   ├── AddEventModal.tsx      # Event creation/editing modal with glassmorphism
+│   │   ├── CalendarView.tsx       # Main calendar with day/week/month views
+│   │   └── FamilyMembers.tsx      # Family member management sidebar
+│   ├── globals.css                # Global styles with animated gradient background
+│   ├── layout.tsx                 # Root layout
+│   └── page.tsx                   # Main app page (calendar + family members)
+├── lib/
+│   └── supabase.ts                # Supabase client configuration
+├── .env.local                     # Environment variables (not in git)
+├── DEV_PROFILE.md                 # Developer context & learning profile
+└── README.md                      # This file
+```
+
+---
+
+## Current Progress
+
+### ✅ Completed (Phase 1: Calendar MVP)
+
+**Infrastructure:**
+- ✅ Next.js 15 project setup with TypeScript
+- ✅ Tailwind CSS configuration with custom design system
+- ✅ Supabase project created and connected
+- ✅ Real-time database sync across all tables
+- ✅ Complete database schema (4 tables with relationships)
+- ✅ Auto-save functionality (no save buttons needed)
+
+**Family Members System:**
+- ✅ Family member CRUD operations
+- ✅ Color picker for each member
+- ✅ Role assignment (Parent, Child, Teen, etc.)
+- ✅ Soft delete (is_active flag)
+- ✅ Real-time sync for member changes
+
+**Calendar Features:**
+- ✅ Three view modes: Day, Week, Month
+- ✅ Event creation with detailed form
+- ✅ Multi-day event support
+- ✅ Start/end time selection (15-minute increments)
+- ✅ Event description field
+- ✅ Family member assignment (multi-select)
+- ✅ Form validation (end time/date after start)
+- ✅ Gray color for unassigned events
+- ✅ Gradient colors for multi-member events
+- ✅ Drag & drop event rescheduling
+- ✅ Click time slot to create event
+- ✅ Current time indicator (red line)
+
+**Recurring Events:**
+- ✅ Pattern selection (daily, weekly, monthly, yearly)
+- ✅ Custom interval (every N days/weeks/months/years)
+- ✅ Weekly day selection (choose specific days)
+- ✅ Recurrence end date
+- ✅ Edit single instance vs. all instances vs. future instances
+- ✅ Delete single instance vs. all instances vs. future instances
+- ✅ Event exceptions table for instance modifications
+
+**Event Display:**
+- ✅ Side-by-side layout for overlapping events (no overlapping)
+- ✅ Automatic column calculation for concurrent events
+- ✅ Dynamic width adjustment based on overlaps
+- ✅ All-day events in dedicated row
+- ✅ Time-based events in hourly grid
+
+**Design System:**
+- ✅ Glassmorphism aesthetic throughout
+- ✅ Animated multi-color gradient background
+- ✅ Transparent glass panels with backdrop blur
+- ✅ Subtle white borders for glass edges
+- ✅ White text with drop shadows
+- ✅ Smooth hover animations and scale effects
+- ✅ Custom shadow with inner glow effects
+
+### 📋 Next Steps (Phase 2)
+1. Implement authentication (Supabase Auth)
+2. Multi-user support with row-level security
+3. Build habit tracker module
+4. Build recipe organizer module
+5. Mobile responsive design refinements
+6. Add calendar sync integrations (Google, Outlook, Apple)
+
+---
+
+## Development Notes
+
+See [DEV_PROFILE.md](./DEV_PROFILE.md) for:
+- Developer experience level and learning areas
+- Teaching preferences for AI assistance
+- Technical decision rationale
+- Project timeline and insights
+
+---
+
+## Features Showcase
+
+### Event Validation
+- End date must be on or after start date
+- End time must be after start time (for same-day events)
+- Real-time validation feedback in the form
+
+### Smart Event Coloring
+- **No assigned members:** Gray (#9CA3AF)
+- **One member:** Member's assigned color
+- **Multiple members:** Gradient combining all member colors
+
+### Overlapping Event Layout
+Events scheduled at the same time display side-by-side with automatic width adjustment:
+- Detects time overlaps across all events in a day
+- Assigns columns to prevent visual overlap
+- Calculates percentage-based widths and offsets
+- Maintains proper z-index layering
+
+### Recurring Event Flexibility
+- **Update single instance:** Creates exception for that date only
+- **Update future instances:** Ends current series, creates new series from that date
+- **Update all instances:** Modifies base event, applies to all occurrences
+- Same logic applies to deletions
+
+## Timeline
+
+- **Started:** February 5, 2026
+- **First Working Prototype:** February 5, 2026 ✅
+- **Calendar MVP Completed:** February 6, 2026 ✅
+- **Next Milestone:** Authentication & Multi-user Support

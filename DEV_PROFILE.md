@@ -1,0 +1,351 @@
+# Developer Profile & Project Context
+
+**Last Updated:** February 6, 2026
+**Developer:** jrigb
+**Project:** Skylight-style Calendar Application
+**Current Phase:** Calendar MVP Complete ✅
+
+---
+
+## 🎯 Project Goal
+
+Build a custom calendar/family organizer application similar to Skylight Calendar with:
+- **Auto-save functionality** (no manual save buttons required)
+- **Persistent sessions** (no forced logouts)
+- Real-time updates across devices
+- Clean, intuitive family-friendly interface
+
+---
+
+## 👨‍💻 Developer Experience Level
+
+### Strong Areas ✅
+- **3 years of software development experience**
+- TypeScript/JavaScript proficiency
+- Working in enterprise platforms (Faciliq/similar system)
+- HTML/CSS
+- Logic and business rules implementation
+- UI component development
+- React experience (a few years ago)
+
+### Past Experience (Rusty) 🕰️
+- **Python & Django** (bootcamp, 3 years ago - only a few months of hands-on)
+- **Terminal/Console commands** (bootcamp, 3 years ago - will need guidance)
+
+### Learning Areas 🌱
+- **Database design & management** (SQL, database operations)
+- **Web hosting & deployment** (servers, cloud platforms, DevOps)
+- **Backend/API development** (endpoints, server-side logic)
+- **Real-time data synchronization**
+- **Authentication & session management**
+- **Terminal/command line workflows** (needs refresher)
+
+### Current Work Environment
+- Works in a proprietary system that abstracts:
+  - Database operations (handled automatically)
+  - Hosting and deployment
+  - API endpoints
+  - Data persistence
+- Writes TypeScript/JavaScript within this managed environment
+- Limited experience with raw database queries or infrastructure
+
+---
+
+## 🎓 Teaching Preferences
+
+6. **Explain terminal commands** - provide context for what each command does
+### How to Help Me Best
+1. **Explain concepts as we implement them** - don't assume database/hosting knowledge
+2. **Provide working examples** - I learn by seeing it work
+3. **Step-by-step guidance** for infrastructure/database tasks
+4. **Quick iteration cycles** - I want to see changes immediately
+5. **Explain the "why"** - help me understand architectural decisions
+
+### What I DON'T Need
+- Basic programming concepts (variables, functions, conditionals)
+- JavaScript/TypeScript syntax help (unless it's advanced)
+- Hand-holding with UI/component logic
+
+---
+
+## 🛠️ Tech Stack Decisions
+
+### Chosen Stack ✅
+- **Frontend Framework:** Next.js 15 (App Router)
+- **Database:** Supabase (PostgreSQL with real-time subscriptions)
+- **Hosting:** Vercel (seamless Next.js deployment)
+- **Authentication:** Supabase Auth
+- **Styling:** Tailwind CSS
+
+### Why This Stack
+- **Supabase:** Real-time sync out of the box, simple auto-save, built-in auth, excellent learning UI for database concepts
+- **Vercel:** Deploys Next.js in seconds, free tier, git-based workflow
+- **Next.js + Tailwind:** Modern, fast development, excellent DX with hot reload
+- All services have generous free tiers
+
+### Key Requirements
+- **Fast development feedback loop** (hot reload, instant updates)
+- **Auto-save capabilities** (no manual save buttons)
+- **Real-time sync** across devices
+- **Simple deployment process**
+- **Persistent user sessions**
+
+---
+
+## 📋 Project Status
+
+**Phase:** Calendar MVP Complete ✅
+**Current Step:** Ready for Authentication & Multi-user Support
+
+### Completed (February 5-6, 2026)
+
+**Day 1 - Foundation (Feb 5):**
+- ✅ Defined project goals and full feature roadmap
+- ✅ Identified learning needs
+- ✅ Created developer profile
+- ✅ Chose tech stack (Next.js 15, Supabase, Vercel, Tailwind)
+- ✅ Set up development environment
+- ✅ Created Next.js project structure
+- ✅ Connected Supabase database
+- ✅ Built first working prototype (events calendar with real-time sync)
+- ✅ Implemented auto-save functionality
+- ✅ Created initial database schema (events table)
+
+**Day 2 - Full Calendar Implementation (Feb 6):**
+- ✅ Designed and implemented Family Members system
+  - Created family_members table
+  - Built family member management UI
+  - Implemented color coding system
+  - Added role assignment
+  - Real-time sync for members
+
+- ✅ Enhanced Calendar Features
+  - Added Day/Week/Month view modes
+  - Implemented multi-day events (end_date field)
+  - Added start_time and end_time fields
+  - Built time slot selection (15-min increments)
+  - Created form validation (end after start)
+  - Implemented event-member junction table
+  - Added gray color for unassigned events
+  - Built gradient colors for multi-member events
+  - Implemented drag & drop event rescheduling
+  - Added click-to-create on time slots
+  - Added current time indicator
+
+- ✅ Recurring Events System
+  - Created recurrence fields on events table
+  - Implemented daily/weekly/monthly/yearly patterns
+  - Added custom interval support
+  - Built weekly day selection
+  - Created event_exceptions table
+  - Implemented edit single/future/all logic
+  - Implemented delete single/future/all logic
+  - Built scope selection dialogs
+
+- ✅ Overlapping Events Layout
+  - Implemented Google Calendar-style side-by-side layout
+  - Built overlap detection algorithm
+  - Created column assignment logic
+  - Calculated dynamic widths and offsets
+  - Ensured proper z-index layering
+
+- ✅ Glassmorphism Design System
+  - Created animated gradient background (CSS keyframes)
+  - Implemented frosted glass aesthetic throughout
+  - Added backdrop-blur effects (xl, 2xl)
+  - Built transparent glass panels (white/10, white/20)
+  - Applied custom shadows with inner glow
+  - Updated all text to white with drop shadows
+  - Added subtle white borders for glass edges
+  - Implemented smooth hover animations
+  - Applied consistent design across all components
+
+### Next Steps (Phase 2)
+- [ ] Implement authentication (Supabase Auth)
+- [ ] Add row-level security (RLS) for multi-user support
+- [ ] Build user profile management
+- [ ] Create family/household grouping
+- [ ] Mobile responsive design refinements
+- [ ] Build habit tracker module
+- [ ] Build recipe organizer module
+- [ ] Add calendar sync integrations (Google, Outlook, Apple)
+
+---
+
+## 💡 Key Insights from Previous Conversations
+
+### Concepts Learned During Development
+
+**Database Design:**
+- Junction tables for many-to-many relationships (event_family_members)
+- Soft deletes with boolean flags (is_active)
+- Event exceptions pattern for recurring event modifications
+- Cascade delete for referential integrity
+- Unique constraints for data validation
+
+**Real-time Synchronization:**
+- Supabase realtime channels for live updates
+- Subscription management and cleanup
+- Optimistic UI updates vs. database sync
+
+**Complex UI Patterns:**
+- Overlapping event detection using time intervals
+- Column-based layout algorithm for concurrent events
+- Percentage-based positioning for responsive layouts
+- Z-index management for layered content
+
+**Form Validation:**
+- Client-side validation for immediate feedback
+- Date/time comparison logic
+- Conditional validation based on user selections
+
+**Styling & Design:**
+- Glassmorphism implementation with Tailwind
+- CSS keyframe animations for gradients
+- Backdrop-blur effects for frosted glass
+- Custom shadow combinations for depth
+- Color gradients with CSS linear-gradient
+- Transparent overlays with opacity values
+
+### Design Decisions Made
+
+1. **Glassmorphism over Solid Backgrounds:** Modern iOS-style aesthetic provides visual appeal and aligns with user's inspiration
+
+2. **Side-by-side Events:** Prevents overlapping for better readability (Google Calendar pattern)
+
+3. **Gray for Unassigned Events:** Clear visual indicator for events without family member assignments
+
+4. **Event Exceptions Table:** Flexible approach to recurring event modifications without breaking the series
+
+5. **Three Update Scopes:** Single/Future/All gives users granular control over recurring events
+
+### Concerns Addressed
+1. **Code portability from current work system:** Current work code (Faciliq platform) is NOT easily portable due to heavy reliance on proprietary APIs (`B.*` objects). Starting fresh is the better approach.
+
+2. **Time to see working prototype:** Modern development tools offer 0.5-2 second feedback loops with hot module replacement - much faster than enterprise platforms. ✅ Confirmed!
+
+3. **Can AI help with unfamiliar topics?** Yes ✅ - database and hosting concepts were taught step-by-step during implementation.
+
+---
+
+## 📝 Notes for AI Assistants
+
+When helping this developer:
+- Assume strong programming fundamentals
+- Explain database concepts clearly (schemas, queries, relationships)
+- Explain hosting/deployment steps in detail
+- Provide complete, runnable code examples
+- Show both the code AND how to verify it works
+- Don't skip infrastructure setup steps
+- Use modern best practices (they're learning fresh, teach them the right way)
+
+---
+
+## 🔗 Quick Reference Links
+
+- **Supabase Dashboard:** https://supabase.com/dashboard/project/vhyxylqioxdzzesmbkiy
+- **Local Dev Server:** http://localhost:3000
+- **Project Repository:** TBD
+- **Live Demo URL:** TBD (will deploy to Vercel)
+
+---
+
+## 📐 Project Architecture
+
+### Core Concept: Family Member-Centric Design
+
+The entire application revolves around **Family Members** as the central entity. All features connect to family members:
+
+```
+Family Members (central table)
+    ├── Calendar Events (assigned to members, color-coded)
+    ├── Habits (tracked per member)
+    ├── Chores (assigned to members)
+    ├── To-Dos (assigned to members)
+    └── Recipes (favorites per member, cooking assignments)
+```
+
+### Feature Modules
+
+#### 1. Family Calendar
+- Local calendar events (current implementation)
+- Future: Sync with external calendars (Google, Outlook, Apple)
+- Toggle visibility per member/calendar
+- Color coding per family member
+- Add events to local or push to synced calendars
+
+#### 2. Habit & Chore Tracker
+- **Categories:** Habits, Chores, To-Dos (may separate later)
+- **Tracking:** Checkbox system with completion dates
+- **Rewards:** Points/stars system for gamification
+- **Visualization:** GitHub-style activity squares for progress tracking
+- **Views:** Day, week, month, year
+
+#### 3. Recipe Organizer
+- **Storage:** Recipe database with ingredients list
+- **Meal Planning:** Assign recipes to calendar dates
+- **Shopping Lists:**
+  - Select multiple recipes
+  - Aggregate ingredients intelligently
+  - Consolidate duplicates (e.g., 2 tsp + 6 tsp = 8 tsp)
+  - Export functionality
+
+### Database Schema (Current Implementation)
+
+**Implemented Tables:**
+- `family_members` ✅ (name, color, role, avatar_url, is_active)
+- `events` ✅ (comprehensive event data with recurrence support)
+- `event_family_members` ✅ (junction table for many-to-many)
+- `event_exceptions` ✅ (recurring event instance modifications)
+
+**Upcoming Tables:**
+- `users` (authentication, family association)
+- `habits` (template for recurring habits)
+- `habit_completions` (tracking individual completions)
+- `chores` (similar to habits)
+- `todos` (one-off tasks)
+- `recipes` (recipe details)
+- `recipe_ingredients` (normalized ingredients)
+- `meal_plan` (recipe-to-date assignments)
+- `external_calendars` (sync configurations)
+
+---
+
+## 💭 Technical Decisions & Learning Notes
+
+### Why Supabase?
+- Real-time subscriptions = instant sync across devices
+- PostgreSQL = powerful relational database for complex queries
+- Built-in auth = less to build ourselves
+- Row Level Security (RLS) = fine-grained permissions per family
+- GUI for database = easier learning curve for database concepts
+
+### Why Next.js App Router?
+- Server components = better performance
+- Built-in API routes = backend logic in same codebase
+- Hot reload = instant feedback (0.5-2 second cycle)
+- Vercel deployment = one command to production
+
+### Key Learning Opportunities in This Project
+1. **Database relationships** (one-to-many, many-to-many)
+2. **Real-time subscriptions** and WebSocket concepts
+3. **Authentication flows** and session management
+4. **API integrations** (Google Calendar, etc.)
+5. **Complex aggregations** (recipe ingredient totaling)
+6. **Data visualization** (habit tracking squares)
+
+---
+
+## 🎯 Success Criteria
+
+- ✅ Changes save automatically without user clicking "save"
+- ✅ Updates appear in real-time across multiple browser tabs/devices
+- ✅ Calendar events are color-coded per family member
+- ✅ Events can recur with flexible patterns
+- ✅ Events display side-by-side when overlapping (no visual overlap)
+- ✅ Modern, attractive glassmorphism design
+- 🚧 Multiple family members can use the app simultaneously (needs auth)
+- 🚧 Users stay logged in (no forced logouts) - auth pending
+- 🚧 Mobile-friendly responsive design (mostly works, needs refinement)
+- 📋 Habit tracking shows visual progress over time
+- 📋 Shopping list intelligently combines ingredients
