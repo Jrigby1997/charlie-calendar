@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from './contexts/AuthContext'
 import FamilyMembers from './components/FamilyMembers'
 import CalendarView from './components/CalendarView'
 import AddEventModal from './components/AddEventModal'
@@ -38,6 +40,8 @@ type FamilyMember = {
 }
 
 export default function Home() {
+  const router = useRouter()
+  const { user, loading, signOut } = useAuth()
   const [events, setEvents] = useState<Event[]>([])
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -47,8 +51,17 @@ export default function Home() {
   const [newEventTime, setNewEventTime] = useState<string>('')
   const [eventExceptions, setEventExceptions] = useState<any[]>([])
 
+  // Check authentication
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login')
+    }
+  }, [user, loading, router])
+
   // Load events from database
   useEffect(() => {
+    if (!user) return // Don't load data if not authenticated
+
     loadEvents()
     loadFamilyMembers()
     loadEventExceptions()
@@ -89,7 +102,7 @@ export default function Home() {
       supabase.removeChannel(membersChannel)
       supabase.removeChannel(exceptionsChannel)
     }
-  }, [])
+  }, [user])
 
   async function loadFamilyMembers() {
     const { data, error } = await supabase
@@ -139,7 +152,29 @@ export default function Home() {
     }
   }
 
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="fixed inset-0 -z-10 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-400 via-pink-400 to-blue-400 animate-gradient-slow"></div>
+        </div>
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    )
+  }
+
+  // Don't render if not authenticated
+  if (!user) {
+    return null
+  }
+
   async function handleAddEvent(title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[]) {
+    if (!user) {
+      console.error('No user logged in')
+      return
+    }
+
     // First, create the event
     const { data: newEvent, error: eventError } = await supabase
       .from('events')
@@ -154,7 +189,8 @@ export default function Home() {
         recurrence_pattern: isRecurring ? recurrencePattern : null,
         recurrence_interval: isRecurring ? recurrenceInterval : 1,
         recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate : null,
-        recurrence_days: isRecurring && recurrenceDays.length > 0 ? JSON.stringify(recurrenceDays) : null
+        recurrence_days: isRecurring && recurrenceDays.length > 0 ? JSON.stringify(recurrenceDays) : null,
+        user_id: user.id
       }])
       .select()
       .single()
@@ -234,7 +270,8 @@ export default function Home() {
           recurrence_pattern: originalEvent.recurrence_pattern,
           recurrence_interval: originalEvent.recurrence_interval,
           recurrence_end_date: recurrenceEndDate || null,
-          recurrence_days: originalEvent.recurrence_days
+          recurrence_days: originalEvent.recurrence_days,
+          user_id: user?.id
         }])
         .select()
         .single()
@@ -554,10 +591,23 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
 
   const expandedEvents = expandRecurringEvents(events, familyMembers)
 
+  const handleSignOut = async () => {
+    await signOut()
+    router.push('/login')
+  }
+
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-full mx-auto h-screen flex flex-col">
-        <h1 className="text-5xl font-bold text-white mb-6 drop-shadow-lg">Freeby Calendar</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-5xl font-bold text-white drop-shadow-lg">Charlie Calendar</h1>
+          <button
+            onClick={handleSignOut}
+            className="px-6 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-xl transition-all duration-200 border border-white/30 hover:scale-105"
+          >
+            Sign Out
+          </button>
+        </div>
 
         {/* Main Content - Sidebar Layout */}
         <div className="flex-1 flex gap-4 min-h-0">

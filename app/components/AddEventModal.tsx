@@ -95,14 +95,14 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
       setRecurrenceInterval(editingEvent.recurrence_interval || 1)
       setRecurrenceEndDate(editingEvent.recurrence_end_date || '')
       setRecurrenceDays(editingEvent.recurrence_days ? JSON.parse(editingEvent.recurrence_days) : [])
-    } else {
-      // Clear form or use initial values when not editing
+    } else if (isOpen && !editingEvent) {
+      // Only clear form when opening modal without an event to edit
       setTitle('')
       setDate(initialDate || '')
-      setEndDate('')
+      setEndDate(initialDate || '') // Default end date to same as start date
       setStartTime(initialStartTime || '')
       // Auto-calculate end time if start time is provided
-      if (initialStartTime && !editingEvent) {
+      if (initialStartTime) {
         const [hours, minutes] = initialStartTime.split(':').map(Number)
         const startDate = new Date()
         startDate.setHours(hours, minutes, 0)
@@ -121,7 +121,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
       setRecurrenceEndDate('')
       setRecurrenceDays([])
     }
-  }, [editingEvent, isOpen, initialDate, initialStartTime])
+  }, [editingEvent, initialDate, initialStartTime, isOpen])
 
   // Auto-calculate end time (30 minutes after start time)
   function handleStartTimeChange(newStartTime: string) {
@@ -268,66 +268,82 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-white/90 mb-1">
-              Date *
-            </label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-              className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-white/90 mb-1">
-              End Date (for multi-day events)
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              min={date}
-              className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">
-                Start Time (optional)
-              </label>
-              <select
-                value={startTime}
-                onChange={(e) => handleStartTimeChange(e.target.value)}
-                className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
-              >
-                <option value="">Select time</option>
-                {timeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+          {/* Start Date and Time - Grouped together */}
+          <div className="border border-white/20 rounded-xl p-4 bg-white/5">
+            <h3 className="text-sm font-semibold text-white/90 mb-4">Starts</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-1">
+                  Date *
+                </label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => {
+                    setDate(e.target.value)
+                    // Auto-update endDate to same as start date if endDate is earlier
+                    if (!endDate || e.target.value > endDate) {
+                      setEndDate(e.target.value)
+                    }
+                  }}
+                  required
+                  className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-1">
+                  Time (optional)
+                </label>
+                <select
+                  value={startTime}
+                  onChange={(e) => handleStartTimeChange(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+                >
+                  <option value="" className="bg-gray-800">Select time</option>
+                  {timeOptions.map((option) => (
+                    <option key={option.value} value={option.value} className="bg-gray-800">
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">
-                End Time (optional)
-              </label>
-              <select
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
-              >
-                <option value="">Select time</option>
-                {timeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+          </div>
+
+          {/* End Date and Time - Grouped together */}
+          <div className="border border-white/20 rounded-xl p-4 bg-white/5">
+            <h3 className="text-sm font-semibold text-white/90 mb-4">Ends</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-1">
+                  Date *
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={date}
+                  required
+                  className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-1">
+                  Time (optional)
+                </label>
+                <select
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+                >
+                  <option value="" className="bg-gray-800">Select time</option>
+                  {timeOptions.map((option) => (
+                    <option key={option.value} value={option.value} className="bg-gray-800">
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/app/contexts/AuthContext'
+import AddFamilyMemberModal from './AddFamilyMemberModal'
 
 type FamilyMember = {
   id: number
@@ -14,11 +16,10 @@ type FamilyMember = {
 }
 
 export default function FamilyMembers() {
+  const { user } = useAuth()
   const [members, setMembers] = useState<FamilyMember[]>([])
-  const [name, setName] = useState('')
-  const [color, setColor] = useState('#3B82F6')
-  const [role, setRole] = useState('')
-  const [isAdding, setIsAdding] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null)
 
   useEffect(() => {
     loadMembers()
@@ -53,8 +54,11 @@ export default function FamilyMembers() {
     }
   }
 
-  async function addMember(e: React.FormEvent) {
-    e.preventDefault()
+  async function addMember(name: string, color: string, role: string, avatarStyle: string) {
+    if (!user) {
+      console.error('No user logged in')
+      return
+    }
 
     const { error } = await supabase
       .from('family_members')
@@ -62,19 +66,41 @@ export default function FamilyMembers() {
         {
           name,
           color,
-          role: role || null
+          role: role || null,
+          avatar_url: avatarStyle,
+          user_id: user.id
         }
       ])
 
     if (error) {
       console.error('Error adding family member:', error)
-    } else {
-      // Clear form
-      setName('')
-      setColor('#3B82F6')
-      setRole('')
-      setIsAdding(false)
     }
+  }
+
+  async function updateMember(id: number, name: string, color: string, role: string, avatarStyle: string) {
+    const { error } = await supabase
+      .from('family_members')
+      .update({
+        name,
+        color,
+        role: role || null,
+        avatar_url: avatarStyle
+      })
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error updating family member:', error)
+    }
+  }
+
+  function handleMemberClick(member: FamilyMember) {
+    setEditingMember(member)
+    setIsModalOpen(true)
+  }
+
+  function handleCloseModal() {
+    setIsModalOpen(false)
+    setEditingMember(null)
   }
 
   async function toggleActive(id: number, currentState: boolean) {
@@ -89,118 +115,73 @@ export default function FamilyMembers() {
   }
 
   return (
-    <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-white drop-shadow-lg">Family Members</h2>
-        {!isAdding && (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white font-semibold py-2.5 px-5 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 border border-white/30"
-          >
-            + Add Member
-          </button>
+    <>
+      <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
+        <h2 className="text-2xl font-bold text-white drop-shadow-lg mb-6">Family Members</h2>
+
+        {/* Members List */}
+        {members.length === 0 ? (
+          <p className="text-white/70 text-center py-8">
+            No family members yet. Click "Add Member" to get started!
+          </p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {members.map((member) => (
+              <div
+                key={member.id}
+                onClick={() => handleMemberClick(member)}
+                className="rounded-xl p-4 hover:shadow-xl transition-all duration-200 flex items-center gap-4 backdrop-blur-sm border-2 border-white/30 shadow-lg hover:scale-105 cursor-pointer"
+                style={{
+                  background: `linear-gradient(135deg, ${member.color}dd, ${member.color})`,
+                  borderColor: `${member.color}40`
+                }}
+              >
+                <div
+                  className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 shadow-lg border-4 border-white/30"
+                  style={{ backgroundColor: member.color }}
+                >
+                  {member.avatar_url ? (
+                    <img
+                      src={`https://api.dicebear.com/7.x/${member.avatar_url}/svg?seed=${encodeURIComponent(member.name)}`}
+                      alt={member.name}
+                      className="w-full h-full"
+                    />
+                  ) : (
+                    <span className="text-white text-xl font-bold">
+                      {member.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-white truncate text-lg drop-shadow-md">{member.name}</h3>
+                  {member.role && (
+                    <p className="text-sm text-white/90 truncate drop-shadow">{member.role}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
+
+        {/* Add Member Button - Subtle, at bottom */}
+        <button
+          onClick={() => {
+            setEditingMember(null)
+            setIsModalOpen(true)
+          }}
+          className="w-full mt-4 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/80 text-sm py-2 px-4 rounded-xl transition-all duration-200 border border-white/10"
+        >
+          + Add Member
+        </button>
       </div>
 
-      {/* Add Member Form */}
-      {isAdding && (
-        <form onSubmit={addMember} className="mb-6 p-5 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/30 shadow-xl">
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">
-                Name *
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
-                placeholder="Dad, Mom, Emma..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">
-                Color *
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="color"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                  className="h-10 w-16 border border-white/30 rounded-lg cursor-pointer shadow-md hover:shadow-lg transition-all duration-200 bg-white/10"
-                />
-                <input
-                  type="text"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                  className="flex-1 px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">
-                Role
-              </label>
-              <input
-                type="text"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
-                placeholder="Parent, Child, Teen..."
-              />
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              className="bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white font-semibold py-2.5 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 border border-white/30"
-            >
-              Add Member
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsAdding(false)}
-              className="bg-white/10 backdrop-blur-lg hover:bg-white/20 text-white font-semibold py-2.5 px-6 rounded-xl transition-all duration-200 border border-white/20 hover:scale-105"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* Members List */}
-      {members.length === 0 ? (
-        <p className="text-white/70 text-center py-8">
-          No family members yet. Add your first member above!
-        </p>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {members.map((member) => (
-            <div
-              key={member.id}
-              className="rounded-xl p-4 hover:shadow-xl transition-all duration-200 flex items-center gap-4 backdrop-blur-sm border-2 border-white/30 shadow-lg hover:scale-105 cursor-pointer"
-              style={{
-                background: `linear-gradient(135deg, ${member.color}dd, ${member.color})`,
-                borderColor: `${member.color}40`
-              }}
-            >
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0 shadow-lg border-4 border-white/30"
-                style={{ backgroundColor: member.color }}
-              >
-                {member.name.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-white truncate text-lg drop-shadow-md">{member.name}</h3>
-                {member.role && (
-                  <p className="text-sm text-white/90 truncate drop-shadow">{member.role}</p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+      <AddFamilyMemberModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onAddMember={addMember}
+        onUpdateMember={updateMember}
+        editMember={editingMember}
+      />
+    </>
   )
 }

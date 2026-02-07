@@ -89,6 +89,45 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
     return `${heightPx}px`
   }
 
+  // Helper function to check if event is multi-day
+  function isMultiDayEvent(event: Event): boolean {
+    if (!event.end_date) return false
+    return event.end_date > event.date
+  }
+
+  // Helper function to format multi-day event range display
+  function formatMultiDayRange(event: Event): string {
+    const startDate = new Date(event.date)
+    const endDate = event.end_date ? new Date(event.end_date) : startDate
+
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    const startDay = dayNames[startDate.getDay()]
+    const endDay = dayNames[endDate.getDay()]
+
+    const startMonthDate = startDate.getDate()
+    const endMonthDate = endDate.getDate()
+
+    // Format start time if available
+    let startStr = `${startDay} ${startMonthDate}`
+    if (event.start_time) {
+      const [hour, minute] = event.start_time.split(':').map(Number)
+      const period = hour < 12 ? 'AM' : 'PM'
+      const displayHour = hour % 12 === 0 ? 12 : hour % 12
+      startStr += ` ${displayHour}:${String(minute).padStart(2, '0')} ${period}`
+    }
+
+    // Format end time if available
+    let endStr = `${endDay} ${endMonthDate}`
+    if (event.end_time) {
+      const [hour, minute] = event.end_time.split(':').map(Number)
+      const period = hour < 12 ? 'AM' : 'PM'
+      const displayHour = hour % 12 === 0 ? 12 : hour % 12
+      endStr += ` ${displayHour}:${String(minute).padStart(2, '0')} ${period}`
+    }
+
+    return `${startStr} → ${endStr}`
+  }
+
   // Helper function to blend colors for multiple family members
   function getEventColor(members: { id: number; name: string; color: string }[]): string {
     if (members.length === 0) return '#9CA3AF' // Gray-400 for events with no family members
@@ -242,10 +281,10 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
   const blanks = Array.from({ length: startingDayOfWeek }, (_, i) => i)
 
-  // Group events by date
+  // Group events by date (simple date grouping - no duplication)
   const eventsByDate: Record<string, Event[]> = {}
   events.forEach(event => {
-    const dateKey = event.date // Format: YYYY-MM-DD
+    const dateKey = event.date // Start date only
     if (!eventsByDate[dateKey]) {
       eventsByDate[dateKey] = []
     }
@@ -296,7 +335,21 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
     const month = date.getMonth() + 1
     const day = date.getDate()
     const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    return eventsByDate[dateKey] || []
+
+    // Get events that start on this date
+    const eventsStartingOnDate = eventsByDate[dateKey] || []
+
+    // Also get multi-day events that span this date
+    const multiDayEventsThatSpanDate = events.filter(event => {
+      if (!event.end_date) return false
+      // Event starts before or on this date AND ends on or after this date
+      return event.date < dateKey && event.end_date >= dateKey
+    })
+
+    // Combine and remove duplicates by ID
+    const allEvents = [...eventsStartingOnDate, ...multiDayEventsThatSpanDate]
+    const uniqueEventsMap = new Map(allEvents.map(e => [e.id, e]))
+    return Array.from(uniqueEventsMap.values())
   }
 
   const monthNames = [
@@ -422,7 +475,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                 </div>
                 {weekDays.map((date, dayIdx) => {
                   const dayEvents = getEventsForDate(date)
-                  const allDayEvents = dayEvents.filter(event => !event.start_time)
+                  const allDayEvents = dayEvents.filter(event => !event.start_time || isMultiDayEvent(event))
 
                   return (
                     <div key={dayIdx} className="border-r-2 border-gray-300/50 p-1.5 min-h-[40px] bg-transparent">
@@ -431,6 +484,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                           const members = event.event_family_members.map(efm => efm.family_members)
                           const eventColor = getEventColor(members)
                           const glassyColor = getGlassyEventColor(eventColor)
+                          const multiDayRange = isMultiDayEvent(event) ? formatMultiDayRange(event) : null
 
                           return (
                             <div
@@ -443,8 +497,11 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                                 color: 'white',
                                 textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
                               }}
-                              title={`${event.title}\n${members.map(m => m.name).join(', ')}`}
+                              title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : ''}\n${members.map(m => m.name).join(', ')}`}
                             >
+                              {multiDayRange && (
+                                <div className="text-[9px] opacity-90 truncate">{multiDayRange}</div>
+                              )}
                               <div className="font-medium truncate">{event.title}</div>
                             </div>
                           )
@@ -472,13 +529,13 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                     const dayEvents = getEventsForDate(date)
                     const isCurrentDay = isTodayDate(date)
 
-                    // Calculate positions for all timed events in this day
-                    const timedEvents = dayEvents.filter(e => e.start_time)
+                    // Calculate positions for all timed events in this day (single-day only)
+                    const timedEvents = dayEvents.filter(e => e.start_time && !isMultiDayEvent(e))
                     const eventPositions = calculateEventPositions(timedEvents)
 
                     // Get events for this hour
                     const hourEvents = dayEvents.filter(event => {
-                      if (!event.start_time) return false
+                      if (!event.start_time || isMultiDayEvent(event)) return false
                       const [eventHour] = event.start_time.split(':').map(Number)
                       return eventHour === hour
                     })
@@ -648,11 +705,12 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                 <div className="border-r-2 border-white/30 p-2 min-h-[40px] bg-transparent">
                   <div className="space-y-1">
                     {getEventsForDate(currentDate)
-                      .filter(event => !event.start_time)
+                      .filter(event => !event.start_time || isMultiDayEvent(event))
                       .map(event => {
                         const members = event.event_family_members.map(efm => efm.family_members)
                         const eventColor = getEventColor(members)
                         const glassyColor = getGlassyEventColor(eventColor)
+                        const multiDayRange = isMultiDayEvent(event) ? formatMultiDayRange(event) : null
 
                         return (
                           <div
@@ -665,8 +723,11 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                               color: 'white',
                               textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
                             }}
-                            title={`${event.title}\n${members.map(m => m.name).join(', ')}`}
+                            title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : ''}\n${members.map(m => m.name).join(', ')}`}
                           >
+                            {multiDayRange && (
+                              <div className="text-[10px] opacity-90 mb-1">{multiDayRange}</div>
+                            )}
                             <div className="font-semibold">{event.title}</div>
                             {members.length > 0 && (
                               <div className="text-xs opacity-90 mt-1">
@@ -685,7 +746,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
             {(() => {
               // Calculate positions for all timed events in this day
               const allDayEvents = getEventsForDate(currentDate)
-              const timedEvents = allDayEvents.filter(e => e.start_time)
+              const timedEvents = allDayEvents.filter(e => e.start_time && !isMultiDayEvent(e))
               const eventPositions = calculateEventPositions(timedEvents)
 
               return Array.from({ length: 24 }, (_, hour) => {
@@ -694,7 +755,10 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
 
               // Get events for this hour
                 const hourEvents = allDayEvents.filter(event => {
-              })
+                  if (!event.start_time || isMultiDayEvent(event)) return false
+                  const [eventHour] = event.start_time.split(':').map(Number)
+                  return eventHour === hour
+                })
 
               // Check if current time indicator should be shown
               const showCurrentTime = isCurrentDay &&
@@ -887,6 +951,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                   const eventColor = getEventColor(members)
                   const glassyColor = getGlassyEventColor(eventColor)
                   const timeRange = formatTimeRange(event.start_time, event.end_time)
+                  const multiDayRange = isMultiDayEvent(event) ? formatMultiDayRange(event) : null
 
                   return (
                     <div
@@ -899,11 +964,14 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                         color: 'white',
                         textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
                       }}
-                      title={`${event.title}${timeRange ? ` at ${timeRange}` : ''}`}
+                      title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : timeRange ? ` at ${timeRange}` : ''}`}
                     >
+                      {multiDayRange && (
+                        <div className="text-[10px] opacity-90 truncate mb-0.5">{multiDayRange}</div>
+                      )}
                       <div className="font-medium truncate flex items-center gap-1">
                         {event.baseEventId && <span title="Recurring or multi-day event">↻</span>}
-                        {timeRange && <span>{timeRange}</span>}
+                        {!multiDayRange && timeRange && <span>{timeRange}</span>}
                         <span className="truncate">{event.title}</span>
                       </div>
                     </div>
