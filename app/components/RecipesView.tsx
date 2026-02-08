@@ -9,6 +9,12 @@ type Ingredient = {
   name: string
 }
 
+type RecipeCategory = {
+  id: number
+  name: string
+  color: string
+}
+
 type RecipeIngredient = {
   id?: number
   ingredient_id?: number
@@ -22,6 +28,7 @@ type Recipe = {
   name: string
   instructions: string
   recipe_ingredients: RecipeIngredient[]
+  categories?: RecipeCategory[]
   prep_time: number | null
   cook_time: number | null
   servings: number | null
@@ -47,6 +54,18 @@ type RecipeFromDB = {
       name: string
     }[]
   }>
+  recipe_categories_junction: Array<{
+    category_id: number
+    recipe_categories: {
+      id: number
+      name: string
+      color: string
+    } | {
+      id: number
+      name: string
+      color: string
+    }[]
+  }>
 }
 
 type RecipesViewProps = {
@@ -55,6 +74,8 @@ type RecipesViewProps = {
 
 export default function RecipesView({ userId }: RecipesViewProps) {
   const [recipes, setRecipes] = useState<Recipe[]>([])
+  const [categories, setCategories] = useState<RecipeCategory[]>([])
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
@@ -63,10 +84,54 @@ export default function RecipesView({ userId }: RecipesViewProps) {
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
 
+  async function loadCategories() {
+    try {
+      const { data, error } = await supabase
+        .from('recipe_categories')
+        .select('*')
+        .order('name')
+
+      if (error) throw error
+      setCategories(data || [])
+    } catch (error) {
+      console.error('Error loading categories:', error)
+    }
+  }
+
+  async function saveRecipeCategories(recipeId: number, selectedCategoryIds: number[]) {
+    try {
+      // Delete existing category associations
+      const { error: deleteError } = await supabase
+        .from('recipe_categories_junction')
+        .delete()
+        .eq('recipe_id', recipeId)
+
+      if (deleteError) throw deleteError
+
+      // Insert new category associations
+      if (selectedCategoryIds.length > 0) {
+        const entries = selectedCategoryIds.map((categoryId) => ({
+          recipe_id: recipeId,
+          category_id: categoryId,
+        }))
+
+        const { error: insertError } = await supabase
+          .from('recipe_categories_junction')
+          .insert(entries)
+
+        if (insertError) throw insertError
+      }
+    } catch (error) {
+      console.error('Error saving recipe categories:', error)
+      throw error
+    }
+  }
+
   // Load recipes with ingredients on mount
   useEffect(() => {
     if (userId) {
       loadRecipes()
+      loadCategories()
     }
   }, [userId])
 
@@ -106,6 +171,14 @@ export default function RecipesView({ userId }: RecipesViewProps) {
               id,
               name
             )
+          ),
+          recipe_categories_junction (
+            category_id,
+            recipe_categories (
+              id,
+              name,
+              color
+            )
           )
         `)
         .order('created_at', { ascending: false })
@@ -113,37 +186,52 @@ export default function RecipesView({ userId }: RecipesViewProps) {
       if (error) throw error
 
       // Transform DB data to app format
-      const transformedRecipes: Recipe[] = (data || []).map((dbRecipe: RecipeFromDB) => ({
-        id: dbRecipe.id,
-        name: dbRecipe.name,
-        instructions: dbRecipe.instructions,
-        prep_time: dbRecipe.prep_time,
-        cook_time: dbRecipe.cook_time,
-        servings: dbRecipe.servings,
-        calories: dbRecipe.calories,
-        rating: dbRecipe.rating,
-        recipe_ingredients: (dbRecipe.recipe_ingredients || []).map((ri: any) => {
-          // Handle both array and object responses from Supabase
-          let ingredientName = ''
-          let ingredientId = 0
+      const transformedRecipes: Recipe[] = (data || []).map((dbRecipe: RecipeFromDB) => {
+        // Handle recipe categories
+        const recipeCategories: RecipeCategory[] = (dbRecipe.recipe_categories_junction || [])
+          .map((junction: any) => {
+            if (Array.isArray(junction.recipe_categories) && junction.recipe_categories.length > 0) {
+              return junction.recipe_categories[0]
+            } else if (junction.recipe_categories && typeof junction.recipe_categories === 'object') {
+              return junction.recipe_categories
+            }
+            return null
+          })
+          .filter(Boolean)
 
-          if (Array.isArray(ri.ingredients) && ri.ingredients.length > 0) {
-            ingredientName = ri.ingredients[0]?.name || ''
-            ingredientId = ri.ingredients[0]?.id || 0
-          } else if (ri.ingredients && typeof ri.ingredients === 'object' && !Array.isArray(ri.ingredients)) {
-            ingredientName = (ri.ingredients as any).name || ''
-            ingredientId = (ri.ingredients as any).id || 0
-          }
+        return {
+          id: dbRecipe.id,
+          name: dbRecipe.name,
+          instructions: dbRecipe.instructions,
+          prep_time: dbRecipe.prep_time,
+          cook_time: dbRecipe.cook_time,
+          servings: dbRecipe.servings,
+          calories: dbRecipe.calories,
+          rating: dbRecipe.rating,
+          categories: recipeCategories,
+          recipe_ingredients: (dbRecipe.recipe_ingredients || []).map((ri: any) => {
+            // Handle both array and object responses from Supabase
+            let ingredientName = ''
+            let ingredientId = 0
 
-          return {
-            id: ri.id,
-            ingredient_id: ingredientId,
-            ingredient_name: ingredientName,
-            amount: ri.amount,
-            measurement: ri.measurement,
-          }
-        }),
-      }))
+            if (Array.isArray(ri.ingredients) && ri.ingredients.length > 0) {
+              ingredientName = ri.ingredients[0]?.name || ''
+              ingredientId = ri.ingredients[0]?.id || 0
+            } else if (ri.ingredients && typeof ri.ingredients === 'object' && !Array.isArray(ri.ingredients)) {
+              ingredientName = (ri.ingredients as any).name || ''
+              ingredientId = (ri.ingredients as any).id || 0
+            }
+
+            return {
+              id: ri.id,
+              ingredient_id: ingredientId,
+              ingredient_name: ingredientName,
+              amount: ri.amount,
+              measurement: ri.measurement,
+            }
+          }),
+        }
+      })
 
       setRecipes(transformedRecipes)
     } catch (error) {
@@ -193,6 +281,12 @@ export default function RecipesView({ userId }: RecipesViewProps) {
 
           if (ingredientError) throw ingredientError
         }
+      }
+
+      // Save recipe categories
+      if (recipe.categories && recipe.categories.length > 0) {
+        const categoryIds = recipe.categories.map((cat) => cat.id)
+        await saveRecipeCategories(newRecipeId, categoryIds)
       }
 
       // Reload recipes
@@ -249,6 +343,10 @@ export default function RecipesView({ userId }: RecipesViewProps) {
           if (ingredientError) throw ingredientError
         }
       }
+
+      // Save recipe categories
+      const categoryIds = recipe.categories ? recipe.categories.map((cat) => cat.id) : []
+      await saveRecipeCategories(id, categoryIds)
 
       // Reload recipes
       await loadRecipes()
@@ -425,15 +523,23 @@ export default function RecipesView({ userId }: RecipesViewProps) {
     setEditingRecipe(null)
   }
 
-  // Filter recipes by search query
+  // Filter recipes by search query and category
   const filteredRecipes = recipes.filter((recipe) => {
+    // Search query filter
     const query = searchQuery.toLowerCase()
     const matchesName = recipe.name.toLowerCase().includes(query)
     const matchesInstructions = recipe.instructions.toLowerCase().includes(query)
     const matchesIngredients = recipe.recipe_ingredients.some((ing) =>
       ing.ingredient_name.toLowerCase().includes(query)
     )
-    return matchesName || matchesInstructions || matchesIngredients
+    const matchesSearch = matchesName || matchesInstructions || matchesIngredients
+
+    // Category filter
+    const matchesCategory =
+      !selectedCategoryFilter ||
+      (recipe.categories && recipe.categories.some((cat) => cat.id === selectedCategoryFilter))
+
+    return matchesSearch && matchesCategory
   })
 
   if (loading) {
@@ -446,6 +552,40 @@ export default function RecipesView({ userId }: RecipesViewProps) {
 
   return (
     <div className="space-y-6">
+      {/* Category Filters */}
+      {categories.length > 0 && (
+        <div className="flex gap-2 flex-wrap items-center">
+          <span className="text-sm text-white/60">Filter:</span>
+          <button
+            onClick={() => setSelectedCategoryFilter(null)}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
+              selectedCategoryFilter === null
+                ? 'bg-white/30 text-white border-2 border-white/40'
+                : 'bg-white/10 text-white/70 border border-white/20 hover:bg-white/20'
+            }`}
+          >
+            All
+          </button>
+          {categories.map((category) => (
+            <button
+              key={category.id}
+              onClick={() =>
+                setSelectedCategoryFilter(
+                  selectedCategoryFilter === category.id ? null : category.id
+                )
+              }
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
+                selectedCategoryFilter === category.id
+                  ? `bg-${category.color}-500/40 text-white border-2 border-${category.color}-400/60`
+                  : `bg-${category.color}-500/20 text-white/80 border border-${category.color}-500/30 hover:bg-${category.color}-500/30`
+              }`}
+            >
+              {category.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Header with Search and Add Button */}
       <div className="flex gap-4 items-center">
         <div className="flex-1">
@@ -491,6 +631,20 @@ export default function RecipesView({ userId }: RecipesViewProps) {
               <h3 className="text-lg font-semibold text-white mb-2 truncate">
                 {recipe.name}
               </h3>
+
+              {/* Category Badges */}
+              {recipe.categories && recipe.categories.length > 0 && (
+                <div className="flex gap-1 flex-wrap mb-3">
+                  {recipe.categories.map((category) => (
+                    <span
+                      key={category.id}
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium bg-${category.color}-500/30 text-white border border-${category.color}-500/40`}
+                    >
+                      {category.name}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {/* Quick Stats */}
               <div className="space-y-2 mb-4">
@@ -555,6 +709,7 @@ export default function RecipesView({ userId }: RecipesViewProps) {
         onDeleteRecipe={handleDeleteRecipe}
         editingRecipe={editingRecipe}
         userId={userId}
+        availableCategories={categories}
       />
 
       {/* Detail Modal */}

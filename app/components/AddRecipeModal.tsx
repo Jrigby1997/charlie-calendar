@@ -8,6 +8,12 @@ type Ingredient = {
   name: string
 }
 
+type RecipeCategory = {
+  id: number
+  name: string
+  color: string
+}
+
 type RecipeIngredient = {
   id?: number
   ingredient_id?: number
@@ -21,6 +27,7 @@ type Recipe = {
   name: string
   instructions: string
   recipe_ingredients: RecipeIngredient[]
+  categories?: RecipeCategory[]
   prep_time: number | null
   cook_time: number | null
   servings: number | null
@@ -36,6 +43,7 @@ type AddRecipeModalProps = {
   onDeleteRecipe?: (id: number) => void
   editingRecipe?: Recipe | null
   userId: string
+  availableCategories: RecipeCategory[]
 }
 
 const MEASUREMENTS = [
@@ -52,6 +60,7 @@ export default function AddRecipeModal({
   onDeleteRecipe,
   editingRecipe,
   userId,
+  availableCategories,
 }: AddRecipeModalProps) {
   const [name, setName] = useState('')
   const [instructions, setInstructions] = useState('')
@@ -60,6 +69,7 @@ export default function AddRecipeModal({
   const [servings, setServings] = useState<number | ''>('')
   const [calories, setCalories] = useState<number | ''>('')
   const [rating, setRating] = useState<number | ''>('')
+  const [selectedCategories, setSelectedCategories] = useState<number[]>([])
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([])
   const [availableIngredients, setAvailableIngredients] = useState<Ingredient[]>([])
   const [editingIngredientIndex, setEditingIngredientIndex] = useState<number | null>(null)
@@ -83,6 +93,7 @@ export default function AddRecipeModal({
       setCalories(editingRecipe.calories ?? '')
       setRating(editingRecipe.rating ?? '')
       setIngredients(editingRecipe.recipe_ingredients || [])
+      setSelectedCategories(editingRecipe.categories ? editingRecipe.categories.map((c) => c.id) : [])
     } else {
       resetForm()
     }
@@ -111,6 +122,7 @@ export default function AddRecipeModal({
     setCalories('')
     setRating('')
     setIngredients([])
+    setSelectedCategories([])
     setIngredientSearchInput('')
     setEditingIngredientIndex(null)
   }
@@ -212,6 +224,7 @@ export default function AddRecipeModal({
       name,
       instructions,
       recipe_ingredients: validIngredients,
+      categories: availableCategories.filter((cat) => selectedCategories.includes(cat.id)),
       prep_time: prepTime === '' ? null : Number(prepTime),
       cook_time: cookTime === '' ? null : Number(cookTime),
       servings: servings === '' ? null : Number(servings),
@@ -265,6 +278,40 @@ export default function AddRecipeModal({
               className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
             />
           </div>
+
+          {/* Categories */}
+          {availableCategories.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-white/90 mb-2">
+                Categories
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {availableCategories.map((category) => {
+                  const isSelected = selectedCategories.includes(category.id)
+                  return (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategories((prev) =>
+                          isSelected
+                            ? prev.filter((id) => id !== category.id)
+                            : [...prev, category.id]
+                        )
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                        isSelected
+                          ? `bg-${category.color}-500/40 text-white border-2 border-${category.color}-400/60`
+                          : `bg-${category.color}-500/20 text-white/70 border border-${category.color}-500/30 hover:bg-${category.color}-500/30`
+                      }`}
+                    >
+                      {category.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Time and Servings Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -88,6 +88,35 @@ export default function Home() {
     }
   }, [user, loading, router])
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+N for new event
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault()
+        setNewEventDate(new Date().toISOString().split('T')[0])
+        setIsModalOpen(true)
+      }
+      // Ctrl+F for search (focus on search if available)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault()
+        const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
+        if (searchInput) {
+          searchInput.focus()
+        }
+      }
+      // Escape to close modals
+      if (e.key === 'Escape') {
+        setIsModalOpen(false)
+        setIsMealModalOpen(false)
+        setIsSettingsOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   // Load events from database
   useEffect(() => {
     if (!user) return // Don't load data if not authenticated

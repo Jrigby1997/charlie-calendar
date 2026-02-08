@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { getWeekDays as getWeekDaysUtil } from '@/lib/dateUtils'
+import { getWeekDays as getWeekDaysUtil, formatDate } from '@/lib/dateUtils'
 
 type Event = {
   id: number
@@ -66,6 +66,19 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
       setCurrentTime(new Date())
     }, 60000) // Update every minute
     return () => clearInterval(interval)
+  }, [])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape to close modal/filters
+      if (e.key === 'Escape') {
+        setShowFilters(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
   const year = currentDate.getFullYear()
@@ -397,14 +410,12 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
 
   // Get week display text
   const weekDays = getWeekDays()
-  const weekStartMonth = monthNames[weekDays[0].getMonth()]
-  const weekEndMonth = monthNames[weekDays[6].getMonth()]
-  const weekTitle = weekStartMonth === weekEndMonth
-    ? `${weekStartMonth} ${weekDays[0].getDate()}-${weekDays[6].getDate()}, ${weekDays[0].getFullYear()}`
-    : `${weekStartMonth} ${weekDays[0].getDate()} - ${weekEndMonth} ${weekDays[6].getDate()}, ${weekDays[0].getFullYear()}`
+  const weekStartDate = formatDate(weekDays[0], dateFormat)
+  const weekEndDate = formatDate(weekDays[6], dateFormat)
+  const weekTitle = `${weekStartDate} - ${weekEndDate}`
 
   // Get day display text
-  const dayTitle = `${monthNames[month]} ${dayOfMonth}, ${year}`
+  const dayTitle = formatDate(currentDate, dateFormat)
   const dayOfWeekName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][currentDate.getDay()]
 
   return (
@@ -555,7 +566,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                 >
                   <div className="text-sm">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]}</div>
                   <div className={`text-lg ${isTodayDate(date) ? 'text-yellow-300 font-bold drop-shadow-lg' : ''}`}>
-                    {date.getDate()}
+                    {formatDate(date, dateFormat)}
                   </div>
                   <button
                     onClick={(e) => {
