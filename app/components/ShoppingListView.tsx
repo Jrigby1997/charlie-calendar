@@ -34,6 +34,7 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
   const [newAmount, setNewAmount] = useState<number | ''>('')
   const [newMeasurement, setNewMeasurement] = useState('cup')
   const [showIngredientSuggestions, setShowIngredientSuggestions] = useState(false)
+  const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
 
   const MEASUREMENTS = [
     'oz', 'lb', 'g', 'kg',
@@ -48,6 +49,16 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
       loadIngredients()
     }
   }, [userId])
+
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(timer)
+  }, [toast])
+
+  function showToast(message: string, tone: 'success' | 'error') {
+    setToast({ message, tone })
+  }
 
   async function loadShoppingList() {
     try {
@@ -119,6 +130,47 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
       setAvailableIngredients(data || [])
     } catch (error) {
       console.error('Error loading ingredients:', error)
+    }
+  }
+
+  function formatShoppingList() {
+    const unchecked = groupedList.filter(g => !checkedItems.has(g.ingredient_id))
+    
+    let text = '🛒 Shopping List\n━━━━━━━━━━━━━━━━━━\n\n'
+    
+    unchecked.forEach((group) => {
+      const amounts = group.parts.map((part) => `${part.amount} ${part.measurement}`).join(' + ')
+      text += `☐ ${amounts} ${group.name}\n`
+      
+      const sources = formatSources(group.recipeCounts)
+      if (sources) text += `   (${sources})\n`
+      text += '\n'
+    })
+    
+    const checkedCount = checkedItems.size
+    if (checkedCount > 0) {
+      text += `\n━━━━━━━━━━━━━━━━━━\n✓ ${checkedCount} item${checkedCount > 1 ? 's' : ''} already checked off\n`
+    }
+    
+    return unchecked.length > 0 ? text : 'Shopping List\n\nNo items to share!'
+  }
+
+  async function handleShareList() {
+    try {
+      const text = formatShoppingList()
+      
+      if (navigator.share) {
+        await navigator.share({ title: 'Shopping List', text })
+        showToast('List shared successfully!', 'success')
+      } else {
+        await navigator.clipboard.writeText(text)
+        showToast('List copied to clipboard!', 'success')
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('Error sharing:', error)
+        showToast('Failed to share list', 'error')
+      }
     }
   }
 
@@ -291,12 +343,20 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-white">Shopping List</h2>
         {items.length > 0 && (
-          <button
-            onClick={clearShoppingList}
-            className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded-lg text-red-200 font-medium transition-all duration-200"
-          >
-            Clear All
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handleShareList}
+              className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 rounded-lg text-blue-200 font-medium transition-all duration-200 flex items-center gap-2"
+            >
+              <span>📤</span> Share List
+            </button>
+            <button
+              onClick={clearShoppingList}
+              className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded-lg text-red-200 font-medium transition-all duration-200"
+            >
+              Clear All
+            </button>
+          </div>
         )}
       </div>
 
@@ -434,6 +494,19 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
                 </span>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <div className={`px-6 py-3 rounded-lg shadow-lg border backdrop-blur-xl ${
+            toast.tone === 'success'
+              ? 'bg-green-500/20 border-green-500/40 text-green-200'
+              : 'bg-red-500/20 border-red-500/40 text-red-200'
+          }`}>
+            {toast.message}
           </div>
         </div>
       )}
