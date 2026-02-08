@@ -74,6 +74,9 @@ export default function AddRecipeModal({
   const [availableIngredients, setAvailableIngredients] = useState<Ingredient[]>([])
   const [editingIngredientIndex, setEditingIngredientIndex] = useState<number | null>(null)
   const [ingredientSearchInput, setIngredientSearchInput] = useState('')
+  const [importUrl, setImportUrl] = useState('')
+  const [isImporting, setIsImporting] = useState(false)
+  const [importError, setImportError] = useState('')
 
   // Load available ingredients on mount
   useEffect(() => {
@@ -125,6 +128,76 @@ export default function AddRecipeModal({
     setSelectedCategories([])
     setIngredientSearchInput('')
     setEditingIngredientIndex(null)
+    setImportUrl('')
+    setImportError('')
+  }
+
+  async function handleImportRecipe() {
+    if (!importUrl.trim()) return
+
+    setIsImporting(true)
+    setImportError('')
+
+    try {
+      const response = await fetch('/api/parse-recipe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: importUrl.trim() }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to import recipe')
+      }
+
+      const recipeData = await response.json()
+
+      // Auto-fill form with imported data
+      if (recipeData.name) setName(recipeData.name)
+      if (recipeData.instructions) setInstructions(recipeData.instructions)
+      if (recipeData.prep_time) setPrepTime(recipeData.prep_time)
+      if (recipeData.cook_time) setCookTime(recipeData.cook_time)
+      if (recipeData.servings) setServings(recipeData.servings)
+      if (recipeData.calories) setCalories(recipeData.calories)
+
+      // Process ingredients
+      if (recipeData.ingredients && recipeData.ingredients.length > 0) {
+        const processedIngredients = await Promise.all(
+          recipeData.ingredients.map(async (ing: any) => {
+            // Try to find existing ingredient
+            let ingredient = availableIngredients.find(
+              (i) => i.name.toLowerCase() === ing.ingredient_name.toLowerCase()
+            )
+
+            // Create new ingredient if not found
+            if (!ingredient) {
+              ingredient = await createNewIngredient(ing.ingredient_name) || undefined
+            }
+
+            if (!ingredient) {
+              return null
+            }
+
+            return {
+              ingredient_id: ingredient.id,
+              ingredient_name: ing.ingredient_name,
+              amount: ing.amount || 1,
+              measurement: ing.measurement || 'whole',
+            }
+          })
+        )
+
+        setIngredients(processedIngredients.filter((ing): ing is NonNullable<typeof ing> => ing !== null && ing.ingredient_id !== undefined))
+      }
+
+      setImportUrl('')
+      setImportError('')
+    } catch (error: any) {
+      console.error('Error importing recipe:', error)
+      setImportError(error.message || 'Failed to import recipe. Please check the URL and try again.')
+    } finally {
+      setIsImporting(false)
+    }
   }
 
   async function createNewIngredient(name: string): Promise<Ingredient | null> {
@@ -264,6 +337,31 @@ export default function AddRecipeModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Import from URL */}
+          <div className="bg-white/5 border border-white/20 rounded-xl p-4 mb-4">
+            <div className="text-white/80 font-medium mb-2">Import from URL</div>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                placeholder="Paste recipe URL (AllRecipes, NYTimes, Food Network...)"
+                className="flex-1 px-4 py-2 border border-white/30 rounded-lg text-white placeholder-white/60 bg-white/10"
+              />
+              <button
+                type="button"
+                onClick={handleImportRecipe}
+                disabled={isImporting || !importUrl.trim()}
+                className="px-6 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 rounded-lg text-blue-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isImporting ? 'Importing...' : 'Import'}
+              </button>
+            </div>
+            {importError && (
+              <div className="mt-2 text-red-300 text-sm">{importError}</div>
+            )}
+          </div>
+
           {/* Recipe Name */}
           <div>
             <label className="block text-sm font-medium text-white/90 mb-1">
