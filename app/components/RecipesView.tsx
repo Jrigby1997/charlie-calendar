@@ -566,23 +566,41 @@ export default function RecipesView({ userId }: RecipesViewProps) {
           >
             All
           </button>
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              onClick={() =>
-                setSelectedCategoryFilter(
-                  selectedCategoryFilter === category.id ? null : category.id
-                )
+          {categories.map((category) => {
+            const isSelected = selectedCategoryFilter === category.id
+            const getCategoryStyle = (color: string, selected: boolean) => {
+              const colors: Record<string, { bg: string; border: string; bgHover?: string }> = {
+                yellow: { bg: selected ? 'rgba(234, 179, 8, 0.4)' : 'rgba(234, 179, 8, 0.2)', border: selected ? 'rgba(250, 204, 21, 0.6)' : 'rgba(234, 179, 8, 0.3)', bgHover: 'rgba(234, 179, 8, 0.3)' },
+                blue: { bg: selected ? 'rgba(59, 130, 246, 0.4)' : 'rgba(59, 130, 246, 0.2)', border: selected ? 'rgba(96, 165, 250, 0.6)' : 'rgba(59, 130, 246, 0.3)', bgHover: 'rgba(59, 130, 246, 0.3)' },
+                purple: { bg: selected ? 'rgba(168, 85, 247, 0.4)' : 'rgba(168, 85, 247, 0.2)', border: selected ? 'rgba(192, 132, 252, 0.6)' : 'rgba(168, 85, 247, 0.3)', bgHover: 'rgba(168, 85, 247, 0.3)' },
+                pink: { bg: selected ? 'rgba(236, 72, 153, 0.4)' : 'rgba(236, 72, 153, 0.2)', border: selected ? 'rgba(244, 114, 182, 0.6)' : 'rgba(236, 72, 153, 0.3)', bgHover: 'rgba(236, 72, 153, 0.3)' },
+                green: { bg: selected ? 'rgba(34, 197, 94, 0.4)' : 'rgba(34, 197, 94, 0.2)', border: selected ? 'rgba(74, 222, 128, 0.6)' : 'rgba(34, 197, 94, 0.3)', bgHover: 'rgba(34, 197, 94, 0.3)' },
+                orange: { bg: selected ? 'rgba(249, 115, 22, 0.4)' : 'rgba(249, 115, 22, 0.2)', border: selected ? 'rgba(251, 146, 60, 0.6)' : 'rgba(249, 115, 22, 0.3)', bgHover: 'rgba(249, 115, 22, 0.3)' },
               }
-              className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
-                selectedCategoryFilter === category.id
-                  ? `bg-${category.color}-500/40 text-white border-2 border-${category.color}-400/60`
-                  : `bg-${category.color}-500/20 text-white/80 border border-${category.color}-500/30 hover:bg-${category.color}-500/30`
-              }`}
-            >
-              {category.name}
-            </button>
-          ))}
+              return colors[color] || colors.blue
+            }
+            const style = getCategoryStyle(category.color, isSelected)
+            return (
+              <button
+                key={category.id}
+                onClick={() =>
+                  setSelectedCategoryFilter(
+                    selectedCategoryFilter === category.id ? null : category.id
+                  )
+                }
+                style={{
+                  backgroundColor: style.bg,
+                  borderColor: style.border,
+                  borderWidth: isSelected ? '2px' : '1px',
+                }}
+                onMouseEnter={(e) => !isSelected && (e.currentTarget.style.backgroundColor = style.bgHover!)}
+                onMouseLeave={(e) => !isSelected && (e.currentTarget.style.backgroundColor = style.bg)}
+                className="px-3 py-1 rounded-full text-sm font-medium transition-all text-white"
+              >
+                {category.name}
+              </button>
+            )
+          })}
         </div>
       )}
 
@@ -635,14 +653,26 @@ export default function RecipesView({ userId }: RecipesViewProps) {
               {/* Category Badges */}
               {recipe.categories && recipe.categories.length > 0 && (
                 <div className="flex gap-1 flex-wrap mb-3">
-                  {recipe.categories.map((category) => (
-                    <span
-                      key={category.id}
-                      className={`px-2 py-0.5 rounded-full text-xs font-medium bg-${category.color}-500/30 text-white border border-${category.color}-500/40`}
-                    >
-                      {category.name}
-                    </span>
-                  ))}
+                  {recipe.categories.map((category) => {
+                    const colors: Record<string, { bg: string; border: string }> = {
+                      yellow: { bg: 'rgba(234, 179, 8, 0.3)', border: 'rgba(234, 179, 8, 0.4)' },
+                      blue: { bg: 'rgba(59, 130, 246, 0.3)', border: 'rgba(59, 130, 246, 0.4)' },
+                      purple: { bg: 'rgba(168, 85, 247, 0.3)', border: 'rgba(168, 85, 247, 0.4)' },
+                      pink: { bg: 'rgba(236, 72, 153, 0.3)', border: 'rgba(236, 72, 153, 0.4)' },
+                      green: { bg: 'rgba(34, 197, 94, 0.3)', border: 'rgba(34, 197, 94, 0.4)' },
+                      orange: { bg: 'rgba(249, 115, 22, 0.3)', border: 'rgba(249, 115, 22, 0.4)' },
+                    }
+                    const style = colors[category.color] || colors.blue
+                    return (
+                      <span
+                        key={category.id}
+                        style={{ backgroundColor: style.bg, borderColor: style.border }}
+                        className="px-2 py-0.5 rounded-full text-xs font-medium text-white border"
+                      >
+                        {category.name}
+                      </span>
+                    )
+                  })}
                 </div>
               )}
 

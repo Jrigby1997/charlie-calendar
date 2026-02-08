@@ -288,6 +288,18 @@ export default function AddRecipeModal({
               <div className="flex gap-2 flex-wrap">
                 {availableCategories.map((category) => {
                   const isSelected = selectedCategories.includes(category.id)
+                  const getCategoryStyle = (color: string, selected: boolean) => {
+                    const colors: Record<string, { bg: string; border: string; bgHover?: string }> = {
+                      yellow: { bg: selected ? 'rgba(234, 179, 8, 0.4)' : 'rgba(234, 179, 8, 0.2)', border: selected ? 'rgba(250, 204, 21, 0.6)' : 'rgba(234, 179, 8, 0.3)', bgHover: 'rgba(234, 179, 8, 0.3)' },
+                      blue: { bg: selected ? 'rgba(59, 130, 246, 0.4)' : 'rgba(59, 130, 246, 0.2)', border: selected ? 'rgba(96, 165, 250, 0.6)' : 'rgba(59, 130, 246, 0.3)', bgHover: 'rgba(59, 130, 246, 0.3)' },
+                      purple: { bg: selected ? 'rgba(168, 85, 247, 0.4)' : 'rgba(168, 85, 247, 0.2)', border: selected ? 'rgba(192, 132, 252, 0.6)' : 'rgba(168, 85, 247, 0.3)', bgHover: 'rgba(168, 85, 247, 0.3)' },
+                      pink: { bg: selected ? 'rgba(236, 72, 153, 0.4)' : 'rgba(236, 72, 153, 0.2)', border: selected ? 'rgba(244, 114, 182, 0.6)' : 'rgba(236, 72, 153, 0.3)', bgHover: 'rgba(236, 72, 153, 0.3)' },
+                      green: { bg: selected ? 'rgba(34, 197, 94, 0.4)' : 'rgba(34, 197, 94, 0.2)', border: selected ? 'rgba(74, 222, 128, 0.6)' : 'rgba(34, 197, 94, 0.3)', bgHover: 'rgba(34, 197, 94, 0.3)' },
+                      orange: { bg: selected ? 'rgba(249, 115, 22, 0.4)' : 'rgba(249, 115, 22, 0.2)', border: selected ? 'rgba(251, 146, 60, 0.6)' : 'rgba(249, 115, 22, 0.3)', bgHover: 'rgba(249, 115, 22, 0.3)' },
+                    }
+                    return colors[color] || colors.blue
+                  }
+                  const style = getCategoryStyle(category.color, isSelected)
                   return (
                     <button
                       key={category.id}
@@ -299,11 +311,14 @@ export default function AddRecipeModal({
                             : [...prev, category.id]
                         )
                       }}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                        isSelected
-                          ? `bg-${category.color}-500/40 text-white border-2 border-${category.color}-400/60`
-                          : `bg-${category.color}-500/20 text-white/70 border border-${category.color}-500/30 hover:bg-${category.color}-500/30`
-                      }`}
+                      style={{
+                        backgroundColor: style.bg,
+                        borderColor: style.border,
+                        borderWidth: isSelected ? '2px' : '1px',
+                      }}
+                      onMouseEnter={(e) => !isSelected && (e.currentTarget.style.backgroundColor = style.bgHover!)}
+                      onMouseLeave={(e) => !isSelected && (e.currentTarget.style.backgroundColor = style.bg)}
+                      className="px-3 py-1.5 rounded-full text-sm font-medium transition-all text-white"
                     >
                       {category.name}
                     </button>
