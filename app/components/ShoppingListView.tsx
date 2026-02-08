@@ -68,11 +68,19 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
       if (error) throw error
 
       // Transform data to match ShoppingListItem type
-      // Supabase returns ingredients as array, extract first element
-      const transformedData: ShoppingListItem[] = (data || []).map((item: any) => ({
-        ...item,
-        ingredients: item.ingredients[0] || { name: '' }
-      }))
+      // Handle both array and object responses from Supabase
+      const transformedData: ShoppingListItem[] = (data || []).map((item: any) => {
+        let ingredientObj = { name: '' }
+        if (Array.isArray(item.ingredients) && item.ingredients.length > 0) {
+          ingredientObj = item.ingredients[0]
+        } else if (item.ingredients && typeof item.ingredients === 'object' && !Array.isArray(item.ingredients)) {
+          ingredientObj = item.ingredients
+        }
+        return {
+          ...item,
+          ingredients: ingredientObj
+        }
+      })
 
       setItems(transformedData)
     } catch (error) {

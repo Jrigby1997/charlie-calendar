@@ -192,10 +192,26 @@ export default function AddRecipeModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
+    // Check if required fields are filled
+    if (!name.trim()) {
+      alert('Please enter a recipe name')
+      return
+    }
+
+    // Filter ingredients - ensure all required fields are present
+    const validIngredients = ingredients.filter((ing) => {
+      const hasId = ing.ingredient_id !== undefined && ing.ingredient_id !== null && ing.ingredient_id > 0
+      const hasName = ing.ingredient_name && ing.ingredient_name.trim()
+      const hasAmount = ing.amount || ing.amount === 0
+      const hasMeasurement = ing.measurement && ing.measurement.trim()
+
+      return hasId && hasName && hasAmount && hasMeasurement
+    })
+
     const recipeData: Recipe = {
       name,
       instructions,
-      recipe_ingredients: ingredients.filter((ing) => ing.ingredient_id && ing.ingredient_name && ing.amount && ing.measurement),
+      recipe_ingredients: validIngredients,
       prep_time: prepTime === '' ? null : Number(prepTime),
       cook_time: cookTime === '' ? null : Number(cookTime),
       servings: servings === '' ? null : Number(servings),
@@ -346,9 +362,10 @@ export default function AddRecipeModal({
                       type="number"
                       step="0.25"
                       value={ingredient.amount}
-                      onChange={(e) =>
-                        updateIngredient(index, 'amount', e.target.value === '' ? '' : Number(e.target.value))
-                      }
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? '' : Number(e.target.value)
+                        updateIngredient(index, 'amount', val)
+                      }}
                       placeholder="Amt"
                       className="w-16 px-3 py-2 border border-white/30 rounded-lg focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40 text-sm"
                     />

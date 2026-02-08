@@ -279,14 +279,22 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, userId, o
     }
 
     // Transform the data to match RecipeDetails type
-    // Supabase returns ingredients as an array, but we need a single object
+    // Handle both array and object responses from Supabase
     const transformedData: RecipeDetails = {
       ...data,
-      recipe_ingredients: data.recipe_ingredients.map((ri: any) => ({
-        amount: ri.amount,
-        measurement: ri.measurement,
-        ingredients: ri.ingredients[0] // Extract first ingredient from array
-      }))
+      recipe_ingredients: data.recipe_ingredients.map((ri: any) => {
+        let ingredientObj = { name: '' }
+        if (Array.isArray(ri.ingredients) && ri.ingredients.length > 0) {
+          ingredientObj = ri.ingredients[0]
+        } else if (ri.ingredients && typeof ri.ingredients === 'object' && !Array.isArray(ri.ingredients)) {
+          ingredientObj = ri.ingredients
+        }
+        return {
+          amount: ri.amount,
+          measurement: ri.measurement,
+          ingredients: ingredientObj
+        }
+      })
     }
 
     setRecipeDetails(transformedData)

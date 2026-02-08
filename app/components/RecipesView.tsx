@@ -122,13 +122,27 @@ export default function RecipesView({ userId }: RecipesViewProps) {
         servings: dbRecipe.servings,
         calories: dbRecipe.calories,
         rating: dbRecipe.rating,
-        recipe_ingredients: (dbRecipe.recipe_ingredients || []).map((ri) => ({
-          id: ri.id,
-          ingredient_id: ri.ingredients[0]?.id || 0,
-          ingredient_name: ri.ingredients[0]?.name || '',
-          amount: ri.amount,
-          measurement: ri.measurement,
-        })),
+        recipe_ingredients: (dbRecipe.recipe_ingredients || []).map((ri: any) => {
+          // Handle both array and object responses from Supabase
+          let ingredientName = ''
+          let ingredientId = 0
+
+          if (Array.isArray(ri.ingredients) && ri.ingredients.length > 0) {
+            ingredientName = ri.ingredients[0]?.name || ''
+            ingredientId = ri.ingredients[0]?.id || 0
+          } else if (ri.ingredients && typeof ri.ingredients === 'object' && !Array.isArray(ri.ingredients)) {
+            ingredientName = (ri.ingredients as any).name || ''
+            ingredientId = (ri.ingredients as any).id || 0
+          }
+
+          return {
+            id: ri.id,
+            ingredient_id: ingredientId,
+            ingredient_name: ingredientName,
+            amount: ri.amount,
+            measurement: ri.measurement,
+          }
+        }),
       }))
 
       setRecipes(transformedRecipes)
@@ -164,7 +178,7 @@ export default function RecipesView({ userId }: RecipesViewProps) {
       // Insert recipe ingredients
       if (recipe.recipe_ingredients && recipe.recipe_ingredients.length > 0) {
         const ingredientEntries = recipe.recipe_ingredients
-          .filter((ing) => ing.ingredient_id && ing.amount && ing.measurement)
+          .filter((ing) => ing.ingredient_id !== undefined && ing.ingredient_id > 0 && ing.amount && ing.measurement)
           .map((ing) => ({
             recipe_id: newRecipeId,
             ingredient_id: ing.ingredient_id,
@@ -219,7 +233,7 @@ export default function RecipesView({ userId }: RecipesViewProps) {
       // Insert new recipe ingredients
       if (recipe.recipe_ingredients && recipe.recipe_ingredients.length > 0) {
         const ingredientEntries = recipe.recipe_ingredients
-          .filter((ing) => ing.ingredient_id && ing.amount && ing.measurement)
+          .filter((ing) => ing.ingredient_id !== undefined && ing.ingredient_id > 0 && ing.amount && ing.measurement)
           .map((ing) => ({
             recipe_id: id,
             ingredient_id: ing.ingredient_id,

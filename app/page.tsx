@@ -559,6 +559,20 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
 
     // Calculate the duration to maintain it
     let newEndTime = event.end_time
+    let newEndDate = event.end_date
+
+    // If this is a multi-day event, calculate new end date based on duration
+    if (event.end_date && event.end_date !== event.date) {
+      const oldStart = new Date(event.date)
+      const oldEnd = new Date(event.end_date)
+      const durationDays = Math.floor((oldEnd.getTime() - oldStart.getTime()) / (1000 * 60 * 60 * 24))
+
+      const newStart = new Date(newDate)
+      const calculatedEnd = new Date(newStart)
+      calculatedEnd.setDate(calculatedEnd.getDate() + durationDays)
+      newEndDate = calculatedEnd.toISOString().split('T')[0]
+    }
+
     if (event.start_time && event.end_time) {
       const [oldStartHour, oldStartMin] = event.start_time.split(':').map(Number)
       const [oldEndHour, oldEndMin] = event.end_time.split(':').map(Number)
@@ -576,6 +590,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
       .from('events')
       .update({
         date: newDate,
+        end_date: newEndDate,
         start_time: newStartTime,
         end_time: newEndTime
       })
@@ -891,7 +906,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
   }
 
   return (
-    <div className={`h-screen overflow-hidden flex flex-col ${getThemeGradient()}`}>
+    <div className={`h-screen overflow-hidden flex flex-col bg-black ${getThemeGradient()}`}>
       <div className="flex-1 flex flex-col min-h-0 p-4">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-5xl font-bold text-white drop-shadow-lg">{calendarTitle}</h1>
