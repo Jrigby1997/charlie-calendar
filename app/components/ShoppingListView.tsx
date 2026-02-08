@@ -66,7 +66,15 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
         .order('ingredient_id')
 
       if (error) throw error
-      setItems(data || [])
+
+      // Transform data to match ShoppingListItem type
+      // Supabase returns ingredients as array, extract first element
+      const transformedData: ShoppingListItem[] = (data || []).map((item: any) => ({
+        ...item,
+        ingredients: item.ingredients[0] || { name: '' }
+      }))
+
+      setItems(transformedData)
     } catch (error) {
       console.error('Error loading shopping list:', error)
     } finally {

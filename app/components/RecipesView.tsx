@@ -45,7 +45,7 @@ type RecipeFromDB = {
     ingredients: {
       id: number
       name: string
-    }
+    }[]
   }>
 }
 
@@ -124,8 +124,8 @@ export default function RecipesView({ userId }: RecipesViewProps) {
         rating: dbRecipe.rating,
         recipe_ingredients: (dbRecipe.recipe_ingredients || []).map((ri) => ({
           id: ri.id,
-          ingredient_id: ri.ingredients.id,
-          ingredient_name: ri.ingredients.name,
+          ingredient_id: ri.ingredients[0]?.id || 0,
+          ingredient_name: ri.ingredients[0]?.name || '',
           amount: ri.amount,
           measurement: ri.measurement,
         })),

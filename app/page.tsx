@@ -10,6 +10,7 @@ import RecipesView from './components/RecipesView'
 import ShoppingListView from './components/ShoppingListView'
 import AddEventModal from './components/AddEventModal'
 import MealPlanModal from './components/MealPlanModal'
+import SettingsModal from './components/SettingsModal'
 
 type Event = {
   id: number
@@ -60,6 +61,12 @@ export default function Home() {
   const [selectedMealDate, setSelectedMealDate] = useState<string | null>(null)
   const [isMealModalOpen, setIsMealModalOpen] = useState(false)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [calendarTitle, setCalendarTitle] = useState('Charlie Calendar')
+  const [familySectionTitle, setFamilySectionTitle] = useState('Family Members')
+  const [colorTheme, setColorTheme] = useState('default')
+  const [dateFormat, setDateFormat] = useState('MM/DD/YYYY')
+  const [weekStartDay, setWeekStartDay] = useState('Sunday')
 
   // Toast auto-dismiss effect
   useEffect(() => {
@@ -89,6 +96,7 @@ export default function Home() {
     loadFamilyMembers()
     loadEventExceptions()
     loadMealPlans()
+    loadSettings()
 
     // Subscribe to realtime changes
     const eventsChannel = supabase
@@ -131,11 +139,22 @@ export default function Home() {
       )
       .subscribe()
 
+    const settingsChannel = supabase
+      .channel('settings-changes')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'app_settings' },
+        () => {
+          loadSettings()
+        }
+      )
+      .subscribe()
+
     return () => {
       supabase.removeChannel(eventsChannel)
       supabase.removeChannel(membersChannel)
       supabase.removeChannel(exceptionsChannel)
       supabase.removeChannel(mealPlansChannel)
+      supabase.removeChannel(settingsChannel)
     }
   }, [user])
 
@@ -157,6 +176,25 @@ export default function Home() {
       console.error('Error loading family members:', error)
     } else {
       setFamilyMembers(data || [])
+    }
+  }
+
+  async function loadSettings() {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('*')
+      .limit(1)
+      .single()
+
+    if (error) {
+      console.error('Error loading settings:', error)
+      // Keep defaults if no settings found
+    } else if (data) {
+      setCalendarTitle(data.calendar_title)
+      setFamilySectionTitle(data.family_section_title)
+      setColorTheme(data.color_theme || 'default')
+      setDateFormat(data.date_format || 'MM/DD/YYYY')
+      setWeekStartDay(data.week_start_day || 'Sunday')
     }
   }
 
@@ -835,11 +873,28 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
     router.push('/login')
   }
 
+  // Get gradient classes based on color theme
+  function getThemeGradient() {
+    switch (colorTheme) {
+      case 'ocean':
+        return 'bg-gradient-to-br from-blue-900/20 via-teal-900/20 to-black'
+      case 'sunset':
+        return 'bg-gradient-to-br from-orange-900/20 via-pink-900/20 to-black'
+      case 'forest':
+        return 'bg-gradient-to-br from-green-900/20 via-emerald-900/20 to-black'
+      case 'lavender':
+        return 'bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-black'
+      case 'default':
+      default:
+        return 'bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-black'
+    }
+  }
+
   return (
-    <div className="h-screen overflow-hidden flex flex-col bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-black">
+    <div className={`h-screen overflow-hidden flex flex-col ${getThemeGradient()}`}>
       <div className="flex-1 flex flex-col min-h-0 p-4">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-5xl font-bold text-white drop-shadow-lg">Charlie Calendar</h1>
+          <h1 className="text-5xl font-bold text-white drop-shadow-lg">{calendarTitle}</h1>
           <div className="flex gap-3">
             {/* View Toggle */}
             <div className="flex bg-white/10 backdrop-blur-lg rounded-xl p-1 shadow-lg border border-white/20">
@@ -875,6 +930,13 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
               </button>
             </div>
             <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="px-6 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-xl transition-all duration-200 border border-white/30 hover:scale-105"
+              title="Settings"
+            >
+              ⚙️ Settings
+            </button>
+            <button
               onClick={handleSignOut}
               className="px-6 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-xl transition-all duration-200 border border-white/30 hover:scale-105"
             >
@@ -888,7 +950,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
           {/* Left Sidebar */}
           <div className="w-64 flex-shrink-0 flex flex-col gap-4 overflow-y-auto">
             {/* Family Members */}
-            <FamilyMembers />
+            <FamilyMembers title={familySectionTitle} />
           </div>
 
           {/* Main Content - takes remaining space */}
@@ -908,6 +970,8 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                 mealPlansCount={mealPlansCount}
                 onMealIconClick={handleMealIconClick}
                 onAddWeekMealsToList={handleAddWeekMealsToList}
+                dateFormat={dateFormat}
+                weekStartDay={weekStartDay}
               />
             ) : currentView === 'recipes' ? (
               <RecipesView userId={user?.id || ''} />
@@ -939,6 +1003,14 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
           selectedDate={selectedMealDate}
           userId={user?.id || ''}
           onRefresh={loadMealPlans}
+          onShowToast={showToast}
+        />
+
+        {/* Settings Modal */}
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          onSettingsUpdate={loadSettings}
           onShowToast={showToast}
         />
 

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import { getWeekDays as getWeekDaysUtil } from '@/lib/dateUtils'
 
 type Event = {
   id: number
@@ -47,9 +48,11 @@ type CalendarViewProps = {
   mealPlansCount: Record<string, number>
   onMealIconClick: (date: string) => void
   onAddWeekMealsToList: (startDate: string, endDate: string) => void
+  dateFormat?: string
+  weekStartDay?: string
 }
 
-export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList }: CalendarViewProps) {
+export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList, dateFormat = 'MM/DD/YYYY', weekStartDay = 'Sunday' }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<'day' | 'week' | 'month'>('week')
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -70,11 +73,10 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
   const dayOfMonth = currentDate.getDate()
 
   // Get the start of the week (Sunday)
+  // Use utility function from dateUtils with weekStartDay preference
   function getWeekStart(date: Date): Date {
-    const d = new Date(date)
-    const day = d.getDay()
-    const diff = d.getDate() - day
-    return new Date(d.setDate(diff))
+    const weekDaysArray = getWeekDaysUtil(date, weekStartDay)
+    return weekDaysArray[0]
   }
 
   // Helper function to format time range
@@ -277,14 +279,16 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
     return positions
   }
 
-  // Get array of dates for current week
+  // Get array of dates for current week (respects weekStartDay preference)
   function getWeekDays(): Date[] {
-    const weekStart = getWeekStart(currentDate)
-    return Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(weekStart)
-      date.setDate(weekStart.getDate() + i)
-      return date
-    })
+    return getWeekDaysUtil(currentDate, weekStartDay)
+  }
+
+  // Get ordered day names based on week start preference
+  function getOrderedDayNames(): string[] {
+    const allDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    const startIndex = weekStartDay === 'Monday' ? 1 : weekStartDay === 'Saturday' ? 6 : 0
+    return [...allDays.slice(startIndex), ...allDays.slice(0, startIndex)]
   }
 
   // Get first day of month and total days
@@ -293,9 +297,14 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
   const daysInMonth = lastDayOfMonth.getDate()
   const startingDayOfWeek = firstDayOfMonth.getDay() // 0 = Sunday
 
+  // Adjust starting position based on week start day preference
+  const weekStartOffset = weekStartDay === 'Monday' ? 1 : weekStartDay === 'Saturday' ? 6 : 0
+  let adjustedStartDay = startingDayOfWeek - weekStartOffset
+  if (adjustedStartDay < 0) adjustedStartDay += 7
+
   // Create array of day numbers
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
-  const blanks = Array.from({ length: startingDayOfWeek }, (_, i) => i)
+  const blanks = Array.from({ length: adjustedStartDay }, (_, i) => i)
 
   // Group events by date (simple date grouping - no duplication)
   const eventsByDate: Record<string, Event[]> = {}
@@ -544,7 +553,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                   key={idx}
                   className="sticky top-0 bg-white/20 backdrop-blur-xl z-10 text-center font-semibold text-white py-3 border-b-2 border-r-2 border-white/30 shadow-lg relative"
                 >
-                  <div className="text-sm">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][idx]}</div>
+                  <div className="text-sm">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]}</div>
                   <div className={`text-lg ${isTodayDate(date) ? 'text-yellow-300 font-bold drop-shadow-lg' : ''}`}>
                     {date.getDate()}
                   </div>
@@ -1039,7 +1048,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
       {view === 'month' && (
         <div className="grid grid-cols-7 gap-3">
         {/* Day headers */}
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+        {getOrderedDayNames().map(day => (
           <div key={day} className="text-center font-semibold text-white/90 py-3 text-sm">
             {day}
           </div>

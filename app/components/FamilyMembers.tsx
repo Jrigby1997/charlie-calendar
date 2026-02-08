@@ -15,7 +15,11 @@ type FamilyMember = {
   created_at: string
 }
 
-export default function FamilyMembers() {
+type FamilyMembersProps = {
+  title?: string
+}
+
+export default function FamilyMembers({ title = 'Family Members' }: FamilyMembersProps) {
   const { user } = useAuth()
   const [members, setMembers] = useState<FamilyMember[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -117,7 +121,7 @@ export default function FamilyMembers() {
   return (
     <>
       <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl p-6 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
-        <h2 className="text-2xl font-bold text-white drop-shadow-lg mb-6">Family Members</h2>
+        <h2 className="text-2xl font-bold text-white drop-shadow-lg mb-6">{title}</h2>
 
         {/* Members List */}
         {members.length === 0 ? (
