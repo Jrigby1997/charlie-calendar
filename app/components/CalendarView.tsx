@@ -26,18 +26,34 @@ type Event = {
   baseEventId?: number
 }
 
+type FamilyMember = {
+  id: number
+  name: string
+  color: string
+  role: string | null
+}
+
 type CalendarViewProps = {
   events: Event[]
   onAddEventClick: () => void
   onEventClick: (event: Event) => void
   onTimeSlotClick: (date: string, time: string) => void
   onEventDrop: (eventId: number, newDate: string, newStartTime: string) => void
+  familyMembers: FamilyMember[]
+  visibleMembers: Set<number>
+  showUnassigned: boolean
+  onToggleMember: (memberId: number) => void
+  onToggleUnassigned: (show: boolean) => void
+  mealPlansCount: Record<string, number>
+  onMealIconClick: (date: string) => void
+  onAddWeekMealsToList: (startDate: string, endDate: string) => void
 }
 
-export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop }: CalendarViewProps) {
+export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<'day' | 'week' | 'month'>('week')
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [showFilters, setShowFilters] = useState(false)
   const [draggedEventId, setDraggedEventId] = useState<number | null>(null)
   const dragOffsetY = useRef<number>(0)
 
@@ -446,6 +462,70 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
           >
             →
           </button>
+
+          {/* Calendar Filters */}
+          <div className="relative">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="px-4 py-2.5 bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 border border-white/30 flex items-center gap-2"
+            >
+              🔍 Filters
+            </button>
+
+            {showFilters && (
+              <div className="absolute top-full right-0 mt-2 w-64 bg-gray-900/95 backdrop-blur-xl border border-white/40 rounded-lg p-4 shadow-2xl z-50">
+                <div className="space-y-3">
+                  {/* Unassigned Events Filter */}
+                  <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white/10 rounded transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={showUnassigned}
+                      onChange={(e) => onToggleUnassigned(e.target.checked)}
+                      className="w-4 h-4 rounded border border-white/30 cursor-pointer accent-blue-400"
+                    />
+                    <span className="text-white text-sm flex-1 font-medium">Unassigned Events</span>
+                  </label>
+
+                  {/* Family Member Filters */}
+                  <div className="border-t border-white/20 pt-3">
+                    {familyMembers.map(member => (
+                      <label
+                        key={member.id}
+                        className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white/10 rounded transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={visibleMembers.has(member.id)}
+                          onChange={() => onToggleMember(member.id)}
+                          className="w-4 h-4 rounded border border-white/30 cursor-pointer accent-blue-400"
+                        />
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: member.color }}
+                        ></div>
+                        <span className="text-white text-sm flex-1 font-medium">{member.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Add Week's Meals to Shopping List */}
+          <button
+            onClick={() => {
+              const weekStart = getWeekStart(currentDate)
+              const weekEnd = new Date(weekStart)
+              weekEnd.setDate(weekStart.getDate() + 6)
+              const startDateStr = weekStart.toISOString().split('T')[0]
+              const endDateStr = weekEnd.toISOString().split('T')[0]
+              onAddWeekMealsToList(startDateStr, endDateStr)
+            }}
+            className="px-4 py-2.5 bg-green-500/20 hover:bg-green-500/30 backdrop-blur-lg text-green-200 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 border border-green-500/40 flex items-center gap-2"
+          >
+            🛒 Add Week's Meals to List
+          </button>
         </div>
       </div>
 
@@ -455,17 +535,36 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
           <div className="grid grid-cols-[60px_repeat(7,1fr)] gap-0 border-l-2 border-white/30 bg-white/5 backdrop-blur-lg rounded-xl overflow-hidden shadow-xl">
             {/* Day headers */}
             <div className="sticky top-0 bg-white/20 backdrop-blur-xl z-10 border-b-2 border-r-2 border-white/30 shadow-lg"></div>
-            {weekDays.map((date, idx) => (
-              <div
-                key={idx}
-                className="sticky top-0 bg-white/20 backdrop-blur-xl z-10 text-center font-semibold text-white py-3 border-b-2 border-r-2 border-white/30 shadow-lg"
-              >
-                <div className="text-sm">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][idx]}</div>
-                <div className={`text-lg ${isTodayDate(date) ? 'text-yellow-300 font-bold drop-shadow-lg' : ''}`}>
-                  {date.getDate()}
+            {weekDays.map((date, idx) => {
+              const dateStr = date.toISOString().split('T')[0]
+              const mealCount = mealPlansCount[dateStr] || 0
+
+              return (
+                <div
+                  key={idx}
+                  className="sticky top-0 bg-white/20 backdrop-blur-xl z-10 text-center font-semibold text-white py-3 border-b-2 border-r-2 border-white/30 shadow-lg relative"
+                >
+                  <div className="text-sm">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][idx]}</div>
+                  <div className={`text-lg ${isTodayDate(date) ? 'text-yellow-300 font-bold drop-shadow-lg' : ''}`}>
+                    {date.getDate()}
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onMealIconClick(dateStr)
+                    }}
+                    className={`absolute top-1 right-1 text-white text-xs px-1.5 py-0.5 rounded-full font-bold transition-all hover:scale-110 shadow-lg ${
+                      mealCount > 0
+                        ? 'bg-orange-500/80 hover:bg-orange-500'
+                        : 'bg-white/20 hover:bg-white/30 border border-white/40'
+                    }`}
+                    title={mealCount > 0 ? `${mealCount} meal${mealCount > 1 ? 's' : ''} planned - click to edit` : 'Plan meals for this day'}
+                  >
+                    {mealCount > 0 ? `🍽️${mealCount}` : '🍽️'}
+                  </button>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             {/* All-day events row (events without time) - Sticky at top */}
             <div className="col-span-8 sticky top-[68px] bg-white/10 backdrop-blur-xl border-b border-white/20 z-[9] shadow-lg">
@@ -690,9 +789,34 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
             {/* Day header */}
             <div className="sticky top-0 bg-white/20 backdrop-blur-xl z-10 border-b-2 border-r-2 border-white/30 shadow-lg"></div>
             <div className="sticky top-0 bg-white/20 backdrop-blur-xl z-10 text-center font-semibold text-white py-3 border-b-2 border-r-2 border-white/30 shadow-lg">
-              <div className="text-sm">{dayOfWeekName}</div>
-              <div className={`text-lg ${isTodayDate(currentDate) ? 'text-yellow-300 font-bold drop-shadow-lg' : ''}`}>
-                {dayOfMonth}
+              <div className="flex items-center justify-between px-2">
+                <div className="flex-1">
+                  <div className="text-sm">{dayOfWeekName}</div>
+                  <div className={`text-lg ${isTodayDate(currentDate) ? 'text-yellow-300 font-bold drop-shadow-lg' : ''}`}>
+                    {dayOfMonth}
+                  </div>
+                </div>
+                {(() => {
+                  const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`
+                  const mealCount = mealPlansCount[dateStr] ?? 0
+                  return (
+                    <button
+                      onClick={() => onMealIconClick(dateStr)}
+                      className={`ml-2 px-2 py-1 rounded-lg text-lg transition-all duration-200 hover:scale-110 ${
+                        mealCount > 0
+                          ? 'bg-orange-500/80 hover:bg-orange-500 border border-orange-400/60'
+                          : 'bg-white/20 hover:bg-white/30 border border-white/40'
+                      }`}
+                      title={
+                        mealCount > 0
+                          ? `${mealCount} meals assigned - click to modify`
+                          : 'Click to add meals'
+                      }
+                    >
+                      🍽️{mealCount > 0 ? mealCount : ''}
+                    </button>
+                  )
+                })()}
               </div>
             </div>
 
@@ -930,20 +1054,38 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
         {days.map(day => {
           const dayEvents = getEventsForDay(day)
           const isTodayDate = isToday(day)
+          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const mealCount = mealPlansCount[dateStr] || 0
 
           return (
             <div
               key={day}
-              className={`border rounded-xl p-3 min-h-24 transition-all duration-200 shadow-lg hover:shadow-xl ${
+              className={`border rounded-xl p-3 min-h-24 transition-all duration-200 shadow-lg hover:shadow-xl relative ${
                 isTodayDate
                   ? 'bg-white/20 backdrop-blur-lg border-yellow-300/50 shadow-yellow-500/20'
                   : 'bg-white/10 backdrop-blur-lg border-white/20 hover:border-white/40'
               }`}
             >
-              <div className={`text-sm font-bold mb-2 ${
-                isTodayDate ? 'text-yellow-300 drop-shadow-lg' : 'text-white/90'
-              }`}>
-                {day}
+              <div className="flex items-start justify-between mb-2">
+                <div className={`text-sm font-bold ${
+                  isTodayDate ? 'text-yellow-300 drop-shadow-lg' : 'text-white/90'
+                }`}>
+                  {day}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onMealIconClick(dateStr)
+                  }}
+                  className={`text-white text-xs px-1.5 py-0.5 rounded-full font-bold transition-all hover:scale-110 shadow-lg ${
+                    mealCount > 0
+                      ? 'bg-orange-500/80 hover:bg-orange-500'
+                      : 'bg-white/20 hover:bg-white/30 border border-white/40'
+                  }`}
+                  title={mealCount > 0 ? `${mealCount} meal${mealCount > 1 ? 's' : ''} planned - click to edit` : 'Plan meals for this day'}
+                >
+                  {mealCount > 0 ? `🍽️${mealCount}` : '🍽️'}
+                </button>
               </div>
               <div className="space-y-1.5">
                 {dayEvents.map(event => {

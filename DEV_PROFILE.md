@@ -1,9 +1,9 @@
 # Developer Profile & Project Context
 
-**Last Updated:** February 6, 2026
+**Last Updated:** February 7, 2026
 **Developer:** jrigb
 **Project:** Skylight-style Calendar Application
-**Current Phase:** Calendar MVP Complete ✅
+**Current Phase:** Recipes & Meal Planning Complete ✅ | UI/UX Optimizations Complete ✅
 
 ---
 
@@ -160,15 +160,117 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
   - Implemented smooth hover animations
   - Applied consistent design across all components
 
-### Next Steps (Phase 2)
+**Phase 2 - Calendar Filtering & Meal Planning (Feb 7, 2026):**
+- ✅ Calendar family member filtering
+  - Checkbox toggles for each family member in header
+  - Unassigned events filter toggle
+  - Visibility logic: show event if unassigned+enabled or at least one member visible
+  - Dark opaque filter background for readability
+
+- ✅ Meal planning database & system
+  - Created meal_types table (customizable per user)
+  - Created meal_plans table (recipe → date → meal_type)
+  - Auto-seeded default meal types (Breakfast, Lunch, Dinner, Dessert)
+  - MealPlanModal component for recipe assignment
+  - Meal type CRUD with custom type adding
+
+- ✅ Calendar meal icons (🍽️ badges)
+  - Meal indicators on every day (day, week, month views)
+  - Icons styled: transparent when no meals, orange when meals assigned
+  - Count badge displayed when meals present (🍽️2)
+  - Click to open MealPlanModal for that day
+  - Tooltips explaining functionality
+
+- ✅ Weekly meal shopping integration
+  - "Add Week's Meals to Shopping List" button
+  - Calculates current week range (Sunday-Saturday)
+  - Filters meal_plans by date range
+  - Loads recipes with recipe_ingredients JOIN ingredients
+  - Combines ingredients across multiple recipes
+  - Upserts to shopping_list with amount addition
+  - Toast notification with results (X recipes, Y ingredients)
+
+- ✅ Recipe detail viewer in meal planning
+  - View button next to assigned recipes
+  - Nested modal popup showing full recipe data
+  - Displays recipe stats: prep time, cook time, servings, calories
+  - Shows all ingredients with amounts and measurements
+  - Shows full cooking instructions
+  - Similar styling to RecipesView detail modal
+
+**Phase 3 - Recipe & Shopping System (Feb 7, 2026):**
+- ✅ Recipe management system
+  - recipes table with nutritional metadata
+  - Recipe CRUD operations (create, read, update, delete)
+  - Recipe detail modal with full ingredient list
+  - Recipe editor with instruction formatting
+  - Dropdown menu with edit/delete options
+  - Search and organization capabilities
+
+- ✅ Ingredient management
+  - ingredients table with per-user unique constraint
+  - recipe_ingredients junction table for relationships
+  - Amount and measurement fields
+  - Structured ingredient storage and retrieval
+
+- ✅ Shopping list system
+  - shopping_list table with persistence
+  - recipe_counts JSONB field for source tracking
+  - Smart ingredient combining (UNIQUE on user_id+ingredient_id+measurement)
+  - Auto-merge when same ingredient added multiple times
+  - Manual amount addition when combining
+
+- ✅ Shopping list UI
+  - ShoppingListView component with ingredient display
+  - Add single ingredients from recipes
+  - "Add ALL Ingredients to Shopping List" bulk button
+  - Manual item adding with autocomplete
+  - Toast notifications for add operations
+  - Ingredient grouping by ingredient_id
+
+- ✅ Complex database queries
+  - Multi-table JOINs (recipes → recipe_ingredients → ingredients)
+  - Upsert logic with conflict resolution
+  - UNIQUE constraint enforcement
+  - Aggregate operations for meal planning
+
+**Phase 3b - UI/UX Optimizations (Feb 7, 2026):**
+- ✅ Wall-mounted display layout
+  - Changed outer container from `min-h-screen` to `h-screen overflow-hidden`
+  - Each section handles own internal scrolling
+  - No page-wide scroll (perfect for wall mounts)
+  - Sidebar scrolls independently
+  - Calendar scrolls internally (for 24-hour day view)
+  - Recipes/Shopping list have own scroll areas
+  - All content fits on single screen without page scroll
+
+- ✅ Toast notification system
+  - Replaced all 16 `alert()` popups with toasts
+  - 2.5-second auto-dismiss
+  - Success tone: bg-green-500/20, border-green-500/40, text-green-100
+  - Error tone: bg-red-500/20, border-red-500/40, text-red-100
+  - Non-blocking UX improvements
+  - Consistent styling across all components
+  - Fixed position at top-right of screen
+  - System integrated into main page layout
+
+- ✅ Modal prop updates
+  - Added onShowToast prop to AddEventModal
+  - Added onShowToast prop to MealPlanModal
+  - All validation errors now use toasts
+  - All success messages now use toasts
+  - Recipe errors (add/update/delete) use toasts
+
+### Next Steps (Phase 4)
 - [ ] Implement authentication (Supabase Auth)
 - [ ] Add row-level security (RLS) for multi-user support
 - [ ] Build user profile management
 - [ ] Create family/household grouping
 - [ ] Mobile responsive design refinements
 - [ ] Build habit tracker module
-- [ ] Build recipe organizer module
 - [ ] Add calendar sync integrations (Google, Outlook, Apple)
+- [ ] Recipe scaling/multiplier functionality
+- [ ] Dietary restriction filtering
 
 ---
 
@@ -298,15 +400,24 @@ Family Members (central table)
 - `event_family_members` ✅ (junction table for many-to-many)
 - `event_exceptions` ✅ (recurring event instance modifications)
 
+**Implemented Tables:**
+- `family_members` ✅ (name, color, role, avatar_url, is_active)
+- `events` ✅ (comprehensive event data with recurrence support)
+- `event_family_members` ✅ (junction table for many-to-many)
+- `event_exceptions` ✅ (recurring event instance modifications)
+- `recipes` ✅ (recipe details with nutritional info)
+- `ingredients` ✅ (per-user ingredient library)
+- `recipe_ingredients` ✅ (recipe-ingredient relationships with amounts)
+- `shopping_list` ✅ (persistent cart with recipe source tracking)
+- `meal_types` ✅ (customizable meal categories per user)
+- `meal_plans` ✅ (recipe-to-date-to-meal_type assignments)
+
 **Upcoming Tables:**
 - `users` (authentication, family association)
 - `habits` (template for recurring habits)
 - `habit_completions` (tracking individual completions)
 - `chores` (similar to habits)
 - `todos` (one-off tasks)
-- `recipes` (recipe details)
-- `recipe_ingredients` (normalized ingredients)
-- `meal_plan` (recipe-to-date assignments)
 - `external_calendars` (sync configurations)
 
 ---
@@ -344,8 +455,14 @@ Family Members (central table)
 - ✅ Events can recur with flexible patterns
 - ✅ Events display side-by-side when overlapping (no visual overlap)
 - ✅ Modern, attractive glassmorphism design
+- ✅ Calendar filtering by family member visibility
+- ✅ Meal planning with recipe assignment to calendar dates
+- ✅ Smart shopping list with automatic ingredient combining
+- ✅ Recipe detail viewer integrated into meal planning
+- ✅ Wall-mounted display optimized (no page scroll)
+- ✅ Non-blocking toast notifications instead of alerts
 - 🚧 Multiple family members can use the app simultaneously (needs auth)
 - 🚧 Users stay logged in (no forced logouts) - auth pending
 - 🚧 Mobile-friendly responsive design (mostly works, needs refinement)
 - 📋 Habit tracking shows visual progress over time
-- 📋 Shopping list intelligently combines ingredients
+- 📋 Printing/exporting shopping lists and meal plans

@@ -43,9 +43,10 @@ type AddEventModalProps = {
   instanceDate?: string // The specific date of the instance being edited (for recurring events)
   initialDate?: string
   initialStartTime?: string
+  onShowToast?: (message: string, tone: 'success' | 'error') => void
 }
 
-export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEvent, onUpdateEvent, onDeleteEvent, editingEvent, instanceDate, initialDate, initialStartTime }: AddEventModalProps) {
+export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEvent, onUpdateEvent, onDeleteEvent, editingEvent, instanceDate, initialDate, initialStartTime, onShowToast }: AddEventModalProps) {
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -145,7 +146,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
 
     // Validation: end date before start date
     if (endDate && endDate < date) {
-      alert('End date cannot be before start date')
+      onShowToast?.('End date cannot be before start date', 'error')
       return
     }
 
@@ -157,7 +158,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
       const endMinutes = endHour * 60 + endMin
 
       if (endMinutes <= startMinutes) {
-        alert('End time must be after start time')
+        onShowToast?.('End time must be after start time', 'error')
         return
       }
     }

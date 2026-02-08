@@ -46,17 +46,25 @@ Create a family-centric organization platform centered around **Family Members**
 **Current Status:** Not started
 **Next Phase:** Design database schema and UI
 
-### 3. 🍳 Recipe Organizer & Meal Planner
-- **Recipe Storage:** Save and organize family recipes
-- **Meal Planning:** Assign recipes to specific days (integrates with calendar)
-- **Smart Shopping Lists:**
-  - Select multiple recipes
-  - Auto-generate combined shopping list
-  - Consolidate duplicate ingredients (e.g., 2 tsp butter + 6 tsp butter = 8 tsp total)
-  - Export shopping list
+### 3. 🍳 Recipe Organizer & Meal Planner ✅
 
-**Current Status:** Not started
-**Next Phase:** Design recipe schema and meal planning interface
+**Implemented Features:**
+- ✅ Full recipe CRUD (create, read, update, delete)
+- ✅ Ingredient library with per-user unique constraint
+- ✅ Recipe ingredients with amounts and measurements
+- ✅ Meal planning system with customizable meal types (breakfast, lunch, dinner, dessert, custom)
+- ✅ Assign recipes to specific calendar dates
+- ✅ Recipe detail viewer in meal planning modal
+- ✅ Smart shopping lists with automatic ingredient combining
+- ✅ Add individual ingredients to shopping list
+- ✅ Add all recipe ingredients at once
+- ✅ Weekly meal → shopping list integration
+- ✅ Recipe source tracking in shopping list (tracks which recipes ingredients came from)
+- ✅ Meal indicators on calendar (🍽️ badges)
+- ✅ Kitchen-friendly UI for wall-mounted displays
+
+**Current Status:** Fully implemented and integrated ✅
+**Next Phase:** Recipe scaling (multiply ingredient amounts), dietary filtering
 
 ### Future Expansion
 - Mobile apps (iOS/Android)
@@ -159,6 +167,70 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 - Unique constraint on (base_event_id, exception_date)
 - Realtime enabled ✅
 
+**recipes table:** ✅
+- `id` (bigint, primary key)
+- `user_id` (uuid, foreign key → auth.users.id, cascade delete)
+- `name` (text, required) - Recipe name
+- `instructions` (text, required) - Cooking instructions
+- `prep_time` (integer, optional) - Minutes
+- `cook_time` (integer, optional) - Minutes
+- `servings` (integer, optional)
+- `calories` (integer, optional)
+- `rating` (integer, optional)
+- `created_at` (timestamp)
+- `updated_at` (timestamp)
+- Realtime enabled ✅
+
+**ingredients table:** ✅
+- `id` (bigint, primary key)
+- `user_id` (uuid, foreign key → auth.users.id, cascade delete)
+- `name` (text, required) - Ingredient name
+- `created_at` (timestamp)
+- Unique constraint on (user_id, name)
+- Realtime enabled ✅
+
+**recipe_ingredients table:** ✅
+- `id` (bigint, primary key)
+- `recipe_id` (bigint, foreign key → recipes.id, cascade delete)
+- `ingredient_id` (bigint, foreign key → ingredients.id, cascade delete)
+- `amount` (numeric, required) - Quantity
+- `measurement` (text, required) - Units (tsp, cup, lb, etc.)
+- `created_at` (timestamp)
+- Unique constraint on (recipe_id, ingredient_id)
+- Realtime enabled ✅
+
+**shopping_list table:** ✅
+- `id` (bigint, primary key)
+- `user_id` (uuid, foreign key → auth.users.id, cascade delete)
+- `ingredient_id` (bigint, foreign key → ingredients.id, cascade delete)
+- `amount` (numeric, required) - Quantity
+- `measurement` (text, required) - Units
+- `recipe_id` (bigint, optional, foreign key → recipes.id, cascade delete)
+- `recipe_counts` (jsonb, optional) - Tracks which recipes contributed this ingredient
+- `created_at` (timestamp)
+- Unique constraint on (user_id, ingredient_id, measurement)
+- Realtime enabled ✅
+
+**meal_types table:** ✅
+- `id` (bigint, primary key)
+- `user_id` (uuid, foreign key → auth.users.id, cascade delete)
+- `name` (text, required) - Meal type name (Breakfast, Lunch, Dinner, Dessert, custom)
+- `sort_order` (integer, default 0) - Display order
+- `created_at` (timestamp)
+- Unique constraint on (user_id, name)
+- Default meal types seeded on first access
+- Realtime enabled ✅
+
+**meal_plans table:** ✅
+- `id` (bigint, primary key)
+- `user_id` (uuid, foreign key → auth.users.id, cascade delete)
+- `recipe_id` (bigint, foreign key → recipes.id, cascade delete)
+- `date` (date, required) - Meal date
+- `meal_type` (text, required) - Meal category name
+- `created_at` (timestamp)
+- Unique constraint on (user_id, date, meal_type)
+- Realtime enabled ✅
+
 ---
 
 ## Project Structure
@@ -167,17 +239,27 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 skylight-calendar/
 ├── app/
 │   ├── components/
-│   │   ├── AddEventModal.tsx      # Event creation/editing modal with glassmorphism
-│   │   ├── CalendarView.tsx       # Main calendar with day/week/month views
-│   │   └── FamilyMembers.tsx      # Family member management sidebar
-│   ├── globals.css                # Global styles with animated gradient background
-│   ├── layout.tsx                 # Root layout
-│   └── page.tsx                   # Main app page (calendar + family members)
+│   │   ├── AddEventModal.tsx       # Event creation/editing modal with glassmorphism
+│   │   ├── CalendarView.tsx        # Main calendar with day/week/month views, filtering, meal icons
+│   │   ├── FamilyMembers.tsx       # Family member management sidebar
+│   │   ├── RecipesView.tsx         # Recipe CRUD with shopping list integration
+│   │   ├── ShoppingListView.tsx    # Shopping list management with ingredient combining
+│   │   └── MealPlanModal.tsx       # Meal planning modal with recipe detail viewer
+│   ├── globals.css                 # Global styles with animated gradient background
+│   ├── layout.tsx                  # Root layout
+│   └── page.tsx                    # Main app page with layout, modals, toast notifications
 ├── lib/
-│   └── supabase.ts                # Supabase client configuration
-├── .env.local                     # Environment variables (not in git)
-├── DEV_PROFILE.md                 # Developer context & learning profile
-└── README.md                      # This file
+│   └── supabase.ts                 # Supabase client configuration
+├── contexts/
+│   └── AuthContext.tsx             # Authentication context (if implemented)
+├── migrations/
+│   ├── supabase_migration_recipes.sql              # recipes, ingredients, recipe_ingredients tables
+│   ├── supabase_migration_shopping_list.sql        # shopping_list table
+│   ├── supabase_migration_shopping_list_updates.sql # recipe_counts JSONB column
+│   └── supabase_migration_meal_plans.sql           # meal_types, meal_plans tables
+├── .env.local                      # Environment variables (not in git)
+├── DEV_PROFILE.md                  # Developer context & learning profile
+└── README.md                       # This file
 ```
 
 ---
@@ -201,8 +283,10 @@ skylight-calendar/
 - ✅ Soft delete (is_active flag)
 - ✅ Real-time sync for member changes
 
-**Calendar Features:**
+**Calendar Features & Filtering:**
 - ✅ Three view modes: Day, Week, Month
+- ✅ Family member visibility filtering (checkbox toggles in header)
+- ✅ Unassigned events filter toggle
 - ✅ Event creation with detailed form
 - ✅ Multi-day event support
 - ✅ Start/end time selection (15-minute increments)
@@ -214,6 +298,8 @@ skylight-calendar/
 - ✅ Drag & drop event rescheduling
 - ✅ Click time slot to create event
 - ✅ Current time indicator (red line)
+- ✅ Meal icons on every day (🍽️ badges with counts)
+- ✅ Wall-mounted display optimization (no page scroll, section-specific scrolling)
 
 **Recurring Events:**
 - ✅ Pattern selection (daily, weekly, monthly, yearly)
@@ -239,8 +325,48 @@ skylight-calendar/
 - ✅ White text with drop shadows
 - ✅ Smooth hover animations and scale effects
 - ✅ Custom shadow with inner glow effects
+- ✅ Toast notifications with auto-dismiss (success/error tones)
 
-### 📋 Next Steps (Phase 2)
+### 📖 Phase 3: Recipes & Meal Planning (Completed Feb 7, 2026) ✅
+
+**Recipe Management:**
+- ✅ Recipe CRUD operations (create, read, update, delete)
+- ✅ Structured ingredient management with per-user unique constraint
+- ✅ Recipe nutritional information (prep time, cook time, servings, calories, rating)
+- ✅ Full recipe detail modal with ingredient list and instructions
+
+**Shopping List System:**
+- ✅ Smart ingredient combining (automatically merges duplicate ingredients)
+- ✅ Add individual ingredients to shopping list
+- ✅ Bulk add all recipe ingredients to shopping list
+- ✅ Recipe source tracking (tracks which recipes contributed each ingredient)
+- ✅ Automatic amount calculation when adding same ingredient multiple times
+- ✅ Manual shopping list item adding with autocomplete
+
+**Meal Planning Integration:**
+- ✅ Customizable meal types per user (Breakfast, Lunch, Dinner, Dessert, custom)
+- ✅ Assign recipes to specific dates and meal types
+- ✅ Meal planning modal with recipe dropdown and detail viewer
+- ✅ Meal indicators on calendar (🍽️ badges visible on all calendar views)
+- ✅ Weekly meal-to-shopping-list aggregation
+- ✅ One-click "Add Week's Meals to Shopping List" button
+- ✅ Recipe detail popup within meal planning modal (ingredients, instructions, stats)
+
+### 🎨 Phase 3b: UI/UX Improvements (Completed Feb 7, 2026) ✅
+
+**Layout Optimization for Wall-Mounted Displays:**
+- ✅ Removed page-wide scrolling (changed from `min-h-screen` to `h-screen overflow-hidden`)
+- ✅ Implemented section-specific scrolling (sidebar, calendar, recipes, shopping list each scroll independently)
+- ✅ All content fits on single screen without page-wide scroll
+- ✅ Perfect for touch-screen wall mount displays
+
+**Toast Notification System:**
+- ✅ Replaced all 16 `alert()` popups with auto-dismissing toasts
+- ✅ 2.5-second auto-dismiss for non-blocking notifications
+- ✅ Success toasts: Green styling (success actions like adding ingredients)
+- ✅ Error toasts: Red styling (validation errors, failed operations)
+- ✅ Consistent styling across all components and modals
+- ✅ Toast notification system integrated into main page layout
 1. Implement authentication (Supabase Auth)
 2. Multi-user support with row-level security
 3. Build habit tracker module
@@ -290,4 +416,6 @@ Events scheduled at the same time display side-by-side with automatic width adju
 - **Started:** February 5, 2026
 - **First Working Prototype:** February 5, 2026 ✅
 - **Calendar MVP Completed:** February 6, 2026 ✅
+- **Recipes & Meal Planning:** February 7, 2026 ✅
+- **UI/UX Optimizations:** February 7, 2026 ✅
 - **Next Milestone:** Authentication & Multi-user Support

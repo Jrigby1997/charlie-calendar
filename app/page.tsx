@@ -6,7 +6,10 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from './contexts/AuthContext'
 import FamilyMembers from './components/FamilyMembers'
 import CalendarView from './components/CalendarView'
+import RecipesView from './components/RecipesView'
+import ShoppingListView from './components/ShoppingListView'
 import AddEventModal from './components/AddEventModal'
+import MealPlanModal from './components/MealPlanModal'
 
 type Event = {
   id: number
@@ -50,6 +53,26 @@ export default function Home() {
   const [newEventDate, setNewEventDate] = useState<string>('')
   const [newEventTime, setNewEventTime] = useState<string>('')
   const [eventExceptions, setEventExceptions] = useState<any[]>([])
+  const [currentView, setCurrentView] = useState<'calendar' | 'recipes' | 'shopping-list'>('calendar')
+  const [visibleMembers, setVisibleMembers] = useState<Set<number>>(new Set())
+  const [showUnassigned, setShowUnassigned] = useState(true)
+  const [mealPlans, setMealPlans] = useState<any[]>([])
+  const [selectedMealDate, setSelectedMealDate] = useState<string | null>(null)
+  const [isMealModalOpen, setIsMealModalOpen] = useState(false)
+  const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
+
+  // Toast auto-dismiss effect
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => {
+      setToast(null)
+    }, 2500)
+    return () => clearTimeout(timer)
+  }, [toast])
+
+  function showToast(message: string, tone: 'success' | 'error') {
+    setToast({ message, tone })
+  }
 
   // Check authentication
   useEffect(() => {
@@ -65,6 +88,7 @@ export default function Home() {
     loadEvents()
     loadFamilyMembers()
     loadEventExceptions()
+    loadMealPlans()
 
     // Subscribe to realtime changes
     const eventsChannel = supabase
@@ -97,12 +121,30 @@ export default function Home() {
       )
       .subscribe()
 
+    const mealPlansChannel = supabase
+      .channel('meal-plans-changes')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'meal_plans' },
+        () => {
+          loadMealPlans()
+        }
+      )
+      .subscribe()
+
     return () => {
       supabase.removeChannel(eventsChannel)
       supabase.removeChannel(membersChannel)
       supabase.removeChannel(exceptionsChannel)
+      supabase.removeChannel(mealPlansChannel)
     }
   }, [user])
+
+  // Initialize all members as visible when family members load
+  useEffect(() => {
+    if (familyMembers.length > 0) {
+      setVisibleMembers(new Set(familyMembers.map(m => m.id)))
+    }
+  }, [familyMembers])
 
   async function loadFamilyMembers() {
     const { data, error } = await supabase
@@ -150,6 +192,46 @@ export default function Home() {
     } else {
       setEventExceptions(data || [])
     }
+  }
+
+  async function loadMealPlans() {
+    const { data, error } = await supabase
+      .from('meal_plans')
+      .select('*')
+
+    if (error) {
+      console.error('Error loading meal plans:', error)
+    } else {
+      setMealPlans(data || [])
+    }
+  }
+
+  function toggleMemberVisibility(memberId: number) {
+    setVisibleMembers(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(memberId)) {
+        newSet.delete(memberId)
+      } else {
+        newSet.add(memberId)
+      }
+      return newSet
+    })
+  }
+
+  function shouldShowEvent(event: Event): boolean {
+    const assignedMembers = event.event_family_members || []
+
+    // If event has no assigned members, show based on unassigned filter
+    if (assignedMembers.length === 0) {
+      return showUnassigned
+    }
+
+    // If event has assigned members, show if at least one is visible
+    return assignedMembers.some(efm => visibleMembers.has(efm.family_members.id))
+  }
+
+  function getFilteredEvents(eventsToFilter: Event[]): Event[] {
+    return eventsToFilter.filter(shouldShowEvent)
   }
 
   // Show loading state while checking auth
@@ -330,6 +412,7 @@ export default function Home() {
       }
     }
 
+    await loadEvents()
     setEditingEvent(null)
     setEditingInstanceDate('')
   }
@@ -429,7 +512,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
     // Check if this is a virtual instance
     const expandedEvent = expandedEvents.find(e => e.id === eventId)
     if (expandedEvent?.baseEventId) {
-      alert('Cannot move individual instances of recurring or multi-day events. Please edit the original event.')
+      showToast('Cannot move individual instances of recurring or multi-day events. Please edit the original event.', 'error')
       return
     }
 
@@ -590,6 +673,162 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
   }
 
   const expandedEvents = expandRecurringEvents(events, familyMembers)
+  const filteredEvents = getFilteredEvents(expandedEvents)
+
+  // Compute meal plans count by date
+  const mealPlansCount: Record<string, number> = mealPlans.reduce((acc, plan) => {
+    acc[plan.date] = (acc[plan.date] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
+  function handleMealIconClick(date: string) {
+    setSelectedMealDate(date)
+    setIsMealModalOpen(true)
+  }
+
+  function handleCloseMealModal() {
+    setIsMealModalOpen(false)
+    setSelectedMealDate(null)
+  }
+
+  async function handleAddWeekMealsToList(startDate: string, endDate: string) {
+    try {
+      // Filter meal plans for the week
+      const weekMealPlans = mealPlans.filter(plan =>
+        plan.date >= startDate && plan.date <= endDate
+      )
+
+      if (weekMealPlans.length === 0) {
+        showToast('No meals planned for this week.', 'error')
+        return
+      }
+
+      // Get unique recipe IDs
+      const recipeIds = [...new Set(weekMealPlans.map(plan => plan.recipe_id))]
+
+      // Load all recipes with their ingredients
+      const { data: recipes, error: recipesError } = await supabase
+        .from('recipes')
+        .select(`
+          id,
+          name,
+          recipe_ingredients (
+            ingredient_id,
+            amount,
+            measurement,
+            ingredients (
+              id,
+              name
+            )
+          )
+        `)
+        .in('id', recipeIds)
+
+      if (recipesError) throw recipesError
+
+      if (!recipes || recipes.length === 0) {
+        showToast('No recipes found.', 'error')
+        return
+      }
+
+      // Get current shopping list
+      const { data: existingItems, error: fetchError } = await supabase
+        .from('shopping_list')
+        .select('*')
+        .eq('user_id', user?.id)
+
+      if (fetchError) throw fetchError
+
+      // Collect all ingredients from all recipes
+      const itemsToUpsert: any[] = []
+      let totalIngredients = 0
+
+      recipes.forEach((recipe: any) => {
+        const recipeIngredients = recipe.recipe_ingredients || []
+
+        recipeIngredients.forEach((ri: any) => {
+          if (!ri.ingredient_id || !ri.amount || !ri.measurement) return
+
+          totalIngredients++
+
+          // Check if this ingredient+measurement already exists
+          const existing = existingItems?.find(
+            (item) =>
+              item.ingredient_id === ri.ingredient_id &&
+              item.measurement === ri.measurement
+          )
+
+          const recipeIdStr = String(recipe.id)
+          const existingCounts = (existing?.recipe_counts as Record<string, number>) || {}
+          const nextCounts = {
+            ...existingCounts,
+            [recipeIdStr]: (existingCounts[recipeIdStr] || 0) + 1,
+          }
+
+          if (existing) {
+            // Combine amounts
+            itemsToUpsert.push({
+              id: existing.id,
+              user_id: user?.id,
+              ingredient_id: ri.ingredient_id,
+              amount: Number(existing.amount) + Number(ri.amount),
+              measurement: ri.measurement,
+              recipe_id: recipe.id,
+              recipe_counts: nextCounts,
+            })
+          } else {
+            // New item
+            itemsToUpsert.push({
+              user_id: user?.id,
+              ingredient_id: ri.ingredient_id,
+              amount: ri.amount,
+              measurement: ri.measurement,
+              recipe_id: recipe.id,
+              recipe_counts: nextCounts,
+            })
+          }
+        })
+      })
+
+      // Remove duplicates by combining items with same id
+      const uniqueItems = itemsToUpsert.reduce((acc, item) => {
+        const existingIndex = acc.findIndex((i: any) =>
+          i.id && i.id === item.id ||
+          (!i.id && !item.id && i.ingredient_id === item.ingredient_id && i.measurement === item.measurement)
+        )
+
+        if (existingIndex >= 0) {
+          // Combine amounts and recipe_counts
+          acc[existingIndex].amount = Number(acc[existingIndex].amount) + Number(item.amount)
+          acc[existingIndex].recipe_counts = {
+            ...acc[existingIndex].recipe_counts,
+            ...item.recipe_counts
+          }
+        } else {
+          acc.push(item)
+        }
+
+        return acc
+      }, [])
+
+      if (uniqueItems.length === 0) {
+        showToast('No ingredients to add.', 'error')
+        return
+      }
+
+      // Upsert items
+      const { error } = await supabase
+        .from('shopping_list')
+        .upsert(uniqueItems)
+
+      if (error) throw error
+
+      showToast(`Added ${recipes.length} recipes (${totalIngredients} ingredients) to shopping list!`, 'success')
+    } catch (error) {
+      console.error('Error adding week meals to shopping list:', error)
+      showToast('Failed to add meals to shopping list.', 'error')
+    }
+  }
 
   const handleSignOut = async () => {
     await signOut()
@@ -597,34 +836,84 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
   }
 
   return (
-    <div className="min-h-screen p-6">
-      <div className="max-w-full mx-auto h-screen flex flex-col">
+    <div className="h-screen overflow-hidden flex flex-col bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-black">
+      <div className="flex-1 flex flex-col min-h-0 p-4">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-5xl font-bold text-white drop-shadow-lg">Charlie Calendar</h1>
-          <button
-            onClick={handleSignOut}
-            className="px-6 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-xl transition-all duration-200 border border-white/30 hover:scale-105"
-          >
-            Sign Out
-          </button>
+          <div className="flex gap-3">
+            {/* View Toggle */}
+            <div className="flex bg-white/10 backdrop-blur-lg rounded-xl p-1 shadow-lg border border-white/20">
+              <button
+                onClick={() => setCurrentView('calendar')}
+                className={`px-5 py-2 rounded-lg font-medium transition-all duration-200 ${
+                  currentView === 'calendar'
+                    ? 'bg-white/30 text-white shadow-lg'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                📅 Calendar
+              </button>
+              <button
+                onClick={() => setCurrentView('recipes')}
+                className={`px-5 py-2 rounded-lg font-medium transition-all duration-200 ${
+                  currentView === 'recipes'
+                    ? 'bg-white/30 text-white shadow-lg'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                📖 Recipes
+              </button>
+              <button
+                onClick={() => setCurrentView('shopping-list')}
+                className={`px-5 py-2 rounded-lg font-medium transition-all duration-200 ${
+                  currentView === 'shopping-list'
+                    ? 'bg-white/30 text-white shadow-lg'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                🛒 Shopping List
+              </button>
+            </div>
+            <button
+              onClick={handleSignOut}
+              className="px-6 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-xl transition-all duration-200 border border-white/30 hover:scale-105"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
 
         {/* Main Content - Sidebar Layout */}
-        <div className="flex-1 flex gap-4 min-h-0">
-          {/* Family Members Sidebar */}
-          <div className="w-64 flex-shrink-0">
+        <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
+          {/* Left Sidebar */}
+          <div className="w-64 flex-shrink-0 flex flex-col gap-4 overflow-y-auto">
+            {/* Family Members */}
             <FamilyMembers />
           </div>
 
-          {/* Calendar View - takes remaining space */}
+          {/* Main Content - takes remaining space */}
           <div className="flex-1 min-w-0">
-            <CalendarView
-              events={expandedEvents}
-              onAddEventClick={handleOpenNewEvent}
-              onEventClick={handleEventClick}
-              onTimeSlotClick={handleTimeSlotClick}
-              onEventDrop={handleEventDrop}
-            />
+            {currentView === 'calendar' ? (
+              <CalendarView
+                events={filteredEvents}
+                onAddEventClick={handleOpenNewEvent}
+                onEventClick={handleEventClick}
+                onTimeSlotClick={handleTimeSlotClick}
+                onEventDrop={handleEventDrop}
+                familyMembers={familyMembers}
+                visibleMembers={visibleMembers}
+                showUnassigned={showUnassigned}
+                onToggleMember={toggleMemberVisibility}
+                onToggleUnassigned={setShowUnassigned}
+                mealPlansCount={mealPlansCount}
+                onMealIconClick={handleMealIconClick}
+                onAddWeekMealsToList={handleAddWeekMealsToList}
+              />
+            ) : currentView === 'recipes' ? (
+              <RecipesView userId={user?.id || ''} />
+            ) : (
+              <ShoppingListView userId={user?.id || ''} />
+            )}
           </div>
         </div>
 
@@ -640,7 +929,33 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
           instanceDate={editingInstanceDate}
           initialDate={newEventDate}
           initialStartTime={newEventTime}
+          onShowToast={showToast}
         />
+
+        {/* Meal Plan Modal */}
+        <MealPlanModal
+          isOpen={isMealModalOpen}
+          onClose={handleCloseMealModal}
+          selectedDate={selectedMealDate}
+          userId={user?.id || ''}
+          onRefresh={loadMealPlans}
+          onShowToast={showToast}
+        />
+
+        {/* Toast Notification */}
+        {toast && (
+          <div className="fixed top-6 right-6 z-50">
+            <div
+              className={`px-4 py-3 rounded-lg shadow-lg border backdrop-blur-xl text-sm font-medium ${
+                toast.tone === 'success'
+                  ? 'bg-green-500/20 border-green-500/40 text-green-100'
+                  : 'bg-red-500/20 border-red-500/40 text-red-100'
+              }`}
+            >
+              {toast.message}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
