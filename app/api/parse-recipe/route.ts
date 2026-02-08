@@ -175,8 +175,13 @@ function parseDuration(duration?: string): number | null {
   return null
 }
 
-function parseServings(recipeYield?: string | number): number | null {
+function parseServings(recipeYield?: string | number | string[]): number | null {
   if (!recipeYield) return null
+
+  // Handle arrays - take first element
+  if (Array.isArray(recipeYield)) {
+    recipeYield = recipeYield[0]
+  }
 
   if (typeof recipeYield === 'number') return recipeYield
 
