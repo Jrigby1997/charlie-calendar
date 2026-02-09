@@ -35,6 +35,9 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
   const [newMeasurement, setNewMeasurement] = useState('cup')
   const [showIngredientSuggestions, setShowIngredientSuggestions] = useState(false)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
+  const [editingItemId, setEditingItemId] = useState<number | null>(null)
+  const [editingAmount, setEditingAmount] = useState<number | ''>('')
+  const [editingMeasurement, setEditingMeasurement] = useState('')
 
   const MEASUREMENTS = [
     'oz', 'lb', 'g', 'kg',
@@ -211,6 +214,23 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
     }
   }
 
+  async function updateItemAmount(itemId: number, newAmount: number, newMeasurement: string) {
+    try {
+      const { error } = await supabase
+        .from('shopping_list')
+        .update({ amount: newAmount, measurement: newMeasurement })
+        .eq('id', itemId)
+
+      if (error) throw error
+      await loadShoppingList()
+      setEditingItemId(null)
+      showToast('Amount updated', 'success')
+    } catch (error) {
+      console.error('Error updating item:', error)
+      showToast('Failed to update amount', 'error')
+    }
+  }
+
   function toggleCheck(ingredientId: number) {
     setCheckedItems((prev) => {
       const newSet = new Set(prev)
@@ -311,14 +331,14 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
   const groupedItems = items.reduce<Record<number, {
     ingredient_id: number
     name: string
-    parts: Array<{ amount: number; measurement: string }>
+    parts: Array<{ id: number; amount: number; measurement: string }>
     recipeCounts: Record<string, number>
   }>>((acc, item) => {
     const existing = acc[item.ingredient_id]
     const counts = (item.recipe_counts as Record<string, number>) || {}
 
     if (existing) {
-      existing.parts.push({ amount: item.amount, measurement: item.measurement })
+      existing.parts.push({ id: item.id, amount: item.amount, measurement: item.measurement })
       Object.entries(counts).forEach(([key, value]) => {
         existing.recipeCounts[key] = (existing.recipeCounts[key] || 0) + value
       })
@@ -326,7 +346,7 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
       acc[item.ingredient_id] = {
         ingredient_id: item.ingredient_id,
         name: item.ingredients.name,
-        parts: [{ amount: item.amount, measurement: item.measurement }],
+        parts: [{ id: item.id, amount: item.amount, measurement: item.measurement }],
         recipeCounts: { ...counts },
       }
     }
@@ -461,10 +481,62 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
                       checkedItems.has(group.ingredient_id) ? 'line-through' : ''
                     }`}
                   >
-                    {group.parts
-                      .map((part) => `${part.amount} ${part.measurement}`)
-                      .join(' + ')}{' '}
-                    {group.name}
+                    {group.parts.map((part, idx) => (
+                      <div key={part.id} className="flex items-center gap-2 mb-1">
+                        {editingItemId === part.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              step="0.25"
+                              value={editingAmount}
+                              onChange={(e) =>
+                                setEditingAmount(e.target.value === '' ? '' : Number(e.target.value))
+                              }
+                              className="w-16 px-2 py-1 border border-white/30 rounded text-white placeholder-white/60 bg-white/10 text-sm"
+                            />
+                            <select
+                              value={editingMeasurement}
+                              onChange={(e) => setEditingMeasurement(e.target.value)}
+                              className="w-20 px-2 py-1 border border-white/30 rounded text-white bg-white/10 text-sm"
+                            >
+                              {MEASUREMENTS.map((m) => (
+                                <option key={m} value={m} className="bg-gray-800">
+                                  {m}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => {
+                                if (editingAmount !== '' && editingMeasurement) {
+                                  updateItemAmount(part.id, Number(editingAmount), editingMeasurement)
+                                }
+                              }}
+                              className="px-2 py-1 bg-green-500/30 hover:bg-green-500/40 border border-green-500/50 rounded text-green-200 text-xs font-medium transition-all"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingItemId(null)}
+                              className="px-2 py-1 bg-white/20 hover:bg-white/30 border border-white/30 rounded text-white/80 text-xs font-medium transition-all"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setEditingItemId(part.id)
+                              setEditingAmount(part.amount)
+                              setEditingMeasurement(part.measurement)
+                            }}
+                            className="text-blue-300 hover:text-blue-200 hover:underline text-sm transition-colors"
+                          >
+                            {part.amount} {part.measurement}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {group.parts.length > 0 && <span>{group.name}</span>}
                   </div>
                   {formatSources(group.recipeCounts) && (
                     <div className="text-white/50 text-sm">
