@@ -1,6 +1,1 @@
-<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-  <rect fill="#FFA07A" width="200" height="200"/>
-  <circle cx="100" cy="85" r="45" fill="#45B7D1"/>
-  <text x="100" y="110" font-size="48" font-weight="bold" text-anchor="middle" fill="white" font-family="Arial">W</text>
-  <circle cx="70" cy="60" r="8" fill="white" opacity="0.3"/>
-</svg>
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><rect fill="#FFB6D9" width="200" height="200"/><polygon points="100,130 80,160 120,160" fill="#DAA520" stroke="#333" stroke-width="2"/><ellipse cx="100" cy="90" rx="35" ry="40" fill="#FF69B4"/><ellipse cx="75" cy="70" rx="20" ry="25" fill="#FFE66D"/><ellipse cx="110" cy="60" rx="18" ry="24" fill="#FF6B6B"/><circle cx="85" cy="90" r="5" fill="#333"/><circle cx="115" cy="85" r="5" fill="#333"/></svg>
