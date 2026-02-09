@@ -78,23 +78,70 @@ export default function FamilyMembers({ title = 'Family Members' }: FamilyMember
 
     if (error) {
       console.error('Error adding family member:', error)
+    } else {
+      await loadMembers()
     }
   }
 
-  async function updateMember(id: number, name: string, color: string, role: string, avatarStyle: string) {
+  async function updateMember(id: number, name: string, color: string, role: string, avatarUrl: string) {
     const { error } = await supabase
       .from('family_members')
       .update({
         name,
         color,
         role: role || null,
-        avatar_url: avatarStyle
+        avatar_url: avatarUrl
       })
       .eq('id', id)
 
     if (error) {
       console.error('Error updating family member:', error)
+    } else {
+      await loadMembers()
     }
+  }
+
+  function getAvatarImage(member: FamilyMember) {
+    if (!member.avatar_url) {
+      return (
+        <span className="text-white text-xl font-bold">
+          {member.name.charAt(0).toUpperCase()}
+        </span>
+      )
+    }
+
+    // Check if it's a custom uploaded avatar (URL format)
+    if (member.avatar_url.startsWith('http')) {
+      return (
+        <img
+          src={member.avatar_url}
+          alt={member.name}
+          className="w-full h-full object-cover"
+        />
+      )
+    }
+
+    // Check if it's a dicebear generated avatar
+    if (member.avatar_url.startsWith('dicebear:')) {
+      const style = member.avatar_url.replace('dicebear:', '').split(':')[0]
+      const seed = member.avatar_url.includes(':') ? member.avatar_url.split(':')[2] : member.name
+      return (
+        <img
+          src={`https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seed)}`}
+          alt={member.name}
+          className="w-full h-full"
+        />
+      )
+    }
+
+    // Legacy format - plain style string
+    return (
+      <img
+        src={`https://api.dicebear.com/7.x/${member.avatar_url}/svg?seed=${encodeURIComponent(member.name)}`}
+        alt={member.name}
+        className="w-full h-full"
+      />
+    )
   }
 
   function handleMemberClick(member: FamilyMember) {
@@ -144,17 +191,7 @@ export default function FamilyMembers({ title = 'Family Members' }: FamilyMember
                   className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 shadow-lg border-4 border-white/30"
                   style={{ backgroundColor: member.color }}
                 >
-                  {member.avatar_url ? (
-                    <img
-                      src={`https://api.dicebear.com/7.x/${member.avatar_url}/svg?seed=${encodeURIComponent(member.name)}`}
-                      alt={member.name}
-                      className="w-full h-full"
-                    />
-                  ) : (
-                    <span className="text-white text-xl font-bold">
-                      {member.name.charAt(0).toUpperCase()}
-                    </span>
-                  )}
+                  {getAvatarImage(member)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-white truncate text-lg drop-shadow-md">{member.name}</h3>
