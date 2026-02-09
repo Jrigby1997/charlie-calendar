@@ -17,6 +17,8 @@ export async function uploadAvatar(file: File, userId: string, memberId: number)
     const fileExt = file.name.split('.').pop()
     const fileName = `${userId}/member_${memberId}_${Date.now()}.${fileExt}`
 
+    console.log('Uploading file:', { fileName, fileSize: file.size, fileType: file.type })
+
     // Upload file to Supabase Storage
     const { data, error } = await supabase.storage
       .from('avatars')
@@ -26,14 +28,18 @@ export async function uploadAvatar(file: File, userId: string, memberId: number)
       })
 
     if (error) {
-      throw error
+      console.error('Upload error:', error)
+      throw new Error(`Upload failed: ${error.message}`)
     }
+
+    console.log('Upload successful:', data)
 
     // Get public URL
     const { data: publicData } = supabase.storage
       .from('avatars')
       .getPublicUrl(data.path)
 
+    console.log('Public URL:', publicData.publicUrl)
     return publicData.publicUrl
   } catch (error) {
     console.error('Error uploading avatar:', error)

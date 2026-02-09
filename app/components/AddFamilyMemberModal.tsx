@@ -65,7 +65,10 @@ export default function AddFamilyMemberModal({ isOpen, onClose, onAddMember, onU
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!user) return
+    if (!user) {
+      alert('You must be logged in to add a family member')
+      return
+    }
 
     try {
       setIsLoading(true)
@@ -73,6 +76,7 @@ export default function AddFamilyMemberModal({ isOpen, onClose, onAddMember, onU
 
       // Handle custom avatar upload if file is selected
       if (customAvatarFile) {
+        console.log('Uploading custom avatar for user:', user.id)
         if (isEditMode && editMember) {
           // Replace existing avatar
           finalAvatarUrl = await replaceAvatar(
@@ -97,7 +101,8 @@ export default function AddFamilyMemberModal({ isOpen, onClose, onAddMember, onU
       onClose()
     } catch (error) {
       console.error('Error uploading avatar:', error)
-      alert('Failed to upload avatar. Please try again.')
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload avatar'
+      alert(`Failed to upload avatar: ${errorMessage}`)
     } finally {
       setIsLoading(false)
     }
