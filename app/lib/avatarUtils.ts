@@ -49,13 +49,21 @@ export async function uploadAvatar(file: File, userId: string, memberId: number)
 
 export async function deleteAvatar(avatarUrl: string): Promise<void> {
   try {
+    // Only delete if it's a custom upload URL (contains /storage/v1/object/public/avatars/)
+    if (!avatarUrl.includes('/storage/v1/object/public/avatars/')) {
+      console.log('Skipping delete - not a custom upload URL:', avatarUrl)
+      return
+    }
+
     // Extract the file path from the public URL
     const urlParts = avatarUrl.split('/storage/v1/object/public/avatars/')
     if (urlParts.length !== 2) {
-      throw new Error('Invalid avatar URL')
+      throw new Error('Invalid avatar URL format')
     }
 
     const filePath = decodeURIComponent(urlParts[1])
+
+    console.log('Deleting avatar file:', filePath)
 
     // Delete the file
     const { error } = await supabase.storage
@@ -65,6 +73,7 @@ export async function deleteAvatar(avatarUrl: string): Promise<void> {
     if (error) {
       throw error
     }
+    console.log('Avatar deleted successfully')
   } catch (error) {
     console.error('Error deleting avatar:', error)
     throw error
@@ -78,9 +87,13 @@ export async function replaceAvatar(
   oldAvatarUrl: string | null
 ): Promise<string | null> {
   try {
-    // Delete old avatar if it exists and is a custom upload
-    if (oldAvatarUrl && !oldAvatarUrl.includes('dicebear')) {
-      await deleteAvatar(oldAvatarUrl)
+    // Try to delete old avatar if it exists and is a custom upload
+    if (oldAvatarUrl && !oldAvatarUrl.includes('dicebear') && oldAvatarUrl.includes('/storage/v1/object/public/')) {
+      try {
+        await deleteAvatar(oldAvatarUrl)
+      } catch (deleteError) {
+        console.warn('Could not delete old avatar, proceeding with upload:', deleteError)
+      }
     }
 
     // Upload new avatar
