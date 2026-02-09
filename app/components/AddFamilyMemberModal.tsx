@@ -38,9 +38,25 @@ export default function AddFamilyMemberModal({ isOpen, onClose, onAddMember, onU
       setName(editMember.name)
       setColor(editMember.color)
       setRole(editMember.role || '')
-      setAvatarStyle(editMember.avatar_url || 'adventurer')
-      setCustomAvatarFile(null)
-      setCustomAvatarPreview(null)
+      
+      // Check if avatar is a custom upload
+      if (editMember.avatar_url && editMember.avatar_url.includes('/storage/v1/object/public/avatars/')) {
+        // It's a custom upload, show preview
+        setCustomAvatarPreview(editMember.avatar_url)
+        setCustomAvatarFile(null)
+        setAvatarStyle('adventurer')
+      } else if (editMember.avatar_url && editMember.avatar_url.includes('dicebear:')) {
+        // It's a dicebear format, extract the style
+        const parts = editMember.avatar_url.split(':')
+        setAvatarStyle(parts[1] || 'adventurer')
+        setCustomAvatarFile(null)
+        setCustomAvatarPreview(null)
+      } else {
+        // Legacy format or something else
+        setAvatarStyle(editMember.avatar_url || 'adventurer')
+        setCustomAvatarFile(null)
+        setCustomAvatarPreview(null)
+      }
     } else if (!isOpen) {
       setName('')
       setColor('#3B82F6')
