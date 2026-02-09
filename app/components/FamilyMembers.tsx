@@ -110,34 +110,10 @@ export default function FamilyMembers({ title = 'Family Members' }: FamilyMember
       )
     }
 
-    // Check if it's a custom uploaded avatar (URL format)
-    if (member.avatar_url.startsWith('http')) {
-      return (
-        <img
-          src={member.avatar_url}
-          alt={member.name}
-          className="w-full h-full object-cover"
-        />
-      )
-    }
-
-    // Check if it's a dicebear generated avatar
-    if (member.avatar_url.startsWith('dicebear:')) {
-      const style = member.avatar_url.replace('dicebear:', '').split(':')[0]
-      const seed = member.avatar_url.includes(':') ? member.avatar_url.split(':')[2] : member.name
-      return (
-        <img
-          src={`https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seed)}`}
-          alt={member.name}
-          className="w-full h-full"
-        />
-      )
-    }
-
-    // Legacy format - plain style string
+    // Avatar is stored as filename (e.g., "avatar_1.svg")
     return (
       <img
-        src={`https://api.dicebear.com/7.x/${member.avatar_url}/svg?seed=${encodeURIComponent(member.name)}`}
+        src={`/avatars/${member.avatar_url}`}
         alt={member.name}
         className="w-full h-full"
       />
