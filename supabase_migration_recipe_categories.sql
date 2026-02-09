@@ -70,7 +70,7 @@ CREATE POLICY "Users can delete junction entries for their recipes"
 
 -- Insert default categories
 INSERT INTO recipe_categories (user_id, name, color)
-VALUES 
+VALUES
   (NULL, 'Breakfast', 'yellow'),
   (NULL, 'Lunch', 'blue'),
   (NULL, 'Dinner', 'purple'),

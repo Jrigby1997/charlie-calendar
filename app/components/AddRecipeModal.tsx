@@ -25,6 +25,7 @@ type RecipeIngredient = {
 type Recipe = {
   id?: number
   name: string
+  description?: string | null
   instructions: string
   recipe_ingredients: RecipeIngredient[]
   categories?: RecipeCategory[]
@@ -32,6 +33,9 @@ type Recipe = {
   cook_time: number | null
   servings: number | null
   calories: number | null
+  protein?: number | null
+  fat?: number | null
+  carbs?: number | null
   rating: number | null
 }
 
@@ -63,11 +67,15 @@ export default function AddRecipeModal({
   availableCategories,
 }: AddRecipeModalProps) {
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [instructions, setInstructions] = useState('')
   const [prepTime, setPrepTime] = useState<number | ''>('')
   const [cookTime, setCookTime] = useState<number | ''>('')
   const [servings, setServings] = useState<number | ''>('')
   const [calories, setCalories] = useState<number | ''>('')
+  const [protein, setProtein] = useState<number | ''>('')
+  const [fat, setFat] = useState<number | ''>('')
+  const [carbs, setCarbs] = useState<number | ''>('')
   const [rating, setRating] = useState<number | ''>('')
   const [selectedCategories, setSelectedCategories] = useState<number[]>([])
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([])
@@ -89,11 +97,15 @@ export default function AddRecipeModal({
   useEffect(() => {
     if (editingRecipe) {
       setName(editingRecipe.name)
+      setDescription(editingRecipe.description ?? '')
       setInstructions(editingRecipe.instructions)
       setPrepTime(editingRecipe.prep_time ?? '')
       setCookTime(editingRecipe.cook_time ?? '')
       setServings(editingRecipe.servings ?? '')
       setCalories(editingRecipe.calories ?? '')
+      setProtein(editingRecipe.protein ?? '')
+      setFat(editingRecipe.fat ?? '')
+      setCarbs(editingRecipe.carbs ?? '')
       setRating(editingRecipe.rating ?? '')
       setIngredients(editingRecipe.recipe_ingredients || [])
       setSelectedCategories(editingRecipe.categories ? editingRecipe.categories.map((c) => c.id) : [])
@@ -118,11 +130,15 @@ export default function AddRecipeModal({
 
   function resetForm() {
     setName('')
+    setDescription('')
     setInstructions('')
     setPrepTime('')
     setCookTime('')
     setServings('')
     setCalories('')
+    setProtein('')
+    setFat('')
+    setCarbs('')
     setRating('')
     setIngredients([])
     setSelectedCategories([])
@@ -154,11 +170,27 @@ export default function AddRecipeModal({
 
       // Auto-fill form with imported data
       if (recipeData.name) setName(recipeData.name)
+      if (recipeData.description) setDescription(recipeData.description)
       if (recipeData.instructions) setInstructions(recipeData.instructions)
       if (recipeData.prep_time) setPrepTime(recipeData.prep_time)
       if (recipeData.cook_time) setCookTime(recipeData.cook_time)
       if (recipeData.servings) setServings(recipeData.servings)
       if (recipeData.calories) setCalories(recipeData.calories)
+      if (recipeData.protein) setProtein(recipeData.protein)
+      if (recipeData.fat) setFat(recipeData.fat)
+      if (recipeData.carbs) setCarbs(recipeData.carbs)
+
+      // Auto-select dietary tag categories if found
+      if (recipeData.dietary_tags && recipeData.dietary_tags.length > 0) {
+        const dietaryCategories = availableCategories.filter(cat =>
+          recipeData.dietary_tags.some((tag: string) =>
+            cat.name.toLowerCase().includes(tag.toLowerCase()) ||
+            tag.toLowerCase().includes(cat.name.toLowerCase())
+          )
+        )
+        const dietaryCategoryIds = dietaryCategories.map(cat => cat.id)
+        setSelectedCategories(prev => [...new Set([...prev, ...dietaryCategoryIds])])
+      }
 
       // Process ingredients
       if (recipeData.ingredients && recipeData.ingredients.length > 0) {
@@ -295,6 +327,7 @@ export default function AddRecipeModal({
 
     const recipeData: Recipe = {
       name,
+      description: description || null,
       instructions,
       recipe_ingredients: validIngredients,
       categories: availableCategories.filter((cat) => selectedCategories.includes(cat.id)),
@@ -302,6 +335,9 @@ export default function AddRecipeModal({
       cook_time: cookTime === '' ? null : Number(cookTime),
       servings: servings === '' ? null : Number(servings),
       calories: calories === '' ? null : Number(calories),
+      protein: protein === '' ? null : Number(protein),
+      fat: fat === '' ? null : Number(fat),
+      carbs: carbs === '' ? null : Number(carbs),
       rating: rating === '' ? null : Number(rating),
     }
 
@@ -374,6 +410,20 @@ export default function AddRecipeModal({
               required
               placeholder="e.g., Chocolate Chip Cookies"
               className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-white/90 mb-1">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="A brief description of the recipe..."
+              rows={3}
+              className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40 resize-none"
             />
           </div>
 
@@ -479,6 +529,57 @@ export default function AddRecipeModal({
                 placeholder="250"
                 className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
               />
+            </div>
+          </div>
+
+          {/* Nutrition Macros */}
+          <div>
+            <label className="block text-sm font-medium text-white/90 mb-2">
+              Nutrition (per serving)
+            </label>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-white/70 mb-1">
+                  Protein (g)
+                </label>
+                <input
+                  type="number"
+                  value={protein}
+                  onChange={(e) => setProtein(e.target.value === '' ? '' : Number(e.target.value))}
+                  min="0"
+                  step="0.1"
+                  placeholder="10"
+                  className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-white/70 mb-1">
+                  Fat (g)
+                </label>
+                <input
+                  type="number"
+                  value={fat}
+                  onChange={(e) => setFat(e.target.value === '' ? '' : Number(e.target.value))}
+                  min="0"
+                  step="0.1"
+                  placeholder="8"
+                  className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-white/70 mb-1">
+                  Carbs (g)
+                </label>
+                <input
+                  type="number"
+                  value={carbs}
+                  onChange={(e) => setCarbs(e.target.value === '' ? '' : Number(e.target.value))}
+                  min="0"
+                  step="0.1"
+                  placeholder="25"
+                  className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+                />
+              </div>
             </div>
           </div>
 

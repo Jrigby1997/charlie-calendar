@@ -26,6 +26,7 @@ type RecipeIngredient = {
 type Recipe = {
   id?: number
   name: string
+  description?: string | null
   instructions: string
   recipe_ingredients: RecipeIngredient[]
   categories?: RecipeCategory[]
@@ -33,17 +34,24 @@ type Recipe = {
   cook_time: number | null
   servings: number | null
   calories: number | null
+  protein?: number | null
+  fat?: number | null
+  carbs?: number | null
   rating: number | null
 }
 
 type RecipeFromDB = {
   id: number
   name: string
+  description?: string | null
   instructions: string
   prep_time: number | null
   cook_time: number | null
   servings: number | null
   calories: number | null
+  protein?: number | null
+  fat?: number | null
+  carbs?: number | null
   rating: number | null
   recipe_ingredients: Array<{
     id: number
@@ -157,11 +165,15 @@ export default function RecipesView({ userId }: RecipesViewProps) {
         .select(`
           id,
           name,
+          description,
           instructions,
           prep_time,
           cook_time,
           servings,
           calories,
+          protein,
+          fat,
+          carbs,
           rating,
           recipe_ingredients (
             id,
@@ -202,11 +214,15 @@ export default function RecipesView({ userId }: RecipesViewProps) {
         return {
           id: dbRecipe.id,
           name: dbRecipe.name,
+          description: dbRecipe.description,
           instructions: dbRecipe.instructions,
           prep_time: dbRecipe.prep_time,
           cook_time: dbRecipe.cook_time,
           servings: dbRecipe.servings,
           calories: dbRecipe.calories,
+          protein: dbRecipe.protein,
+          fat: dbRecipe.fat,
+          carbs: dbRecipe.carbs,
           rating: dbRecipe.rating,
           categories: recipeCategories,
           recipe_ingredients: (dbRecipe.recipe_ingredients || []).map((ri: any) => {
@@ -249,11 +265,15 @@ export default function RecipesView({ userId }: RecipesViewProps) {
         .insert({
           user_id: userId,
           name: recipe.name,
+          description: recipe.description || null,
           instructions: recipe.instructions,
           prep_time: recipe.prep_time || null,
           cook_time: recipe.cook_time || null,
           servings: recipe.servings || null,
           calories: recipe.calories || null,
+          protein: recipe.protein || null,
+          fat: recipe.fat || null,
+          carbs: recipe.carbs || null,
           rating: recipe.rating || null,
         })
         .select()
@@ -305,11 +325,15 @@ export default function RecipesView({ userId }: RecipesViewProps) {
         .from('recipes')
         .update({
           name: recipe.name,
+          description: recipe.description || null,
           instructions: recipe.instructions,
           prep_time: recipe.prep_time || null,
           cook_time: recipe.cook_time || null,
           servings: recipe.servings || null,
           calories: recipe.calories || null,
+          protein: recipe.protein || null,
+          fat: recipe.fat || null,
+          carbs: recipe.carbs || null,
           rating: recipe.rating || null,
         })
         .eq('id', id)
@@ -757,6 +781,13 @@ export default function RecipesView({ userId }: RecipesViewProps) {
               </button>
             </div>
 
+            {/* Description */}
+            {selectedRecipe.description && (
+              <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
+                <p className="text-white/80 text-sm leading-relaxed">{selectedRecipe.description}</p>
+              </div>
+            )}
+
             {/* Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-white/5 rounded-lg">
               {selectedRecipe.prep_time && (
@@ -784,6 +815,30 @@ export default function RecipesView({ userId }: RecipesViewProps) {
                 </div>
               )}
             </div>
+
+            {/* Nutrition Macros */}
+            {(selectedRecipe.protein || selectedRecipe.fat || selectedRecipe.carbs) && (
+              <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-white/5 rounded-lg">
+                {selectedRecipe.protein && (
+                  <div>
+                    <div className="text-white/60 text-sm">Protein</div>
+                    <div className="text-white font-semibold">{selectedRecipe.protein}g</div>
+                  </div>
+                )}
+                {selectedRecipe.fat && (
+                  <div>
+                    <div className="text-white/60 text-sm">Fat</div>
+                    <div className="text-white font-semibold">{selectedRecipe.fat}g</div>
+                  </div>
+                )}
+                {selectedRecipe.carbs && (
+                  <div>
+                    <div className="text-white/60 text-sm">Carbs</div>
+                    <div className="text-white font-semibold">{selectedRecipe.carbs}g</div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Ingredients */}
             {selectedRecipe.recipe_ingredients.length > 0 && (

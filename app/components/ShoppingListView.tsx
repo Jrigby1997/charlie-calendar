@@ -135,30 +135,30 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
 
   function formatShoppingList() {
     const unchecked = groupedList.filter(g => !checkedItems.has(g.ingredient_id))
-    
+
     let text = '🛒 Shopping List\n━━━━━━━━━━━━━━━━━━\n\n'
-    
+
     unchecked.forEach((group) => {
       const amounts = group.parts.map((part) => `${part.amount} ${part.measurement}`).join(' + ')
       text += `☐ ${amounts} ${group.name}\n`
-      
+
       const sources = formatSources(group.recipeCounts)
       if (sources) text += `   (${sources})\n`
       text += '\n'
     })
-    
+
     const checkedCount = checkedItems.size
     if (checkedCount > 0) {
       text += `\n━━━━━━━━━━━━━━━━━━\n✓ ${checkedCount} item${checkedCount > 1 ? 's' : ''} already checked off\n`
     }
-    
+
     return unchecked.length > 0 ? text : 'Shopping List\n\nNo items to share!'
   }
 
   async function handleShareList() {
     try {
       const text = formatShoppingList()
-      
+
       if (navigator.share) {
         await navigator.share({ title: 'Shopping List', text })
         showToast('List shared successfully!', 'success')

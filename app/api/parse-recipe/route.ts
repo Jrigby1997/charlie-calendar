@@ -104,14 +104,42 @@ function parseSchemaOrgRecipe(recipe: any) {
   const prepTime = parseDuration(recipe.prepTime)
   const cookTime = parseDuration(recipe.cookTime)
 
+  // Parse nutrition information
+  const nutrition = recipe.nutrition
+  const protein = nutrition?.proteinContent ? parseFloat(nutrition.proteinContent) : null
+  const fat = nutrition?.fatContent ? parseFloat(nutrition.fatContent) : null
+  const carbs = nutrition?.carbohydrateContent ? parseFloat(nutrition.carbohydrateContent) : null
+  const calories = nutrition?.calories ? parseInt(nutrition.calories) : null
+
+  // Parse dietary tags from suitableForDiet
+  const dietary_tags: string[] = []
+  if (recipe.suitableForDiet) {
+    const diets = Array.isArray(recipe.suitableForDiet) ? recipe.suitableForDiet : [recipe.suitableForDiet]
+    diets.forEach((diet: any) => {
+      const dietType = typeof diet === 'string' ? diet : diet['@type']
+      if (dietType) {
+        // Extract diet name from schema.org format (e.g., "https://schema.org/VeganDiet" -> "Vegan")
+        const dietName = dietType.replace(/.*\/(.*?)Diet$/i, '$1')
+        if (dietName && dietName !== dietType) {
+          dietary_tags.push(dietName)
+        }
+      }
+    })
+  }
+
   return {
     name: recipe.name || '',
+    description: recipe.description || '',
     instructions: instructions || '',
     ingredients: ingredients.filter((ing: any) => ing.ingredient_name),
     prep_time: prepTime,
     cook_time: cookTime,
     servings: parseServings(recipe.recipeYield),
-    calories: recipe.nutrition?.calories ? parseInt(recipe.nutrition.calories) : null,
+    calories: calories,
+    protein: protein,
+    fat: fat,
+    carbs: carbs,
+    dietary_tags: dietary_tags,
   }
 }
 

@@ -11,11 +11,15 @@ type Recipe = {
 type RecipeDetails = {
   id: number
   name: string
+  description?: string | null
   instructions: string
   prep_time: number | null
   cook_time: number | null
   servings: number | null
   calories: number | null
+  protein?: number | null
+  fat?: number | null
+  carbs?: number | null
   rating: number | null
   recipe_ingredients: {
     amount: number
