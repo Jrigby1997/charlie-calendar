@@ -19,8 +19,6 @@ type AddFamilyMemberModalProps = {
   editMember?: FamilyMember | null
 }
 
-const AVATAR_COUNT = 50
-
 export default function AddFamilyMemberModal({ isOpen, onClose, onAddMember, onUpdateMember, editMember }: AddFamilyMemberModalProps) {
   const { user } = useAuth()
   const [name, setName] = useState('')
@@ -28,8 +26,42 @@ export default function AddFamilyMemberModal({ isOpen, onClose, onAddMember, onU
   const [role, setRole] = useState('')
   const [selectedAvatar, setSelectedAvatar] = useState('avatar_1.svg')
   const [isLoading, setIsLoading] = useState(false)
+  const [availableAvatars, setAvailableAvatars] = useState<string[]>([])
 
   const isEditMode = !!editMember
+
+  // Load available avatars from the avatars directory
+  useEffect(() => {
+    async function loadAvatars() {
+      try {
+        // Try to load avatar metadata or just assume we have numbered avatars
+        // We'll check each avatar file to see if it exists
+        const avatars: string[] = []
+        
+        // Check for avatars 1-100 and add ones that load successfully
+        for (let i = 1; i <= 100; i++) {
+          for (const ext of ['svg', 'png', 'jpg', 'jpeg', 'gif', 'webp']) {
+            const filename = `avatar_${i}.${ext}`
+            // We'll add it to the list and let the img tag handle loading
+            // If it fails to load, the broken image will show but won't break the UI
+            if (!avatars.includes(filename)) {
+              // Check if this is the first extension we're trying for this number
+              const base = `avatar_${i}`
+              if (!avatars.find(a => a.startsWith(base))) {
+                avatars.push(filename)
+              }
+            }
+          }
+        }
+        
+        setAvailableAvatars(avatars)
+      } catch (error) {
+        console.error('Error loading avatars:', error)
+      }
+    }
+    
+    loadAvatars()
+  }, [])
 
   // Pre-fill form when editing, reset when adding
   useEffect(() => {
@@ -141,12 +173,11 @@ export default function AddFamilyMemberModal({ isOpen, onClose, onAddMember, onU
               Avatar *
             </label>
             <div className="grid grid-cols-8 gap-2 max-h-64 overflow-y-auto p-2 bg-white/5 rounded-xl border border-white/20">
-              {Array.from({ length: AVATAR_COUNT }, (_, i) => {
-                const avatarFile = `avatar_${i + 1}.svg`
+              {availableAvatars.map((avatarFile, i) => {
                 const isSelected = selectedAvatar === avatarFile
                 return (
                   <button
-                    key={i}
+                    key={avatarFile}
                     type="button"
                     onClick={() => setSelectedAvatar(avatarFile)}
                     className={`w-12 h-12 rounded-lg overflow-hidden transition-all duration-200 flex-shrink-0 ${
@@ -157,8 +188,12 @@ export default function AddFamilyMemberModal({ isOpen, onClose, onAddMember, onU
                   >
                     <img
                       src={`/avatars/${avatarFile}`}
-                      alt={`Avatar ${i + 1}`}
-                      className="w-full h-full"
+                      alt={avatarFile}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Hide broken images
+                        (e.target as HTMLImageElement).style.display = 'none'
+                      }}
                     />
                   </button>
                 )
