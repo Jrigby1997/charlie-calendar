@@ -37,7 +37,7 @@ export default function AddFamilyMemberModal({ isOpen, onClose, onAddMember, onU
         // Try to load avatar metadata or just assume we have numbered avatars
         // We'll check each avatar file to see if it exists
         const avatars: string[] = []
-        
+
         // Check for avatars 1-100 and add ones that load successfully
         for (let i = 1; i <= 100; i++) {
           for (const ext of ['svg', 'png', 'jpg', 'jpeg', 'gif', 'webp']) {
@@ -53,13 +53,13 @@ export default function AddFamilyMemberModal({ isOpen, onClose, onAddMember, onU
             }
           }
         }
-        
+
         setAvailableAvatars(avatars)
       } catch (error) {
         console.error('Error loading avatars:', error)
       }
     }
-    
+
     loadAvatars()
   }, [])
 
