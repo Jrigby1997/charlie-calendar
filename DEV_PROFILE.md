@@ -1,9 +1,9 @@
 # Developer Profile & Project Context
 
-**Last Updated:** February 7, 2026
+**Last Updated:** February 10, 2026, 8:00 AM
 **Developer:** jrigb
 **Project:** Skylight-style Calendar Application
-**Current Phase:** Recipes & Meal Planning Complete ✅ | UI/UX Optimizations Complete ✅
+**Current Phase:** Nutrition & Shopping Features Complete ✅ | Family Member Avatars Complete ✅ | Ready for Authentication
 
 ---
 
@@ -14,6 +14,77 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
 - **Persistent sessions** (no forced logouts)
 - Real-time updates across devices
 - Clean, intuitive family-friendly interface
+- Recipe planning with shopping list integration
+- Family member avatars and visual identity
+
+---
+
+## Recent Session Summary (Feb 9-10, 2026)
+
+**Duration:** ~2-3 hours
+**Accomplishments:**
+
+1. **Debugged Recipe Import Bug**
+   - Fixed pizza recipe import handling array `recipeYield` formats
+   - Modified `parseServings()` to handle both string and array yields
+   - Deployed successfully
+
+2. **Added Complete Nutrition Feature**
+   - Implemented schema.org nutrition extraction from recipe URLs
+   - Parses protein, fat, carbohydrate content as decimals
+   - Auto-detects dietary restrictions (vegan, gluten-free, dairy-free, keto, low-carb, paleo)
+   - 6 dietary categories created in database
+   - Nutrition fields added to recipe CRUD and display
+   - Full UI with edit forms and detail view
+   - Deployed successfully
+
+3. **Shopping List Enhancement**
+   - Added inline amount/measurement editing
+   - Save/cancel controls for each item
+   - Item-level granularity (each recipe source editable independently)
+   - Deployed successfully
+
+4. **Family Member Avatar System**
+   - Tried Supabase Storage upload approach (Option 1)
+   - Hit RLS policy issues and storage bucket complexity
+   - Switched to Option 3: Curated local avatar library ✅
+   - Created 50 professional SVG avatars (animals, robots, objects, characters)
+   - Implemented dynamic avatar picker (8-column grid, scrollable)
+   - Supports multiple formats: SVG, PNG, JPG, GIF, WebP
+   - Smart error handling for broken/missing avatars
+   - 7 working SVGs currently in production
+   - User uploaded 1 PNG (corrupted/failed to load, removed)
+   - Avatar system ready for user to add more via file downloads
+
+5. **Architecture Decision Made**
+   - Simplified from "upload to Supabase Storage" to "local avatar library"
+   - All avatars served from `/public/avatars/`
+   - No Supabase Storage bucket setup needed
+   - No RLS policies needed
+   - Infinitely scalable (add as many as needed)
+   - All 50+ calendars share same avatar library
+   - Much simpler codebase
+
+**Code Decisions:**
+- Made avatar picker dynamic (loads only existing files)
+- Removed hardcoded AVATAR_COUNT constant
+- Added broken image error handling to hide missing avatars gracefully
+- Supports both SVG and PNG/JPG avatars in same system
+
+**Deployed Commits:**
+- `8822ffc` - Pizza recipe import fix
+- `bcb1619` - Nutrition feature complete
+- `fe13511` - Shopping list amount editing
+- `94c7637` - Avatar URL validation fix (handled dicebear/storage formats)
+- `91bf65d` - Replaced boring letter avatars with 50 fun designs
+- `911b0a4` - Made avatar picker dynamic
+- `bb4c552` - Production push with 7 working avatars
+
+**Next Steps for Avatar System:**
+- User to download avatars from OpenMoji/Itch.io/etc
+- Name: `avatar_8.png`, `avatar_9.png`, etc. (continuing numbering)
+- Place in `/public/avatars/`
+- No code changes needed ever - system auto-detects
 
 ---
 
@@ -27,18 +98,20 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
 - Logic and business rules implementation
 - UI component development
 - React experience (a few years ago)
+- **Quick iteration and testing** in dev environment
+- **Real-time debugging** with console logging
 
 ### Past Experience (Rusty) 🕰️
 - **Python & Django** (bootcamp, 3 years ago - only a few months of hands-on)
 - **Terminal/Console commands** (bootcamp, 3 years ago - will need guidance)
 
 ### Learning Areas 🌱
-- **Database design & management** (SQL, database operations)
+- **Database design & management** (now gaining hands-on experience with Supabase)
 - **Web hosting & deployment** (servers, cloud platforms, DevOps)
 - **Backend/API development** (endpoints, server-side logic)
-- **Real-time data synchronization**
-- **Authentication & session management**
-- **Terminal/command line workflows** (needs refresher)
+- **Real-time data synchronization** (actively using Supabase Realtime)
+- **Authentication & session management** (next priority)
+- **Terminal/command line workflows** (improving with git usage)
 
 ### Current Work Environment
 - Works in a proprietary system that abstracts:
@@ -47,19 +120,20 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
   - API endpoints
   - Data persistence
 - Writes TypeScript/JavaScript within this managed environment
-- Limited experience with raw database queries or infrastructure
+- Now working with raw database (Supabase) - learning in progress!
 
 ---
 
 ## 🎓 Teaching Preferences
 
-6. **Explain terminal commands** - provide context for what each command does
 ### How to Help Me Best
 1. **Explain concepts as we implement them** - don't assume database/hosting knowledge
 2. **Provide working examples** - I learn by seeing it work
 3. **Step-by-step guidance** for infrastructure/database tasks
 4. **Quick iteration cycles** - I want to see changes immediately
 5. **Explain the "why"** - help me understand architectural decisions
+6. **Explain terminal commands** - provide context for what each command does
+7. **Acknowledge when I make good technical decisions** - validates my learning
 
 ### What I DON'T Need
 - Basic programming concepts (variables, functions, conditionals)
@@ -76,11 +150,13 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
 - **Hosting:** Vercel (seamless Next.js deployment)
 - **Authentication:** Supabase Auth
 - **Styling:** Tailwind CSS
+- **Static Assets:** Next.js `/public` folder for avatars (no storage service needed)
 
 ### Why This Stack
 - **Supabase:** Real-time sync out of the box, simple auto-save, built-in auth, excellent learning UI for database concepts
 - **Vercel:** Deploys Next.js in seconds, free tier, git-based workflow
 - **Next.js + Tailwind:** Modern, fast development, excellent DX with hot reload
+- **Local static assets:** Keeps architecture simple, no external dependencies for avatars
 - All services have generous free tiers
 
 ### Key Requirements
@@ -89,15 +165,17 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
 - **Real-time sync** across devices
 - **Simple deployment process**
 - **Persistent user sessions**
+- **Scalability** without per-user storage costs
 
 ---
 
 ## 📋 Project Status
 
-**Phase:** Calendar MVP Complete ✅
-**Current Step:** Ready for Authentication & Multi-user Support
+**Phase:** Features Complete ✅ | Now Ready for Authentication & Multi-user Support
+**Current Date:** February 10, 2026
+**Next Priority:** Multi-user authentication setup
 
-### Completed (February 5-6, 2026)
+### Completed (February 5-10, 2026)
 
 **Day 1 - Foundation (Feb 5):**
 - ✅ Defined project goals and full feature roadmap
