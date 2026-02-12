@@ -8,6 +8,8 @@ import FamilyMembers from './components/FamilyMembers'
 import CalendarView from './components/CalendarView'
 import RecipesView from './components/RecipesView'
 import ShoppingListView from './components/ShoppingListView'
+import TasksView from './components/TasksView'
+import RewardsView from './components/RewardsView'
 import AddEventModal from './components/AddEventModal'
 import MealPlanModal from './components/MealPlanModal'
 import SettingsModal from './components/SettingsModal'
@@ -41,6 +43,7 @@ type FamilyMember = {
   name: string
   color: string
   role: string | null
+  avatar_url?: string | null
 }
 
 export default function Home() {
@@ -54,7 +57,7 @@ export default function Home() {
   const [newEventDate, setNewEventDate] = useState<string>('')
   const [newEventTime, setNewEventTime] = useState<string>('')
   const [eventExceptions, setEventExceptions] = useState<any[]>([])
-  const [currentView, setCurrentView] = useState<'calendar' | 'recipes' | 'shopping-list'>('calendar')
+  const [currentView, setCurrentView] = useState<'calendar' | 'recipes' | 'shopping-list' | 'tasks' | 'rewards'>('calendar')
   const [visibleMembers, setVisibleMembers] = useState<Set<number>>(new Set())
   const [showUnassigned, setShowUnassigned] = useState(true)
   const [mealPlans, setMealPlans] = useState<any[]>([])
@@ -197,7 +200,7 @@ export default function Home() {
   async function loadFamilyMembers() {
     const { data, error } = await supabase
       .from('family_members')
-      .select('id, name, color, role')
+      .select('id, name, color, role, avatar_url')
       .eq('is_active', true)
       .order('created_at', { ascending: true })
 
@@ -972,6 +975,26 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
               >
                 🛒 Shopping List
               </button>
+              <button
+                onClick={() => setCurrentView('tasks')}
+                className={`px-5 py-2 rounded-lg font-medium transition-all duration-200 ${
+                  currentView === 'tasks'
+                    ? 'bg-white/30 text-white shadow-lg'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                ✅ Tasks
+              </button>
+              <button
+                onClick={() => setCurrentView('rewards')}
+                className={`px-5 py-2 rounded-lg font-medium transition-all duration-200 ${
+                  currentView === 'rewards'
+                    ? 'bg-white/30 text-white shadow-lg'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                🏆 Rewards
+              </button>
             </div>
             <button
               onClick={() => setIsSettingsOpen(true)}
@@ -1019,8 +1042,18 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
               />
             ) : currentView === 'recipes' ? (
               <RecipesView userId={user?.id || ''} />
-            ) : (
+            ) : currentView === 'shopping-list' ? (
               <ShoppingListView userId={user?.id || ''} />
+            ) : currentView === 'tasks' ? (
+              <TasksView
+                familyMembers={familyMembers}
+                onShowToast={showToast}
+              />
+            ) : (
+              <RewardsView
+                familyMembers={familyMembers}
+                onShowToast={showToast}
+              />
             )}
           </div>
         </div>

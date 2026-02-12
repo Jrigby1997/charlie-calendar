@@ -19,14 +19,22 @@ type FamilyMembersProps = {
   title?: string
 }
 
+type MemberPoints = {
+  family_member_id: number
+  total_points: number
+  redeemed_points: number
+}
+
 export default function FamilyMembers({ title = 'Family Members' }: FamilyMembersProps) {
   const { user } = useAuth()
   const [members, setMembers] = useState<FamilyMember[]>([])
+  const [memberPoints, setMemberPoints] = useState<MemberPoints[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null)
 
   useEffect(() => {
     loadMembers()
+    loadMemberPoints()
 
     // Subscribe to realtime changes
     const channel = supabase
@@ -39,10 +47,38 @@ export default function FamilyMembers({ title = 'Family Members' }: FamilyMember
       )
       .subscribe()
 
+    const pointsChannel = supabase
+      .channel('sidebar-points-changes')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'member_points' },
+        () => {
+          loadMemberPoints()
+        }
+      )
+      .subscribe()
+
     return () => {
       supabase.removeChannel(channel)
+      supabase.removeChannel(pointsChannel)
     }
   }, [])
+
+  async function loadMemberPoints() {
+    const { data, error } = await supabase
+      .from('member_points')
+      .select('family_member_id, total_points, redeemed_points')
+
+    if (error) {
+      console.error('Error loading member points:', error)
+    } else {
+      setMemberPoints(data || [])
+    }
+  }
+
+  function getAvailablePoints(memberId: number): number {
+    const mp = memberPoints.find((p) => p.family_member_id === memberId)
+    return mp ? mp.total_points - mp.redeemed_points : 0
+  }
 
   async function loadMembers() {
     const { data, error } = await supabase
@@ -171,9 +207,16 @@ export default function FamilyMembers({ title = 'Family Members' }: FamilyMember
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-white truncate text-lg drop-shadow-md">{member.name}</h3>
-                  {member.role && (
-                    <p className="text-sm text-white/90 truncate drop-shadow">{member.role}</p>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {member.role && (
+                      <p className="text-sm text-white/90 truncate drop-shadow">{member.role}</p>
+                    )}
+                    {getAvailablePoints(member.id) > 0 && (
+                      <span className="text-sm font-semibold text-yellow-300 drop-shadow">
+                        ⭐ {getAvailablePoints(member.id)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

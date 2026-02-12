@@ -1,3 +1,29 @@
+## 📝 Latest Updates (February 12, 2026)
+
+### Phase 5: Task & Reward System, Points Logic Fix
+
+**Task & Reward System:**
+- ✅ Full-featured task/chore tracker with daily and one-off tasks
+- ✅ Per-family-member columns (Skylight-style) for tasks and rewards
+- ✅ Points/stars system for completing tasks, with real-time updates
+- ✅ Rewards store: spend stars on one-off or reusable rewards, per-member assignment
+- ✅ Prevents unchecking tasks if points have already been spent (no negative balances)
+- ✅ All tables use Supabase RLS and realtime subscriptions
+
+**Bug Fixes & Logic Improvements:**
+- ✅ Fixed exploit: cannot uncheck a completed task if those points have already been redeemed for rewards
+
+**Database:**
+- ✅ Added tables: `tasks`, `task_assignments`, `task_completions`, `member_points`, `rewards`, `reward_assignments`, `reward_redemptions`
+
+**UI:**
+- ✅ Rewards tab and view mirrors task layout, with per-member columns and redeem logic
+
+**Next Steps:**
+- Authentication and multi-user support
+- Mobile responsiveness polish
+
+---
 # Skylight Calendar - Family Organizer
 
 A modern family organization application with real-time synchronization, auto-save, multi-member support, and beautiful glassmorphism design.
@@ -78,15 +104,18 @@ A modern family organization application with real-time synchronization, auto-sa
 - Calendar Sync: Integrate with Outlook, Google Calendar, and Apple Calendar
 - Toggle Visibility: Show/hide individual calendars
 
-### 2. ✅ Habit & Chore Tracker
-- **Per-Member Tracking:** Each family member has their own row/column
-- **Three Categories:**
-  - Habits (daily routines)
-  - Chores (household tasks)
-  - To-Dos (one-off tasks)
-- **Reward System:** Award points/stars for completed items
-- **Progress Visualization:** GitHub-style activity squares showing completion patterns
-- **Multiple Views:** Day, week, month, year views
+### 2. ✅ Task, Chore & Reward Tracker
+
+- **Per-Member Tracking:** Each family member has their own column
+- **Task Types:** Daily (recurring) and one-off tasks
+- **Reward System:** Earn points/stars for completed tasks, spend on rewards
+- **Rewards Store:** Per-member, supports one-off and reusable rewards, disables unaffordable
+- **Points Logic:** Cannot uncheck a task if points have already been spent
+- **Progress Visualization:** Completion counts and points per member
+- **Multiple Views:** Day, week, month, year (planned)
+
+**Current Status:** Fully implemented and integrated ✅
+**Next Phase:** Habit streak visualization, mobile polish
 
 **Current Status:** Not started
 **Next Phase:** Design database schema and UI
@@ -116,6 +145,70 @@ A modern family organization application with real-time synchronization, auto-sa
 - Additional family organization features
 
 ---
+
+
+### Current Database Schema
+
+**tasks table:** ✅
+- `id` (bigint, primary key)
+- `user_id` (uuid, foreign key → auth.users.id)
+- `title` (text, required)
+- `description` (text, optional)
+- `task_type` (text, 'daily'|'one_off')
+- `points` (integer, required)
+- `is_active` (boolean, default true)
+- `created_at` (timestamp)
+- Realtime enabled ✅
+
+**task_assignments table:** ✅
+- `id` (bigint, primary key)
+- `task_id` (bigint, foreign key → tasks.id)
+- `family_member_id` (bigint, foreign key → family_members.id)
+- Unique constraint on (task_id, family_member_id)
+- Realtime enabled ✅
+
+**task_completions table:** ✅
+- `id` (bigint, primary key)
+- `task_id` (bigint, foreign key → tasks.id)
+- `family_member_id` (bigint, foreign key → family_members.id)
+- `completed_date` (date)
+- `points_earned` (integer)
+- Unique constraint on (task_id, family_member_id, completed_date)
+- Realtime enabled ✅
+
+**member_points table:** ✅
+- `id` (bigint, primary key)
+- `family_member_id` (bigint, foreign key → family_members.id)
+- `total_points` (integer)
+- `redeemed_points` (integer)
+- Unique constraint on (family_member_id)
+- Realtime enabled ✅
+
+**rewards table:** ✅
+- `id` (bigint, primary key)
+- `user_id` (uuid, foreign key → auth.users.id)
+- `title` (text, required)
+- `description` (text, optional)
+- `cost` (integer, required)
+- `reward_type` (text, 'reusable'|'one_off')
+- `is_active` (boolean, default true)
+- `created_at` (timestamp)
+- Realtime enabled ✅
+
+**reward_assignments table:** ✅
+- `id` (bigint, primary key)
+- `reward_id` (bigint, foreign key → rewards.id)
+- `family_member_id` (bigint, foreign key → family_members.id)
+- Unique constraint on (reward_id, family_member_id)
+- Realtime enabled ✅
+
+**reward_redemptions table:** ✅
+- `id` (bigint, primary key)
+- `reward_id` (bigint, foreign key → rewards.id)
+- `family_member_id` (bigint, foreign key → family_members.id)
+- `points_spent` (integer)
+- `redeemed_at` (timestamp)
+- Realtime enabled ✅
 
 ## Tech Stack
 

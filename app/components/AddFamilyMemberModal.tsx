@@ -32,32 +32,45 @@ export default function AddFamilyMemberModal({ isOpen, onClose, onAddMember, onU
 
   // Load available avatars from the avatars directory
   useEffect(() => {
-    async function loadAvatars() {
-      try {
-        // Try to load avatar metadata or just assume we have numbered avatars
-        // We'll check each avatar file to see if it exists
-        const avatars: string[] = []
+    function loadAvatars() {
+      const avatars: string[] = []
+      const promises: Promise<void>[] = []
 
-        // Check for avatars 1-100 and add ones that load successfully
-        for (let i = 1; i <= 100; i++) {
-          for (const ext of ['svg', 'png', 'jpg', 'jpeg', 'gif', 'webp']) {
-            const filename = `avatar_${i}.${ext}`
-            // We'll add it to the list and let the img tag handle loading
-            // If it fails to load, the broken image will show but won't break the UI
-            if (!avatars.includes(filename)) {
-              // Check if this is the first extension we're trying for this number
+      // Check for avatars 1-20 (reasonable limit to avoid too many requests)
+      for (let i = 1; i <= 20; i++) {
+        for (const ext of ['svg', 'png', 'jpg', 'jpeg', 'gif', 'webp']) {
+          const filename = `avatar_${i}.${ext}`
+
+          const promise = new Promise<void>((resolve) => {
+            const img = new Image()
+            img.onload = () => {
+              // Check if we already have an avatar for this number
               const base = `avatar_${i}`
               if (!avatars.find(a => a.startsWith(base))) {
                 avatars.push(filename)
               }
+              resolve()
             }
-          }
-        }
+            img.onerror = () => {
+              resolve() // Resolve anyway, just don't add the avatar
+            }
+            img.src = `/avatars/${filename}`
+          })
 
-        setAvailableAvatars(avatars)
-      } catch (error) {
-        console.error('Error loading avatars:', error)
+          promises.push(promise)
+        }
       }
+
+      // Wait for all image loading attempts to complete
+      Promise.all(promises).then(() => {
+        // Sort avatars by number
+        avatars.sort((a, b) => {
+          const aNum = parseInt(a.match(/avatar_(\d+)/)?.[1] || '0')
+          const bNum = parseInt(b.match(/avatar_(\d+)/)?.[1] || '0')
+          return aNum - bNum
+        })
+        setAvailableAvatars(avatars)
+      })
     }
 
     loadAvatars()
@@ -190,6 +203,15 @@ export default function AddFamilyMemberModal({ isOpen, onClose, onAddMember, onU
                       src={`/avatars/${avatarFile}`}
                       alt={avatarFile}
                       className="w-full h-full object-cover"
+                      style={{
+                        // Remove white/light backgrounds from JPEG avatars
+                        filter: avatarFile.endsWith('.jpg') || avatarFile.endsWith('.jpeg')
+                          ? 'contrast(1.1) brightness(1.1)'
+                          : 'none',
+                        mixBlendMode: avatarFile.endsWith('.jpg') || avatarFile.endsWith('.jpeg')
+                          ? 'multiply'
+                          : 'normal'
+                      }}
                       onError={(e) => {
                         // Hide broken images
                         (e.target as HTMLImageElement).style.display = 'none'

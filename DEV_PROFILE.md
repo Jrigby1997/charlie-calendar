@@ -1,6 +1,6 @@
 # Developer Profile & Project Context
 
-**Last Updated:** February 10, 2026, 8:00 AM
+**Last Updated:** February 12, 2026, 10:00 PM
 **Developer:** jrigb
 **Project:** Skylight-style Calendar Application
 **Current Phase:** Nutrition & Shopping Features Complete ✅ | Family Member Avatars Complete ✅ | Ready for Authentication
@@ -19,24 +19,34 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
 
 ---
 
-## Recent Session Summary (Feb 9-10, 2026)
 
-**Duration:** ~2-3 hours
+## Recent Session Summary (Feb 12, 2026)
+
+**Duration:** ~3 hours
 **Accomplishments:**
 
-1. **Debugged Recipe Import Bug**
-   - Fixed pizza recipe import handling array `recipeYield` formats
-   - Modified `parseServings()` to handle both string and array yields
-   - Deployed successfully
+1. **Built Task & Reward System**
+  - Designed and implemented full-featured task/chore tracker
+  - Per-family-member columns (Skylight-style) for both tasks and rewards
+  - Daily and one-off task types, with points/stars system
+  - Rewards store: per-member, supports one-off and reusable rewards, disables unaffordable
+  - All CRUD via Supabase client, no API routes
+  - Real-time sync for all tables (tasks, rewards, completions, points)
+  - Added AddTaskModal, AddRewardModal, TasksView, RewardsView components
+  - Updated navigation and FamilyMembers sidebar for points
+  - Created and ran SQL migrations for all new tables (tasks, task_assignments, task_completions, member_points, rewards, reward_assignments, reward_redemptions)
 
-2. **Added Complete Nutrition Feature**
-   - Implemented schema.org nutrition extraction from recipe URLs
-   - Parses protein, fat, carbohydrate content as decimals
-   - Auto-detects dietary restrictions (vegan, gluten-free, dairy-free, keto, low-carb, paleo)
-   - 6 dietary categories created in database
-   - Nutrition fields added to recipe CRUD and display
-   - Full UI with edit forms and detail view
-   - Deployed successfully
+2. **Logic Fix: Prevent Points Exploit**
+  - Fixed bug: users cannot uncheck a completed task if those points have already been spent on rewards (prevents negative balances)
+  - Added toast notification if unchecking is blocked
+
+3. **UI/UX:**
+  - Rewards tab and view mirrors task layout, with per-member columns and redeem logic
+  - All new features match glassmorphism design and real-time updates
+
+**Next Steps:**
+- Authentication and multi-user support
+- Mobile responsiveness polish
 
 3. **Shopping List Enhancement**
    - Added inline amount/measurement editing
