@@ -32,6 +32,7 @@ type FamilyMember = {
   name: string
   color: string
   role: string | null
+  avatar_url?: string | null
 }
 
 type CalendarViewProps = {
@@ -56,7 +57,6 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<'day' | 'week' | 'month'>('week')
   const [currentTime, setCurrentTime] = useState(new Date())
-  const [showFilters, setShowFilters] = useState(false)
   const [draggedEventId, setDraggedEventId] = useState<number | null>(null)
   const dragOffsetY = useRef<number>(0)
 
@@ -68,18 +68,35 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
     return () => clearInterval(interval)
   }, [])
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Escape to close modal/filters
-      if (e.key === 'Escape') {
-        setShowFilters(false)
-      }
+  // Helper function to get avatar display for family member icons
+  function getMemberAvatarDisplay(member: FamilyMember) {
+    if (member.avatar_url) {
+      return (
+        <img
+          src={`/avatars/${member.avatar_url}`}
+          alt={member.name}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            // Fallback to initial if image fails to load
+            const target = e.target as HTMLImageElement
+            target.style.display = 'none'
+            const parent = target.parentElement
+            if (parent) {
+              const initial = document.createElement('span')
+              initial.className = 'text-white text-xs font-bold'
+              initial.textContent = member.name.charAt(0).toUpperCase()
+              parent.appendChild(initial)
+            }
+          }}
+        />
+      )
     }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+    return (
+      <span className="text-white text-xs font-bold">
+        {member.name.charAt(0).toUpperCase()}
+      </span>
+    )
+  }
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -422,130 +439,113 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
     <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl p-6 h-full flex flex-col border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
       {/* Calendar Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white drop-shadow-lg">
+        <h2 className="text-4xl font-bold text-white drop-shadow-lg">
           {view === 'day' ? `${dayOfWeekName}, ${dayTitle}` : view === 'week' ? weekTitle : `${monthNames[month]} ${year}`}
         </h2>
-        <div className="flex gap-3">
-          <button
-            onClick={onAddEventClick}
-            className="px-5 py-2.5 bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white rounded-xl font-medium transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105 border border-white/30"
-          >
-            <span className="text-xl">+</span> Add Event
-          </button>
-          <div className="flex bg-white/10 backdrop-blur-lg rounded-xl p-1 shadow-lg border border-white/20">
+        <div className="flex flex-col items-end gap-3">
+          {/* Family Member Filter Icons */}
+          <div className="flex items-center gap-2">
+
+            {/* Family Member Icons */}
+            {familyMembers.map((member) => {
+              const isVisible = visibleMembers.has(member.id)
+              return (
+                <button
+                  key={member.id}
+                  onClick={() => onToggleMember(member.id)}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 transition-all duration-200 border-2 shadow-md ${
+                    isVisible
+                      ? 'border-white/50'
+                      : 'border-white/20 opacity-50'
+                  }`}
+                  style={{ backgroundColor: isVisible ? member.color : undefined }}
+                  title={member.name}
+                >
+                  {isVisible ? (
+                    getMemberAvatarDisplay(member)
+                  ) : (
+                    <div className="w-full h-full bg-gray-600/60 flex items-center justify-center">
+                      <span className="text-white/60 text-xs font-bold">
+                        {member.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+            {/* Unassigned Filter Icon */}
             <button
-              onClick={() => setView('day')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                view === 'day'
-                  ? 'bg-white/30 text-white shadow-md scale-105 border border-white/40'
-                  : 'text-white/80 hover:text-white hover:bg-white/20 border border-transparent'
+              onClick={() => onToggleUnassigned(!showUnassigned)}
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 border-2 shadow-md ${
+                showUnassigned
+                  ? 'border-white/50 bg-gray-600/80'
+                  : 'border-white/20 bg-gray-600/40 opacity-50'
               }`}
+              title="Unassigned Events"
             >
-              Day
-            </button>
-            <button
-              onClick={() => setView('week')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                view === 'week'
-                  ? 'bg-white/30 text-white shadow-md scale-105 border border-white/40'
-                  : 'text-white/80 hover:text-white hover:bg-white/20 border border-transparent'
-              }`}
-            >
-              Week
-            </button>
-            <button
-              onClick={() => setView('month')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                view === 'month'
-                  ? 'bg-white/30 text-white shadow-md scale-105 border border-white/40'
-                  : 'text-white/80 hover:text-white hover:bg-white/20 border border-transparent'
-              }`}
-            >
-              Month
+              <span className="text-white text-xs font-bold">?</span>
             </button>
           </div>
-          <button
-            onClick={goToToday}
-            className="px-5 py-2.5 bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white rounded-xl font-medium transition-all duration-200 shadow-md hover:shadow-lg border border-white/30 hover:scale-105"
-          >
-            Today
-          </button>
-          <button
-            onClick={previousMonth}
-            className="px-4 py-2.5 bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 border border-white/30"
-          >
-            ←
-          </button>
-          <button
-            onClick={nextMonth}
-            className="px-4 py-2.5 bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 border border-white/30"
-          >
-            →
-          </button>
 
-          {/* Calendar Filters */}
-          <div className="relative">
+          {/* Calendar Controls */}
+          <div className="flex gap-3">
             <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="px-4 py-2.5 bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 border border-white/30 flex items-center gap-2"
+              onClick={onAddEventClick}
+              className="px-5 py-2.5 bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white rounded-xl font-medium transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105 border border-white/30"
             >
-              🔍 Filters
+              <span className="text-xl">+</span> Add Event
             </button>
-
-            {showFilters && (
-              <div className="absolute top-full right-0 mt-2 w-64 bg-gray-900/95 backdrop-blur-xl border border-white/40 rounded-lg p-4 shadow-2xl z-50">
-                <div className="space-y-3">
-                  {/* Unassigned Events Filter */}
-                  <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white/10 rounded transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={showUnassigned}
-                      onChange={(e) => onToggleUnassigned(e.target.checked)}
-                      className="w-4 h-4 rounded border border-white/30 cursor-pointer accent-blue-400"
-                    />
-                    <span className="text-white text-sm flex-1 font-medium">Unassigned Events</span>
-                  </label>
-
-                  {/* Family Member Filters */}
-                  <div className="border-t border-white/20 pt-3">
-                    {familyMembers.map(member => (
-                      <label
-                        key={member.id}
-                        className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white/10 rounded transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={visibleMembers.has(member.id)}
-                          onChange={() => onToggleMember(member.id)}
-                          className="w-4 h-4 rounded border border-white/30 cursor-pointer accent-blue-400"
-                        />
-                        <div
-                          className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: member.color }}
-                        ></div>
-                        <span className="text-white text-sm flex-1 font-medium">{member.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            <div className="flex bg-white/10 backdrop-blur-lg rounded-xl p-1 shadow-lg border border-white/20">
+              <button
+                onClick={() => setView('day')}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                  view === 'day'
+                    ? 'bg-white/30 text-white shadow-md scale-105 border border-white/40'
+                    : 'text-white/80 hover:text-white hover:bg-white/20 border border-transparent'
+                }`}
+              >
+                Day
+              </button>
+              <button
+                onClick={() => setView('week')}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                  view === 'week'
+                    ? 'bg-white/30 text-white shadow-md scale-105 border border-white/40'
+                    : 'text-white/80 hover:text-white hover:bg-white/20 border border-transparent'
+                }`}
+              >
+                Week
+              </button>
+              <button
+                onClick={() => setView('month')}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                  view === 'month'
+                    ? 'bg-white/30 text-white shadow-md scale-105 border border-white/40'
+                    : 'text-white/80 hover:text-white hover:bg-white/20 border border-transparent'
+                }`}
+              >
+                Month
+              </button>
+            </div>
+            <button
+              onClick={goToToday}
+              className="px-5 py-2.5 bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white rounded-xl font-medium transition-all duration-200 shadow-md hover:shadow-lg border border-white/30 hover:scale-105"
+            >
+              Today
+            </button>
+            <button
+              onClick={previousMonth}
+              className="px-4 py-2.5 bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 border border-white/30"
+            >
+              ←
+            </button>
+            <button
+              onClick={nextMonth}
+              className="px-4 py-2.5 bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 border border-white/30"
+            >
+              →
+            </button>
           </div>
-
-          {/* Add Week's Meals to Shopping List */}
-          <button
-            onClick={() => {
-              const weekStart = getWeekStart(currentDate)
-              const weekEnd = new Date(weekStart)
-              weekEnd.setDate(weekStart.getDate() + 6)
-              const startDateStr = weekStart.toISOString().split('T')[0]
-              const endDateStr = weekEnd.toISOString().split('T')[0]
-              onAddWeekMealsToList(startDateStr, endDateStr)
-            }}
-            className="px-4 py-2.5 bg-green-500/20 hover:bg-green-500/30 backdrop-blur-lg text-green-200 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 border border-green-500/40 flex items-center gap-2"
-          >
-            🛒 Add Week's Meals to List
-          </button>
         </div>
       </div>
 

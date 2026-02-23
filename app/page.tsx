@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from './contexts/AuthContext'
-import FamilyMembers from './components/FamilyMembers'
 import CalendarView from './components/CalendarView'
 import RecipesView from './components/RecipesView'
 import ShoppingListView from './components/ShoppingListView'
@@ -938,90 +937,104 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
   }
 
   return (
-    <div className={`h-screen overflow-hidden flex flex-col bg-black ${getThemeGradient()}`}>
-      <div className="flex-1 flex flex-col min-h-0 p-4">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-5xl font-bold text-white drop-shadow-lg">{calendarTitle}</h1>
-          <div className="flex gap-3">
-            {/* View Toggle */}
-            <div className="flex bg-white/10 backdrop-blur-lg rounded-xl p-1 shadow-lg border border-white/20">
-              <button
-                onClick={() => setCurrentView('calendar')}
-                className={`px-5 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  currentView === 'calendar'
-                    ? 'bg-white/30 text-white shadow-lg'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                📅 Calendar
-              </button>
-              <button
-                onClick={() => setCurrentView('recipes')}
-                className={`px-5 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  currentView === 'recipes'
-                    ? 'bg-white/30 text-white shadow-lg'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                📖 Recipes
-              </button>
-              <button
-                onClick={() => setCurrentView('shopping-list')}
-                className={`px-5 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  currentView === 'shopping-list'
-                    ? 'bg-white/30 text-white shadow-lg'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                🛒 Shopping List
-              </button>
-              <button
-                onClick={() => setCurrentView('tasks')}
-                className={`px-5 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  currentView === 'tasks'
-                    ? 'bg-white/30 text-white shadow-lg'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                ✅ Tasks
-              </button>
-              <button
-                onClick={() => setCurrentView('rewards')}
-                className={`px-5 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  currentView === 'rewards'
-                    ? 'bg-white/30 text-white shadow-lg'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                🏆 Rewards
-              </button>
-            </div>
+    <div className={`h-screen overflow-hidden flex flex-row bg-black ${getThemeGradient()}`}>
+      <div className="flex-1 flex min-h-0 p-4 gap-4">
+        {/* Left Sidebar - Navigation - Minimal */}
+        <div className="w-20 flex-shrink-0 flex flex-col gap-3 overflow-y-auto py-4">
+          {/* View Toggle - Vertical, Minimal */}
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => setCurrentView('calendar')}
+              className={`px-3 py-2.5 rounded-lg transition-all duration-200 flex flex-col items-center gap-1 ${
+                currentView === 'calendar'
+                  ? 'bg-white/30 text-white'
+                  : 'text-white/60 hover:text-white hover:bg-white/10'
+              }`}
+              title="Calendar"
+            >
+              <span className="text-xl">📅</span>
+              <span className="text-xs font-medium">Calendar</span>
+            </button>
+            <button
+              onClick={() => setCurrentView('recipes')}
+              className={`px-3 py-2.5 rounded-lg transition-all duration-200 flex flex-col items-center gap-1 ${
+                currentView === 'recipes'
+                  ? 'bg-white/30 text-white'
+                  : 'text-white/60 hover:text-white hover:bg-white/10'
+              }`}
+              title="Recipes"
+            >
+              <span className="text-xl">📖</span>
+              <span className="text-xs font-medium">Recipes</span>
+            </button>
+            <button
+              onClick={() => setCurrentView('shopping-list')}
+              className={`px-3 py-2.5 rounded-lg transition-all duration-200 flex flex-col items-center gap-1 ${
+                currentView === 'shopping-list'
+                  ? 'bg-white/30 text-white'
+                  : 'text-white/60 hover:text-white hover:bg-white/10'
+              }`}
+              title="Shopping List"
+            >
+              <span className="text-xl">🛒</span>
+              <span className="text-xs font-medium">Lists</span>
+            </button>
+            <button
+              onClick={() => setCurrentView('tasks')}
+              className={`px-3 py-2.5 rounded-lg transition-all duration-200 flex flex-col items-center gap-1 ${
+                currentView === 'tasks'
+                  ? 'bg-white/30 text-white'
+                  : 'text-white/60 hover:text-white hover:bg-white/10'
+              }`}
+              title="Tasks"
+            >
+              <span className="text-xl">✅</span>
+              <span className="text-xs font-medium">Tasks</span>
+            </button>
+            <button
+              onClick={() => setCurrentView('rewards')}
+              className={`px-3 py-2.5 rounded-lg transition-all duration-200 flex flex-col items-center gap-1 ${
+                currentView === 'rewards'
+                  ? 'bg-white/30 text-white'
+                  : 'text-white/60 hover:text-white hover:bg-white/10'
+              }`}
+              title="Rewards"
+            >
+              <span className="text-xl">🏆</span>
+              <span className="text-xs font-medium">Rewards</span>
+            </button>
+          </div>
+
+          {/* Settings and Sign Out Buttons */}
+          <div className="flex flex-col gap-2 mt-auto">
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="px-6 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-xl transition-all duration-200 border border-white/30 hover:scale-105"
+              className="px-3 py-2.5 rounded-lg transition-all duration-200 flex flex-col items-center gap-1 text-white/60 hover:text-white hover:bg-white/10"
               title="Settings"
             >
-              ⚙️ Settings
+              <span className="text-xl">⚙️</span>
+              <span className="text-xs font-medium">Settings</span>
             </button>
             <button
               onClick={handleSignOut}
-              className="px-6 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-xl transition-all duration-200 border border-white/30 hover:scale-105"
+              className="px-3 py-2.5 rounded-lg transition-all duration-200 flex flex-col items-center gap-1 text-white/60 hover:text-white hover:bg-white/10"
+              title="Sign Out"
             >
-              Sign Out
+              <span className="text-xl">🚪</span>
+              <span className="text-xs font-medium">Sign Out</span>
             </button>
           </div>
         </div>
 
-        {/* Main Content - Sidebar Layout */}
-        <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
-          {/* Left Sidebar */}
-          <div className="w-64 flex-shrink-0 flex flex-col gap-4 overflow-y-auto">
-            {/* Family Members */}
-            <FamilyMembers title={familySectionTitle} />
+        {/* Main Content Area */}
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+          {/* Header with Calendar Title */}
+          <div className="px-6 py-4 border-b border-white/10">
+            <h1 className="text-3xl font-bold text-white drop-shadow-lg">{calendarTitle}</h1>
           </div>
 
-          {/* Main Content - takes remaining space */}
-          <div className="flex-1 min-w-0">
+          {/* Main Content - takes full space */}
+          <div className="flex-1 min-h-0 overflow-hidden">
             {currentView === 'calendar' ? (
               <CalendarView
                 events={filteredEvents}
@@ -1057,8 +1070,9 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
             )}
           </div>
         </div>
+      </div>
 
-        {/* Add Event Modal */}
+      {/* Add Event Modal */}
         <AddEventModal
           isOpen={isModalOpen}
           onClose={handleCloseModal}
@@ -1105,7 +1119,6 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
             </div>
           </div>
         )}
-      </div>
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import FamilyMembers from './FamilyMembers'
 
 type SettingsModalProps = {
   isOpen: boolean
@@ -249,6 +250,21 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                 <p className="text-white/60 text-sm mt-1">
                   First day of the week in calendar view
                 </p>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-white/20 pt-4">
+                <h4 className="text-white font-semibold mb-4">Family Members</h4>
+                <p className="text-white/60 text-sm mb-4">
+                  Manage family members who appear on the calendar. Add members at the beginning of setup.
+                </p>
+              </div>
+
+              {/* Family Members Section */}
+              <div className="-mx-6">
+                <div className="px-6">
+                  <FamilyMembers title="" />
+                </div>
               </div>
             </>
           )}
