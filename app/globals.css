@@ -39,3 +39,32 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   min-height: 100vh;
 }
+
+/* Width */
+.overflow-auto.rounded-xl::-webkit-scrollbar {
+  width: 10px;
+}
+
+/* Track */
+.overflow-auto.rounded-xl::-webkit-scrollbar-track {
+  background: transparent; /* or match your panel */
+}
+
+/* Handle */
+.overflow-auto.rounded-xl::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* Hover effect */
+.overflow-auto.rounded-xl::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.avatar-background {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 6px;
+  border-radius: 50px;
+}

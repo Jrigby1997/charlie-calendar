@@ -184,7 +184,7 @@ export default function AddTaskModal({
             <div className="flex items-center gap-3">
               <input
                 type="range"
-                min={1}
+                min={0}
                 max={20}
                 value={points}
                 onChange={(e) => setPoints(Number(e.target.value))}

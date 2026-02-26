@@ -938,7 +938,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
 
   return (
     <div className={`h-screen overflow-hidden flex flex-row bg-black ${getThemeGradient()}`}>
-      <div className="flex-1 flex min-h-0 p-4 gap-4">
+      <div className="flex-1 flex min-h-0 gap-4">
         {/* Left Sidebar - Navigation - Minimal */}
         <div className="w-20 flex-shrink-0 flex flex-col gap-3 overflow-y-auto py-4">
           {/* View Toggle - Vertical, Minimal */}

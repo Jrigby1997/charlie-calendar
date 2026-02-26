@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { getWeekDays as getWeekDaysUtil, formatDate } from '@/lib/dateUtils'
+import { get } from 'http'
 
 type Event = {
   id: number
@@ -69,13 +70,13 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
   }, [])
 
   // Helper function to get avatar display for family member icons
-  function getMemberAvatarDisplay(member: FamilyMember) {
+  function getMemberAvatarDisplay(member: FamilyMember, isVisible: boolean = true) {
     if (member.avatar_url) {
       return (
         <img
           src={`/avatars/${member.avatar_url}`}
           alt={member.name}
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover ${isVisible ? '' : 'opacity-50'}`}
           onError={(e) => {
             // Fallback to initial if image fails to load
             const target = e.target as HTMLImageElement
@@ -444,7 +445,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
         </h2>
         <div className="flex flex-col items-end gap-3">
           {/* Family Member Filter Icons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 avatar-background">
 
             {/* Family Member Icons */}
             {familyMembers.map((member) => {
@@ -461,15 +462,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                   style={{ backgroundColor: isVisible ? member.color : undefined }}
                   title={member.name}
                 >
-                  {isVisible ? (
-                    getMemberAvatarDisplay(member)
-                  ) : (
-                    <div className="w-full h-full bg-gray-600/60 flex items-center justify-center">
-                      <span className="text-white/60 text-xs font-bold">
-                        {member.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
+                  {getMemberAvatarDisplay(member, isVisible)}
                 </button>
               )
             })}

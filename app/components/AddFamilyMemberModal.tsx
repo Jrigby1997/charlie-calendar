@@ -36,8 +36,8 @@ export default function AddFamilyMemberModal({ isOpen, onClose, onAddMember, onU
       const avatars: string[] = []
       const promises: Promise<void>[] = []
 
-      // Check for avatars 1-20 (reasonable limit to avoid too many requests)
-      for (let i = 1; i <= 20; i++) {
+      // Check for avatars 1-60 (reasonable limit to avoid too many requests)
+      for (let i = 1; i <= 60; i++) {
         for (const ext of ['svg', 'png', 'jpg', 'jpeg', 'gif', 'webp']) {
           const filename = `avatar_${i}.${ext}`
 

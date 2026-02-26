@@ -54,8 +54,9 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<any>(null)
-
+  const [viewDate, setViewDate] = useState(new Date())
   const today = new Date().toISOString().split('T')[0]
+  const viewDateISO = viewDate.toISOString().split('T')[0]
 
   // Load all task data
   useEffect(() => {
@@ -94,6 +95,13 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
     }
   }, [user])
 
+  // Reload completions and points when viewDate changes
+  useEffect(() => {
+    if (!user) return
+    loadCompletions()
+    loadMemberPoints()
+  }, [viewDate, user])
+
   async function loadAllData() {
     setLoading(true)
     await Promise.all([loadTasks(), loadCompletions(), loadMemberPoints()])
@@ -123,7 +131,7 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
     const { data, error } = await supabase
       .from('task_completions')
       .select('*')
-      .eq('completed_date', today)
+      .eq('completed_date', viewDateISO)
 
     if (error) {
       console.error('Error loading completions:', error)
@@ -146,7 +154,7 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
 
   function isTaskCompletedByMember(taskId: number, memberId: number): boolean {
     return completions.some(
-      (c) => c.task_id === taskId && c.family_member_id === memberId && c.completed_date === today
+      (c) => c.task_id === taskId && c.family_member_id === memberId && c.completed_date === viewDateISO
     )
   }
 
@@ -190,7 +198,7 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
         .delete()
         .eq('task_id', taskId)
         .eq('family_member_id', memberId)
-        .eq('completed_date', today)
+        .eq('completed_date', viewDateISO)
 
       if (deleteError) {
         console.error('Error undoing completion:', deleteError)
@@ -214,7 +222,7 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
         .insert({
           task_id: taskId,
           family_member_id: memberId,
-          completed_date: today,
+          completed_date: viewDateISO,
           points_earned: task.points,
         })
 
@@ -369,16 +377,12 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
   }
 
   // Format today's date
-  const todayFormatted = new Date().toLocaleDateString('en-US', {
+  const viewDateFormatted = viewDate.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
   })
 
-  const todayTime = new Date().toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
 
   if (loading) {
     return (
@@ -395,9 +399,26 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-4">
             <h2 className="text-2xl font-bold text-white drop-shadow-lg">
-              {todayFormatted}
+              {viewDateFormatted}
             </h2>
-            <span className="text-white/50 text-lg">{todayTime}</span>
+
+            <div className="flex gap-2 ml-4">
+              <button
+                className="px-3 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 transition-all duration-200 shadow-md"
+                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() - 1))}
+                title="Previous Day"
+              >←</button>
+              <button
+                className="px-3 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 transition-all duration-200 shadow-md"
+                onClick={() => setViewDate(new Date())}
+                title="Today"
+              >Today</button>
+              <button
+                className="px-3 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 transition-all duration-200 shadow-md"
+                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() + 1))}
+                title="Next Day"
+              >→</button>
+            </div>
           </div>
           <button
             onClick={() => {
@@ -613,9 +634,9 @@ function TaskTile({
               {task.description}
             </p>
           )}
-          {task.points > 0 && !completed && (
+          {!completed && (
             <span className="text-yellow-400/70 text-[11px] font-semibold">
-              ⭐ {task.points}
+              {task.points > 0 ? `⭐ ${task.points}` : ''}
             </span>
           )}
         </div>
