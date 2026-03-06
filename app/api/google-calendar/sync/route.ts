@@ -21,11 +21,12 @@ function parseGoogleDateTime(dt: { date?: string | null; dateTime?: string | nul
     return { date: dt.date, time: null }
   }
   if (dt.dateTime) {
-    const d = new Date(dt.dateTime)
-    const date = d.toISOString().split('T')[0]
-    const hours = String(d.getHours()).padStart(2, '0')
-    const minutes = String(d.getMinutes()).padStart(2, '0')
-    return { date, time: `${hours}:${minutes}` }
+    // Parse the RFC 3339 string directly (e.g. "2026-03-06T14:00:00-07:00").
+    // Do NOT use new Date() here — that converts to UTC and loses the local date/time
+    // when the server (Vercel) runs in a different timezone than the user.
+    const [datePart, timePart] = dt.dateTime.split('T')
+    const time = timePart ? timePart.substring(0, 5) : null // "HH:MM"
+    return { date: datePart, time }
   }
   return { date: new Date().toISOString().split('T')[0], time: null }
 }
