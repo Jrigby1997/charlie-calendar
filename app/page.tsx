@@ -12,6 +12,7 @@ import RewardsView from './components/RewardsView'
 import AddEventModal from './components/AddEventModal'
 import MealPlanModal from './components/MealPlanModal'
 import SettingsModal from './components/SettingsModal'
+import ExternalEventDetailModal from './components/ExternalEventDetailModal'
 
 type Event = {
   id: number
@@ -35,6 +36,8 @@ type Event = {
     }
   }[]
   baseEventId?: number // For virtual instances of recurring/multi-day events
+  isExternal?: boolean // True for events synced from external providers (Google, etc.)
+  externalProvider?: string // 'google' | 'outlook' | 'apple'
 }
 
 type FamilyMember = {
@@ -69,6 +72,21 @@ export default function Home() {
   const [colorTheme, setColorTheme] = useState('default')
   const [dateFormat, setDateFormat] = useState('MM/DD/YYYY')
   const [weekStartDay, setWeekStartDay] = useState('Sunday')
+  const [externalRawEvents, setExternalRawEvents] = useState<any[]>([])
+  const [externalCalendarConfigs, setExternalCalendarConfigs] = useState<Map<string, {
+    family_member_ids: number[]
+    calendar_name: string
+    google_email: string | null
+  }>>(new Map())
+  const [googleConnected, setGoogleConnected] = useState(false)
+  const [isSyncingGoogle, setIsSyncingGoogle] = useState(false)
+
+  // External event detail modal
+  const [externalEventDetail, setExternalEventDetail] = useState<{
+    event: Event
+    calendarName: string
+    googleEmail: string | null
+  } | null>(null)
 
   // Toast auto-dismiss effect
   useEffect(() => {
@@ -128,6 +146,7 @@ export default function Home() {
     loadEventExceptions()
     loadMealPlans()
     loadSettings()
+    loadExternalData()
 
     // Subscribe to realtime changes
     const eventsChannel = supabase
@@ -187,6 +206,38 @@ export default function Home() {
       supabase.removeChannel(mealPlansChannel)
       supabase.removeChannel(settingsChannel)
     }
+  }, [user])
+
+  // Handle redirect back from Google OAuth consent screen
+  useEffect(() => {
+    if (!user) return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('connected') === 'google') {
+      window.history.replaceState({}, '', window.location.pathname)
+      ;(async () => {
+        setIsSyncingGoogle(true)
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          if (!session) return
+          const res = await fetch('/api/google-calendar/sync', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          })
+          if (res.ok) {
+            await loadExternalData()
+            showToast('Google Calendar connected! Events synced.', 'success')
+          } else {
+            showToast('Connected, but sync failed — try syncing manually.', 'error')
+          }
+        } finally {
+          setIsSyncingGoogle(false)
+        }
+      })()
+    } else if (params.get('google_error')) {
+      window.history.replaceState({}, '', window.location.pathname)
+      showToast(`Google Calendar error: ${params.get('google_error')}`, 'error')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   // Initialize all members as visible when family members load
@@ -272,6 +323,75 @@ export default function Home() {
       console.error('Error loading meal plans:', error)
     } else {
       setMealPlans(data || [])
+    }
+  }
+
+  async function loadExternalData() {
+    // Load enabled external calendar configs for deriving family member assignment
+    const { data: calendars } = await supabase
+      .from('external_calendars')
+      .select('external_calendar_id, family_member_ids, is_enabled, calendar_name, integration_id')
+      .eq('is_enabled', true)
+
+    // Also load integrations to resolve google_email per calendar
+    const integrationIds = [...new Set((calendars || []).map(c => c.integration_id).filter(Boolean))]
+    let integrationEmailMap: Map<number, string | null> = new Map()
+    if (integrationIds.length > 0) {
+      const { data: integrations } = await supabase
+        .from('user_integrations')
+        .select('id, google_email')
+        .in('id', integrationIds)
+      ;(integrations || []).forEach(i => integrationEmailMap.set(i.id, i.google_email))
+    }
+
+    const configMap = new Map(
+      (calendars || []).map(c => [
+        c.external_calendar_id,
+        {
+          family_member_ids: (() => {
+            try { return JSON.parse(c.family_member_ids || '[]') as number[] }
+            catch { return [] }
+          })(),
+          calendar_name: c.calendar_name as string,
+          google_email: integrationEmailMap.get(c.integration_id) ?? null,
+        },
+      ])
+    )
+    setExternalCalendarConfigs(configMap)
+    setGoogleConnected((calendars?.length ?? 0) > 0)
+
+    if (calendars && calendars.length > 0) {
+      const calIds = calendars.map(c => c.external_calendar_id)
+      const { data: evs, error } = await supabase
+        .from('external_events')
+        .select('*')
+        .in('external_calendar_id', calIds)
+      if (!error) setExternalRawEvents(evs || [])
+    } else {
+      setExternalRawEvents([])
+    }
+  }
+
+  async function syncGoogleCalendar() {
+    if (!user) return
+    setIsSyncingGoogle(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/google-calendar/sync', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (res.ok) {
+        await loadExternalData()
+        showToast('Google Calendar synced!', 'success')
+      } else {
+        showToast('Sync failed — please try again', 'error')
+      }
+    } catch {
+      showToast('Sync failed — please try again', 'error')
+    } finally {
+      setIsSyncingGoogle(false)
     }
   }
 
@@ -540,6 +660,18 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
   }
 
   function handleEventClick(event: Event) {
+    // External events open a read-only detail popup
+    if (event.isExternal) {
+      const rawEv = externalRawEvents.find(e => -(e.id as number) === event.id)
+      const cal = rawEv ? externalCalendarConfigs.get(rawEv.external_calendar_id) : undefined
+      setExternalEventDetail({
+        event,
+        calendarName: cal?.calendar_name ?? 'Google Calendar',
+        googleEmail: cal?.google_email ?? null,
+      })
+      return
+    }
+
     // If this is a virtual instance, find and edit the base event
     if (event.baseEventId) {
       const baseEvent = events.find(e => e.id === event.baseEventId)
@@ -757,7 +889,35 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
   }
 
   const expandedEvents = expandRecurringEvents(events, familyMembers)
-  const filteredEvents = getFilteredEvents(expandedEvents)
+
+  // Shape external (Google) events into the same Event type for unified rendering
+  const externalEvents: Event[] = externalRawEvents.map(ev => {
+    const cal = externalCalendarConfigs.get(ev.external_calendar_id)
+    const memberIds: number[] = cal?.family_member_ids ?? []
+    const members = memberIds
+      .map(id => familyMembers.find(m => m.id === id))
+      .filter((m): m is FamilyMember => m !== undefined)
+    return {
+      id: -(ev.id as number), // Negative ID avoids collisions with local event IDs
+      title: ev.title,
+      date: ev.date,
+      end_date: ev.end_date ?? null,
+      start_time: ev.start_time ?? null,
+      end_time: ev.end_time ?? null,
+      description: ev.description || '',
+      is_recurring: false,
+      recurrence_pattern: null,
+      recurrence_interval: 1,
+      recurrence_end_date: null,
+      recurrence_days: null,
+      created_at: ev.created_at,
+      event_family_members: members.map(m => ({ family_members: { id: m.id, name: m.name, color: m.color } })),
+      isExternal: true,
+      externalProvider: ev.provider || 'google',
+    }
+  })
+
+  const filteredEvents = getFilteredEvents([...expandedEvents, ...externalEvents])
 
   // Compute meal plans count by date
   const mealPlansCount: Record<string, number> = mealPlans.reduce((acc, plan) => {
@@ -1052,6 +1212,9 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                 onAddWeekMealsToList={handleAddWeekMealsToList}
                 dateFormat={dateFormat}
                 weekStartDay={weekStartDay}
+                isGoogleConnected={googleConnected}
+                onSyncGoogleCalendar={syncGoogleCalendar}
+                isSyncingGoogle={isSyncingGoogle}
               />
             ) : currentView === 'recipes' ? (
               <RecipesView userId={user?.id || ''} />
@@ -1097,12 +1260,27 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
           onShowToast={showToast}
         />
 
+        {/* External Event Detail Modal */}
+        <ExternalEventDetailModal
+          isOpen={externalEventDetail !== null}
+          onClose={() => setExternalEventDetail(null)}
+          event={externalEventDetail?.event ?? null}
+          calendarName={externalEventDetail?.calendarName ?? ''}
+          googleEmail={externalEventDetail?.googleEmail ?? null}
+          assignedMembers={
+            (externalEventDetail?.event?.event_family_members ?? [])
+              .map(efm => familyMembers.find(m => m.id === efm.family_members.id))
+              .filter((m): m is FamilyMember => m !== undefined)
+          }
+        />
+
         {/* Settings Modal */}
         <SettingsModal
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
           onSettingsUpdate={loadSettings}
           onShowToast={showToast}
+          onExternalCalendarsChange={loadExternalData}
         />
 
         {/* Toast Notification */}

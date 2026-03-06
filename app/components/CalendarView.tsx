@@ -26,6 +26,8 @@ type Event = {
     }
   }[]
   baseEventId?: number
+  isExternal?: boolean // True for events synced from Google Calendar etc.
+  externalProvider?: string // 'google' | 'outlook' | 'apple'
 }
 
 type FamilyMember = {
@@ -52,14 +54,21 @@ type CalendarViewProps = {
   onAddWeekMealsToList: (startDate: string, endDate: string) => void
   dateFormat?: string
   weekStartDay?: string
+  isGoogleConnected?: boolean
+  onSyncGoogleCalendar?: () => Promise<void>
+  isSyncingGoogle?: boolean
 }
 
-export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList, dateFormat = 'MM/DD/YYYY', weekStartDay = 'Sunday' }: CalendarViewProps) {
+export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList, dateFormat = 'MM/DD/YYYY', weekStartDay = 'Sunday', isGoogleConnected = false, onSyncGoogleCalendar, isSyncingGoogle = false }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<'day' | 'week' | 'month'>('week')
   const [currentTime, setCurrentTime] = useState(new Date())
   const [draggedEventId, setDraggedEventId] = useState<number | null>(null)
   const dragOffsetY = useRef<number>(0)
+
+  function handleEventInteraction(event: Event) {
+    onEventClick(event)
+  }
 
   // Update current time every minute
   useEffect(() => {
@@ -488,6 +497,18 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
             >
               <span className="text-xl">+</span> Add Event
             </button>
+            {isGoogleConnected && (
+              <button
+                onClick={async () => {
+                  if (onSyncGoogleCalendar) await onSyncGoogleCalendar()
+                }}
+                disabled={isSyncingGoogle}
+                className="px-4 py-2.5 bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white rounded-xl font-medium transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105 border border-white/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Sync Google Calendar"
+              >
+                <span className={isSyncingGoogle ? 'animate-spin' : ''}>🔄</span>
+              </button>
+            )}
             <div className="flex bg-white/10 backdrop-blur-lg rounded-xl p-1 shadow-lg border border-white/20">
               <button
                 onClick={() => setView('day')}
@@ -601,7 +622,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                           return (
                             <div
                               key={event.id}
-                              onClick={() => onEventClick(event)}
+                              onClick={() => handleEventInteraction(event)}
                               className="text-xs px-2 py-1.5 rounded-xl cursor-pointer hover:scale-105 transition-all duration-200 border-2 border-white/20"
                               style={{
                                 background: glassyColor,
@@ -609,12 +630,12 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                                 color: 'white',
                                 textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
                               }}
-                              title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : ''}\n${members.map(m => m.name).join(', ')}`}
+                              title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : ''}\n${members.map(m => m.name).join(', ')}${event.isExternal ? '\n(Google Calendar — read only)' : ''}`}
                             >
                               {multiDayRange && (
                                 <div className="text-[9px] opacity-90 truncate">{multiDayRange}</div>
                               )}
-                              <div className="font-medium truncate">{event.title}</div>
+                              <div className="font-medium truncate">{event.title}{event.isExternal && <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold ml-1 flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>}</div>
                             </div>
                           )
                         })}
@@ -732,8 +753,8 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                           return (
                             <div
                               key={event.id}
-                              draggable
-                              onDragStart={(e) => {
+                              draggable={!event.isExternal}
+                              onDragStart={event.isExternal ? undefined : (e) => {
                                 setDraggedEventId(event.id)
                                 const rect = e.currentTarget.getBoundingClientRect()
                                 dragOffsetY.current = e.clientY - rect.top
@@ -742,9 +763,9 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                               onDragEnd={() => setDraggedEventId(null)}
                               onClick={(e) => {
                                 e.stopPropagation()
-                                onEventClick(event)
+                                handleEventInteraction(event)
                               }}
-                              className="absolute px-2 py-1.5 rounded-xl text-white text-xs cursor-move hover:scale-[1.08] transition-all duration-200 overflow-hidden border-2 border-white/20"
+                              className={`absolute px-2 py-1.5 rounded-xl text-white text-xs ${event.isExternal ? 'cursor-pointer' : 'cursor-move'} hover:scale-[1.08] transition-all duration-200 overflow-hidden border-2 border-white/20`}
                               style={{
                                 background: glassyColor,
                                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(255, 255, 255, 0.3) inset',
@@ -755,13 +776,14 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                                 width: `${position.width}%`,
                                 zIndex: position.column + 1
                               }}
-                              title={`${event.title}${timeRange ? ` at ${timeRange}` : ''}\n${members.map(m => m.name).join(', ')}`}
+                              title={`${event.title}${timeRange ? ` at ${timeRange}` : ''}\n${members.map(m => m.name).join(', ')}${event.isExternal ? '\n(Google Calendar — read only)' : ''}`}
                             >
                               {timeRange && (
                                 <div className="text-[10px] font-semibold mb-0.5 opacity-90">{timeRange}</div>
                               )}
                               <div className="font-medium truncate flex items-center gap-1">
                                 {event.baseEventId && <span className="text-[10px]" title="Recurring or multi-day event">↻</span>}
+                                {event.isExternal && <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>}
                                 <span className="truncate">{event.title}</span>
                               </div>
                               {members.length > 0 && (
@@ -852,7 +874,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                         return (
                           <div
                             key={event.id}
-                            onClick={() => onEventClick(event)}
+                            onClick={() => handleEventInteraction(event)}
                             className="text-sm px-3 py-2 rounded-xl cursor-pointer hover:scale-105 transition-all duration-200 border-2 border-white/20"
                             style={{
                               background: glassyColor,
@@ -860,12 +882,12 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                               color: 'white',
                               textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
                             }}
-                            title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : ''}\n${members.map(m => m.name).join(', ')}`}
+                            title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : ''}\n${members.map(m => m.name).join(', ')}${event.isExternal ? '\n(Google Calendar — read only)' : ''}`}
                           >
                             {multiDayRange && (
                               <div className="text-[10px] opacity-90 mb-1">{multiDayRange}</div>
                             )}
-                            <div className="font-semibold">{event.title}</div>
+                            <div className="font-semibold">{event.title}{event.isExternal && <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold ml-1 flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>}</div>
                             {members.length > 0 && (
                               <div className="text-xs opacity-90 mt-1">
                                 {members.map(m => m.name).join(', ')}
@@ -983,8 +1005,8 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                       return (
                         <div
                           key={event.id}
-                          draggable
-                          onDragStart={(e) => {
+                          draggable={!event.isExternal}
+                          onDragStart={event.isExternal ? undefined : (e) => {
                             setDraggedEventId(event.id)
                             const rect = e.currentTarget.getBoundingClientRect()
                             dragOffsetY.current = e.clientY - rect.top
@@ -993,9 +1015,9 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                           onDragEnd={() => setDraggedEventId(null)}
                           onClick={(e) => {
                             e.stopPropagation()
-                            onEventClick(event)
+                            handleEventInteraction(event)
                           }}
-                          className="absolute px-2 py-1.5 rounded-xl text-white text-xs cursor-move hover:scale-[1.08] transition-all duration-200 overflow-hidden border-2 border-white/20"
+                          className={`absolute px-2 py-1.5 rounded-xl text-white text-xs ${event.isExternal ? 'cursor-default' : 'cursor-move'} hover:scale-[1.08] transition-all duration-200 overflow-hidden border-2 border-white/20`}
                           style={{
                             background: glassyColor,
                             boxShadow: '0 6px 16px rgba(0, 0, 0, 0.25), 0 2px 10px rgba(255, 255, 255, 0.3) inset',
@@ -1006,13 +1028,14 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                             width: `${position.width}%`,
                             zIndex: position.column + 1
                           }}
-                          title={`${event.title}${timeRange ? ` at ${timeRange}` : ''}\n${members.map(m => m.name).join(', ')}`}
+                          title={`${event.title}${timeRange ? ` at ${timeRange}` : ''}\n${members.map(m => m.name).join(', ')}${event.isExternal ? '\n(Google Calendar — read only)' : ''}`}
                         >
                           {timeRange && (
                             <div className="text-xs font-semibold mb-1 opacity-90">{timeRange}</div>
                           )}
                           <div className="font-semibold flex items-center gap-1">
                             {event.baseEventId && <span className="text-sm" title="Recurring or multi-day event">↻</span>}
+                            {event.isExternal && <span className="text-[8px] opacity-60" title="Google Calendar">🔗</span>}
                             <span className="truncate">{event.title}</span>
                           </div>
                           {members.length > 0 && (
@@ -1111,7 +1134,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                   return (
                     <div
                       key={event.id}
-                      onClick={() => onEventClick(event)}
+                      onClick={() => handleEventInteraction(event)}
                       className="text-xs p-1.5 rounded-xl cursor-pointer hover:scale-105 transition-all duration-200 border-2 border-white/20"
                       style={{
                         background: glassyColor,
@@ -1119,13 +1142,14 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                         color: 'white',
                         textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
                       }}
-                      title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : timeRange ? ` at ${timeRange}` : ''}`}
+                      title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : timeRange ? ` at ${timeRange}` : ''}${event.isExternal ? '\n(Google Calendar — read only)' : ''}`}
                     >
                       {multiDayRange && (
                         <div className="text-[10px] opacity-90 truncate mb-0.5">{multiDayRange}</div>
                       )}
                       <div className="font-medium truncate flex items-center gap-1">
                         {event.baseEventId && <span title="Recurring or multi-day event">↻</span>}
+                        {event.isExternal && <span className="text-[8px] opacity-60" title="Google Calendar">🔗</span>}
                         {!multiDayRange && timeRange && <span>{timeRange}</span>}
                         <span className="truncate">{event.title}</span>
                       </div>
