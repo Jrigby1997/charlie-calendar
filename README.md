@@ -1,4 +1,36 @@
-## 📝 Latest Updates (February 12, 2026)
+## 📝 Latest Updates (March 5–6, 2026)
+
+### Phase 7: Google Calendar Integration (Read-Only, Multi-Account)
+
+**Google Calendar Integration:**
+- ✅ OAuth 2.0 flow — connect any number of Google accounts from Settings
+- ✅ Multiple Google accounts supported (grouped by email in Settings UI)
+- ✅ Multiple family members assignable per calendar (avatar toggle buttons)
+- ✅ Events blended into all calendar views alongside local events
+- ✅ Background sync on page load (if >15 min stale), manual Sync Now button
+- ✅ Google events show gradient Google 'G' badge in all calendar views
+- ✅ Clicking a Google event opens a read-only detail popup (ExternalEventDetailModal)
+- ✅ Per-account Disconnect; "Add Another Account" button
+- ✅ Timezone-safe date parsing (RFC 3339 string parsed directly — no UTC conversion)
+- ✅ Production-safe lazy-initialized Supabase admin client (no build-time crash)
+
+**Database Migrations:**
+- ✅ `supabase_migration_google_calendar.sql` — creates `user_integrations`, `external_calendars`, `external_events`
+- ✅ `supabase_migration_google_calendar_v2.sql` — adds `google_email`, `integration_id` FK, `family_member_ids` JSON array, backfill
+
+**New Files:**
+- `lib/supabase-admin.ts` — server-only Supabase admin client (lazy init)
+- `app/api/google-auth/route.ts` — OAuth initiation
+- `app/api/google-auth/callback/route.ts` — OAuth token exchange
+- `app/api/google-calendar/sync/route.ts` — event sync (multi-account, timezone-safe)
+- `app/api/google-calendar/disconnect/route.ts` — account disconnect
+- `app/components/ExternalEventDetailModal.tsx` — read-only event detail popup
+
+**Production:** https://charlie-calendar.vercel.app ✅
+
+---
+
+## 📝 Previous Updates (February 12, 2026)
 
 ### Phase 5: Task & Reward System, Points Logic Fix
 
@@ -246,6 +278,10 @@ Create `.env.local` file:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key     # server-side only
+GOOGLE_CLIENT_ID=your_google_oauth_client_id
+GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 3. **Run the development server:**
@@ -376,28 +412,36 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 ```
 skylight-calendar/
 ├── app/
+│   ├── api/
+│   │   ├── google-auth/
+│   │   │   ├── route.ts                    # OAuth initiation
+│   │   │   └── callback/route.ts           # OAuth token exchange + calendar import
+│   │   ├── google-calendar/
+│   │   │   ├── sync/route.ts               # Event sync (multi-account, timezone-safe)
+│   │   │   └── disconnect/route.ts         # Account disconnect (per-account or all)
+│   │   └── parse-recipe/                   # Recipe URL scraper
 │   ├── components/
-│   │   ├── AddEventModal.tsx       # Event creation/editing modal with glassmorphism
-│   │   ├── CalendarView.tsx        # Main calendar with day/week/month views, filtering, meal icons
-│   │   ├── FamilyMembers.tsx       # Family member management sidebar
-│   │   ├── RecipesView.tsx         # Recipe CRUD with shopping list integration
-│   │   ├── ShoppingListView.tsx    # Shopping list management with ingredient combining
-│   │   └── MealPlanModal.tsx       # Meal planning modal with recipe detail viewer
-│   ├── globals.css                 # Global styles with animated gradient background
-│   ├── layout.tsx                  # Root layout
-│   └── page.tsx                    # Main app page with layout, modals, toast notifications
+│   │   ├── AddEventModal.tsx               # Event creation/editing modal
+│   │   ├── CalendarView.tsx                # Main calendar (day/week/month, G badge, external events)
+│   │   ├── ExternalEventDetailModal.tsx    # Read-only Google event detail popup
+│   │   ├── FamilyMembers.tsx               # Family member management
+│   │   ├── RecipesView.tsx                 # Recipe CRUD
+│   │   ├── ShoppingListView.tsx            # Shopping list
+│   │   ├── MealPlanModal.tsx               # Meal planning
+│   │   ├── SettingsModal.tsx               # App settings + Google Calendar integration UI
+│   │   └── ...                             # Tasks, Rewards, etc.
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx                            # Main app, external event wiring, modal orchestration
 ├── lib/
-│   └── supabase.ts                 # Supabase client configuration
-├── contexts/
-│   └── AuthContext.tsx             # Authentication context (if implemented)
-├── migrations/
-│   ├── supabase_migration_recipes.sql              # recipes, ingredients, recipe_ingredients tables
-│   ├── supabase_migration_shopping_list.sql        # shopping_list table
-│   ├── supabase_migration_shopping_list_updates.sql # recipe_counts JSONB column
-│   └── supabase_migration_meal_plans.sql           # meal_types, meal_plans tables
-├── .env.local                      # Environment variables (not in git)
-├── DEV_PROFILE.md                  # Developer context & learning profile
-└── README.md                       # This file
+│   ├── supabase.ts                         # Client-side Supabase
+│   ├── supabase-admin.ts                   # Server-side admin client (lazy init, build-safe)
+│   └── dateUtils.ts                        # Date formatting utilities
+├── supabase_migration_*.sql                # All DB migrations (run in order)
+├── .env.local                              # Environment variables (not in git)
+├── DEV_PROFILE.md                          # Developer context & learning profile
+├── GOOGLE_CALENDAR_INTEGRATION.md         # Google Calendar integration docs
+└── README.md                               # This file
 ```
 
 ---
@@ -552,8 +596,11 @@ Events scheduled at the same time display side-by-side with automatic width adju
 ## Timeline
 
 - **Started:** February 5, 2026
-- **First Working Prototype:** February 5, 2026 ✅
-- **Calendar MVP Completed:** February 6, 2026 ✅
+- **Calendar MVP:** February 6, 2026 ✅
 - **Recipes & Meal Planning:** February 7, 2026 ✅
 - **UI/UX Optimizations:** February 7, 2026 ✅
-- **Next Milestone:** Authentication & Multi-user Support
+- **Authentication & Multi-user:** February 2026 ✅
+- **Task & Reward System:** February 12, 2026 ✅
+- **Google Calendar Integration (v1):** March 5, 2026 ✅
+- **Google Calendar Integration (v2 — multi-account, multi-member, detail popup):** March 6, 2026 ✅
+- **Production Deployment:** March 6, 2026 ✅ → https://charlie-calendar.vercel.app

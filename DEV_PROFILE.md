@@ -1,9 +1,9 @@
 # Developer Profile & Project Context
 
-**Last Updated:** February 12, 2026, 10:00 PM
+**Last Updated:** March 6, 2026
 **Developer:** jrigb
 **Project:** Skylight-style Calendar Application
-**Current Phase:** Nutrition & Shopping Features Complete ✅ | Family Member Avatars Complete ✅ | Ready for Authentication
+**Current Phase:** Google Calendar Integration Complete ✅ | Production Live ✅ → https://charlie-calendar.vercel.app
 
 ---
 
@@ -16,11 +16,50 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
 - Clean, intuitive family-friendly interface
 - Recipe planning with shopping list integration
 - Family member avatars and visual identity
+- External calendar integration (Google Calendar read-only, bidirectional future)
 
 ---
 
+## Recent Session Summary (March 5–6, 2026)
 
-## Recent Session Summary (Feb 12, 2026)
+**Duration:** ~2 sessions
+**Accomplishments:**
+
+### Phase 7: Google Calendar Integration
+
+1. **Planning & Architecture**
+   - Decided on read-only sync with `googleapis` package (future-proofs bidirectional)
+   - Tokens stored server-side only in Supabase, never in client storage
+   - Events cached in `external_events` table, background sync on load if stale
+
+2. **v1 Implementation (March 5)**
+   - Created `supabase_migration_google_calendar.sql` (3 new tables)
+   - Built 4 API routes: `google-auth`, `google-auth/callback`, `google-calendar/sync`, `google-calendar/disconnect`
+   - Updated `SettingsModal`, `CalendarView`, `page.tsx` for single-account integration
+
+3. **v2 Enhancements (March 6) — 4 user-requested features:**
+   - **Multiple Google accounts**: `google_email` column, UNIQUE`(user_id, provider, google_email)`, `integration_id` FK — Settings groups calendars under account email headers
+   - **Multiple family members per calendar**: `family_member_ids text` JSON array replaces `family_member_id bigint` — avatar toggle buttons in Settings
+   - **Clickable read-only popups**: `ExternalEventDetailModal` with G badge, date/time, calendar name, email, member pills, description
+   - **Google G badge**: Gradient circle on all external events in every calendar view
+
+4. **Production Fixes (March 6)**
+   - Build failure: `supabaseAdmin` created at module load — fixed with lazy Proxy + `Reflect.get` to preserve `this` binding
+   - Timezone bug: `new Date(dateTime).toISOString()` converts to UTC on Vercel — fixed by splitting RFC 3339 string directly
+   - Sync skipping all calendars: `integration_id` NULL on pre-v2 rows — fixed with `.or('integration_id.eq.X,integration_id.is.null')`
+   - Disconnect 500: Proxy `this`-binding — fixed with `.bind(client)`
+   - OAuth redirect to localhost: Added `NEXT_PUBLIC_APP_URL` to Vercel env vars
+   - Google authorization error: Production callback URL missing from Google Cloud Console
+   - SQL syntax error: `ADD CONSTRAINT IF NOT EXISTS` not valid in PostgreSQL
+
+**Next Steps:**
+- Run v2 backfill query if not done yet (`UPDATE external_calendars SET integration_id = ... WHERE integration_id IS NULL`)
+- Reconnect Google account once to populate `google_email` in `user_integrations`
+- Future: bidirectional sync (expand OAuth scope, use `syncToken`)
+
+---
+
+## Previous Session Summary (Feb 12, 2026)
 
 **Duration:** ~3 hours
 **Accomplishments:**
@@ -435,8 +474,8 @@ When helping this developer:
 
 - **Supabase Dashboard:** https://supabase.com/dashboard/project/vhyxylqioxdzzesmbkiy
 - **Local Dev Server:** http://localhost:3000
-- **Project Repository:** TBD
-- **Live Demo URL:** TBD (will deploy to Vercel)
+- **Live Production URL:** https://charlie-calendar.vercel.app
+- **Google Cloud Console:** https://console.cloud.google.com (for OAuth credentials)
 
 ---
 
@@ -489,24 +528,26 @@ Family Members (central table)
 - `event_exceptions` ✅ (recurring event instance modifications)
 
 **Implemented Tables:**
-- `family_members` ✅ (name, color, role, avatar_url, is_active)
-- `events` ✅ (comprehensive event data with recurrence support)
-- `event_family_members` ✅ (junction table for many-to-many)
-- `event_exceptions` ✅ (recurring event instance modifications)
-- `recipes` ✅ (recipe details with nutritional info)
-- `ingredients` ✅ (per-user ingredient library)
-- `recipe_ingredients` ✅ (recipe-ingredient relationships with amounts)
-- `shopping_list` ✅ (persistent cart with recipe source tracking)
-- `meal_types` ✅ (customizable meal categories per user)
-- `meal_plans` ✅ (recipe-to-date-to-meal_type assignments)
+- `family_members` ✅
+- `events` ✅
+- `event_family_members` ✅
+- `event_exceptions` ✅
+- `recipes` ✅
+- `ingredients` ✅
+- `recipe_ingredients` ✅
+- `shopping_list` ✅
+- `meal_types` ✅
+- `meal_plans` ✅
+- `tasks`, `task_assignments`, `task_completions`, `member_points` ✅
+- `rewards`, `reward_assignments`, `reward_redemptions` ✅
+- `user_integrations` ✅ (Google OAuth tokens, multi-account)
+- `external_calendars` ✅ (Google calendars, multi-member assignment)
+- `external_events` ✅ (cached Google events)
 
 **Upcoming Tables:**
-- `users` (authentication, family association)
+- `users` (authentication — partially done via Supabase Auth)
 - `habits` (template for recurring habits)
-- `habit_completions` (tracking individual completions)
-- `chores` (similar to habits)
-- `todos` (one-off tasks)
-- `external_calendars` (sync configurations)
+- `habit_completions` (tracking completions)
 
 ---
 
