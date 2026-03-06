@@ -132,13 +132,15 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      // Fetch all enabled calendars for this specific account
+      // Fetch all enabled calendars for this specific account.
+      // Also matches calendars with NULL integration_id (created before v2 migration backfill).
       const { data: calendars } = await supabaseAdmin
         .from('external_calendars')
         .select('id, external_calendar_id, calendar_name')
         .eq('user_id', userId)
-        .eq('integration_id', integration.id)
+        .eq('provider', 'google')
         .eq('is_enabled', true)
+        .or(`integration_id.eq.${integration.id},integration_id.is.null`)
 
       if (!calendars?.length) continue
 
