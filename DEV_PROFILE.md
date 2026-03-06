@@ -3,7 +3,7 @@
 **Last Updated:** March 6, 2026
 **Developer:** jrigb
 **Project:** Skylight-style Calendar Application
-**Current Phase:** Google Calendar Integration Complete ✅ | Production Live ✅ → https://charlie-calendar.vercel.app
+**Current Phase:** Meal Plan Week View Complete ✅ | Production Live ✅ → https://charlie-calendar.vercel.app
 
 ---
 
@@ -20,7 +20,78 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
 
 ---
 
-## Recent Session Summary (March 5–6, 2026)
+## 🔜 Upcoming Tasks (Next Sessions)
+
+1. **More Themes & Drastic Style Changes**
+   - Additional color themes beyond the current default (e.g. dark mode, light/minimal, seasonal, high-contrast)
+   - More drastic theme differentiation — change gradients, glass opacity, accent colors, and font weights per theme
+   - Theme selector in Settings
+
+2. **Fun Reactions on Task Completion & Reward Redemption**
+   - Animated confetti, particle burst, or emoji shower when marking a task complete
+   - Celebration animation when a reward is claimed
+   - Subtle but delightful micro-interactions (scale bounce, sparkle, etc.)
+
+3. **Reward History / Redemption Log**
+   - Show a full history of when rewards were claimed: by whom, which reward, date/time
+   - View-only log to prove claims (useful for kids/parents disputes)
+   - Accessible from the Rewards section, per-member or combined feed
+
+4. **Better Section Headers**
+   - Each section (Calendar, Recipes, Shopping List, Tasks, Rewards) should have a distinct, styled header
+   - Include section title, contextual actions, and optionally a subtitle or count badge
+
+5. **Mobile Optimization**
+   - Responsive layouts for all views (Calendar, Recipes/Meal Plan, Tasks, Rewards, Shopping List)
+   - Touch-friendly tap targets, swipe gestures for week navigation
+   - Bottom nav bar on mobile instead of sidebar
+   - Test and fix any overflow/scroll issues on small screens
+
+---
+
+## Recent Session Summary (March 6, 2026)
+
+**Duration:** ~1 session
+**Accomplishments:**
+
+### Phase 8: Meal Plan Week View in Recipes Section
+
+1. **Architecture**
+   - Added a `🍳 Recipes` / `📅 Meal Plan` pill toggle to the top-right of the Recipes section header
+   - Toggle lives inside `RecipesView` — no new nav item needed
+   - `MealPlanWeekView` is self-contained: fetches its own `meal_plans` + `meal_types` + recipe names per week
+
+2. **New Component: `MealPlanWeekView.tsx`**
+   - Week grid: meal type rows × 7 day columns
+   - Week navigation: Prev / Today / Next buttons (right-aligned, matching calendar style)
+   - Week range label as large (`text-4xl`) left-aligned heading matching CalendarView style
+   - Today's column highlighted
+   - Seeds default meal types (Breakfast/Lunch/Dinner/Dessert) if none exist
+   - Filled cells: recipe name pill (2-line clamp, no overflow distortion) + red ✕ remove button
+   - Empty cells: `+` button opens day MealPlanModal
+   - Clicking a recipe pill opens a full read-only recipe detail modal (ingredients, instructions, macros, stats)
+   - Remove button deletes the `meal_plans` row and updates the grid instantly (no reload)
+
+3. **Live Refresh After Saving**
+   - Added `mealPlanRefreshKey` counter in `page.tsx`
+   - `MealPlanModal`'s `onRefresh` now increments the counter
+   - Counter flows as `mealRefreshKey` prop → `RecipesView` → `MealPlanWeekView`
+   - `useEffect` in `MealPlanWeekView` depends on `refreshKey`, so any modal save triggers immediate re-fetch
+
+4. **Props Chain**
+   - `page.tsx`: passes `weekStartDay`, `onMealDayClick`, `mealRefreshKey` to `RecipesView`
+   - `RecipesView`: forwards `weekStartDay`, `onDayClick`, `refreshKey` to `MealPlanWeekView`
+
+**New Files:**
+- `app/components/MealPlanWeekView.tsx`
+
+**Modified Files:**
+- `app/components/RecipesView.tsx` — toggle, subView state, new props
+- `app/page.tsx` — mealPlanRefreshKey state, wired to MealPlanModal onRefresh
+
+---
+
+## Previous Session Summary (March 5–6, 2026)
 
 **Duration:** ~2 sessions
 **Accomplishments:**

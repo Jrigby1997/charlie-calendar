@@ -1,4 +1,41 @@
-## 📝 Latest Updates (March 5–6, 2026)
+## � Upcoming Tasks
+
+| # | Task | Description |
+|---|------|-------------|
+| 1 | **More Themes** | Additional color themes with drastic style differences (dark, minimal, seasonal, high-contrast); theme selector in Settings |
+| 2 | **Fun Reactions** | Confetti/particle burst on task completion; celebration animation on reward redemption; micro-interaction polish |
+| 3 | **Reward History** | Full redemption log per member (who, what, when); view-only proof-of-claim history in Rewards section |
+| 4 | **Better Section Headers** | Distinct styled header for each section with title, contextual actions, and count badges |
+| 5 | **Mobile Optimization** | Responsive layouts, touch-friendly targets, swipe navigation, bottom nav bar on mobile |
+
+---
+
+## 📝 Latest Updates (March 6, 2026)
+
+### Phase 8: Meal Plan Week View in Recipes Section
+
+**Meal Plan Week View:**
+- ✅ `🍳 Recipes` / `📅 Meal Plan` pill toggle added to top-right of Recipes section header
+- ✅ Week grid: meal type rows (Breakfast, Lunch, etc.) × 7 day columns
+- ✅ Large left-aligned week range heading (`text-4xl`) matching CalendarView style
+- ✅ Prev / Today / Next navigation buttons grouped on the right
+- ✅ Today's column highlighted; Today button only appears when navigated away
+- ✅ Filled cells: 2-line clamped recipe name pill + red ✕ remove button (instant delete, no reload)
+- ✅ Empty cells: `+` button opens existing day MealPlanModal
+- ✅ Clicking a recipe pill opens full read-only recipe detail modal (ingredients, instructions, macros)
+- ✅ Grid refreshes immediately after saving from MealPlanModal (no page refresh needed)
+- ✅ Seeds default meal types if user has none
+
+**New Files:**
+- `app/components/MealPlanWeekView.tsx`
+
+**Modified Files:**
+- `app/components/RecipesView.tsx` — subView toggle, new props (`weekStartDay`, `onMealDayClick`, `mealRefreshKey`)
+- `app/page.tsx` — `mealPlanRefreshKey` counter wired to MealPlanModal `onRefresh`
+
+---
+
+## 📝 Previous Updates (March 5–6, 2026)
 
 ### Phase 7: Google Calendar Integration (Read-Only, Multi-Account)
 
@@ -29,8 +66,6 @@
 **Production:** https://charlie-calendar.vercel.app ✅
 
 ---
-
-## 📝 Previous Updates (February 12, 2026)
 
 ### Phase 5: Task & Reward System, Points Logic Fix
 
@@ -67,7 +102,7 @@ A modern family organization application with real-time synchronization, auto-sa
 - **Smooth Interactions:** All elements feature hover effects, scale animations, and backdrop blur
 - **Accessibility:** High contrast white text on colorful backgrounds with drop shadows
 
-## 📝 Latest Updates (February 9-10, 2026)
+## 📝 Previous Updates (February 9-10, 2026)
 
 ### Phase 4: Nutrition, Shopping List Enhanced Features & Family Member Avatars
 
