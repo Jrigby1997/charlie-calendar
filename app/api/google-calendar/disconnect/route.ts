@@ -61,10 +61,12 @@ export async function POST(request: NextRequest) {
       }
 
       // Delete events for all calendars in this integration
+      // Also catches calendars with NULL integration_id (created before v2 migration)
       const { data: cals } = await supabaseAdmin
         .from('external_calendars')
         .select('external_calendar_id')
-        .eq('integration_id', integration.id)
+        .eq('provider', 'google')
+        .or(`integration_id.eq.${integration.id},integration_id.is.null`)
 
       if (cals?.length) {
         await supabaseAdmin
@@ -74,11 +76,12 @@ export async function POST(request: NextRequest) {
           .in('external_calendar_id', cals.map(c => c.external_calendar_id))
       }
 
-      // Delete calendars and integration (cascade also handles events via FK if set)
+      // Delete calendars (also catches NULL integration_id rows from before v2 migration)
       await supabaseAdmin
         .from('external_calendars')
         .delete()
-        .eq('integration_id', integration.id)
+        .eq('provider', 'google')
+        .or(`integration_id.eq.${integration.id},integration_id.is.null`)
 
       await supabaseAdmin
         .from('user_integrations')

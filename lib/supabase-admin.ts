@@ -22,9 +22,13 @@ export function getSupabaseAdmin(): SupabaseClient {
   return _supabaseAdmin
 }
 
-// Convenience export used in existing imports
+// Proxy that defers client creation until first use at runtime.
+// Uses Reflect.get with the real client as receiver to preserve `this` binding
+// inside Supabase's internal methods.
 export const supabaseAdmin = new Proxy({} as SupabaseClient, {
-  get(_target, prop) {
-    return (getSupabaseAdmin() as any)[prop]
+  get(_target, prop, _receiver) {
+    const client = getSupabaseAdmin()
+    const value = Reflect.get(client, prop, client)
+    return typeof value === 'function' ? (value as Function).bind(client) : value
   },
 })
