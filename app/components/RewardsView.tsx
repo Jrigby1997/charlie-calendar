@@ -411,7 +411,7 @@ export default function RewardsView({ familyMembers, onShowToast }: RewardsViewP
                     </div>
 
                     {/* Scrollable Reward Tiles */}
-                    <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-2">
+                    <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-2 no-scroll">
                       {memberRewards.length === 0 ? (
                         <div className="text-center text-white/30 text-sm py-8">
                           No rewards available

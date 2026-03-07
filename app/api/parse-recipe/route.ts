@@ -8,18 +8,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 })
     }
 
-    // Fetch the recipe page
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      },
-    })
+    // Try multiple strategies in order — stop at first success
+    let html: string | null = null
 
-    if (!response.ok) {
-      return NextResponse.json({ error: 'Failed to fetch recipe' }, { status: 400 })
+    html ??= await fetchHtmlDirect(url)
+    html ??= await fetchHtmlViaProxy(url)          // allorigins.win
+    html ??= await fetchHtmlViaCodetabs(url)       // codetabs.com proxy
+    html ??= await fetchHtmlViaJina(url)           // Jina Reader headless browser
+
+    if (html === null) {
+      return NextResponse.json(
+        { error: 'Unable to import this recipe — the website is blocking automated access. Try a different recipe source (e.g. food.com, epicurious.com, or simplyrecipes.com).' },
+        { status: 400 }
+      )
     }
-
-    const html = await response.text()
 
     // Parse schema.org JSON-LD recipe data
     const recipeData = parseRecipeFromHTML(html)
@@ -32,6 +34,91 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error parsing recipe:', error)
     return NextResponse.json({ error: 'Failed to parse recipe' }, { status: 500 })
+  }
+}
+
+/** Direct fetch with browser-like headers. Returns HTML string or null if blocked. */
+async function fetchHtmlDirect(url: string): Promise<string | null> {
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
+    const response = await fetch(url, {
+      signal: controller.signal,
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
+        'Upgrade-Insecure-Requests': '1',
+      },
+    })
+    clearTimeout(timeout)
+    if (!response.ok) return null
+    return await response.text()
+  } catch {
+    return null
+  }
+}
+
+/** allorigins.win CORS proxy — different IP pool than direct. */
+async function fetchHtmlViaProxy(url: string): Promise<string | null> {
+  try {
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+    const response = await fetch(proxyUrl, { signal: controller.signal })
+    clearTimeout(timeout)
+    if (!response.ok) return null
+    const json = await response.json() as { contents?: string; status?: { http_code?: number } }
+    if ((json.status?.http_code ?? 200) >= 400) return null
+    return json.contents ?? null
+  } catch {
+    return null
+  }
+}
+
+/** codetabs.com proxy — another IP pool fallback. */
+async function fetchHtmlViaCodetabs(url: string): Promise<string | null> {
+  try {
+    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+    const response = await fetch(proxyUrl, { signal: controller.signal })
+    clearTimeout(timeout)
+    if (!response.ok) return null
+    const text = await response.text()
+    // codetabs returns the raw body; sanity-check it looks like HTML
+    if (!text.includes('<') || text.length < 500) return null
+    return text
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Jina Reader — headless-browser service that bypasses Cloudflare and similar protection.
+ * With X-Return-Format: html it returns the full rendered HTML so our JSON-LD parser works.
+ */
+async function fetchHtmlViaJina(url: string): Promise<string | null> {
+  try {
+    const jinaUrl = `https://r.jina.ai/${url}`
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 20000)
+    const response = await fetch(jinaUrl, {
+      signal: controller.signal,
+      headers: {
+        'X-Return-Format': 'html',
+        'Accept': 'text/html',
+      },
+    })
+    clearTimeout(timeout)
+    if (!response.ok) return null
+    const text = await response.text()
+    if (!text.includes('<') || text.length < 500) return null
+    return text
+  } catch {
+    return null
   }
 }
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import AddRecipeModal from './AddRecipeModal'
+import MealPlanWeekView from './MealPlanWeekView'
 
 type Ingredient = {
   id: number
@@ -78,9 +79,13 @@ type RecipeFromDB = {
 
 type RecipesViewProps = {
   userId: string
+  weekStartDay?: string
+  onMealDayClick?: (date: string) => void
+  mealRefreshKey?: number
+  onAddWeekMealsToList?: (startDate: string, endDate: string) => void
 }
 
-export default function RecipesView({ userId }: RecipesViewProps) {
+export default function RecipesView({ userId, weekStartDay = 'Sunday', onMealDayClick, mealRefreshKey, onAddWeekMealsToList }: RecipesViewProps) {
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [categories, setCategories] = useState<RecipeCategory[]>([])
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | null>(null)
@@ -91,6 +96,7 @@ export default function RecipesView({ userId }: RecipesViewProps) {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
+  const [subView, setSubView] = useState<'recipes' | 'mealplan'>('recipes')
 
   async function loadCategories() {
     try {
@@ -457,10 +463,11 @@ export default function RecipesView({ userId }: RecipesViewProps) {
         return
       }
 
-      // Upsert items (update if id exists, insert if not)
+      // Upsert items — use unique constraint so new items don't crash
+      const itemsWithoutId = itemsToUpsert.map(({ id: _id, ...rest }: any) => rest)
       const { error } = await supabase
         .from('shopping_list')
-        .upsert(itemsToUpsert)
+        .upsert(itemsWithoutId, { onConflict: 'user_id,ingredient_id,measurement' })
 
       if (error) throw error
 
@@ -524,9 +531,10 @@ export default function RecipesView({ userId }: RecipesViewProps) {
             recipe_counts: nextCounts,
           }
 
+      const { id: _id, ...itemWithoutId } = itemToUpsert
       const { error } = await supabase
         .from('shopping_list')
-        .upsert([itemToUpsert])
+        .upsert([itemWithoutId], { onConflict: 'user_id,ingredient_id,measurement' })
 
       if (error) throw error
 
@@ -575,7 +583,36 @@ export default function RecipesView({ userId }: RecipesViewProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col">
+      {/* Sticky header — toggle always visible; filters/search only in recipes subview */}
+      <div className="flex-shrink-0 space-y-3 pb-4">
+        {/* View Toggle */}
+        <div className="flex items-center justify-end">
+          <div className="flex bg-white/10 border border-white/20 rounded-xl p-1 gap-1">
+            <button
+              onClick={() => setSubView('recipes')}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                subView === 'recipes'
+                  ? 'bg-white/25 text-white shadow-sm'
+                  : 'text-white/50 hover:text-white/80 hover:bg-white/10'
+              }`}
+            >
+              🍳 Recipes
+            </button>
+            <button
+              onClick={() => setSubView('mealplan')}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                subView === 'mealplan'
+                  ? 'bg-white/25 text-white shadow-sm'
+                  : 'text-white/50 hover:text-white/80 hover:bg-white/10'
+              }`}
+            >
+              📅 Meal Plan
+            </button>
+          </div>
+        </div>
+
+        {subView === 'recipes' && (<>
       {/* Category Filters */}
       {categories.length > 0 && (
         <div className="flex gap-2 flex-wrap items-center">
@@ -649,9 +686,26 @@ export default function RecipesView({ userId }: RecipesViewProps) {
           + Add Recipe
         </button>
       </div>
+        </>)}
+      </div>{/* end sticky header */}
 
-      {/* Recipes Grid */}
-      {filteredRecipes.length === 0 ? (
+      {/* Meal plan — fills remaining height, handles its own internal layout */}
+      {subView === 'mealplan' && (
+        <div className="flex-1 min-h-0">
+          <MealPlanWeekView
+            userId={userId}
+            weekStartDay={weekStartDay}
+            onDayClick={onMealDayClick ?? (() => {})}
+            refreshKey={mealRefreshKey}
+            onAddWeekMealsToList={onAddWeekMealsToList}
+          />
+        </div>
+      )}
+
+      {/* Recipe grid — scrollable */}
+      {subView === 'recipes' && (
+        <div className="flex-1 min-h-0 overflow-y-auto view-scroll pr-1">
+          {filteredRecipes.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-white/60">
             {recipes.length === 0
@@ -751,6 +805,9 @@ export default function RecipesView({ userId }: RecipesViewProps) {
               )}
             </div>
           ))}
+        </div>
+      )}
+
         </div>
       )}
 

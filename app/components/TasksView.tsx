@@ -514,7 +514,7 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
                     </div>
 
                     {/* Scrollable Task Tiles */}
-                    <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-2">
+                    <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-2 no-scroll">
                       {memberTasks.length === 0 ? (
                         <div className="text-center text-white/30 text-sm py-8">
                           No tasks assigned

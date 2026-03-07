@@ -65,6 +65,7 @@ export default function Home() {
   const [mealPlans, setMealPlans] = useState<any[]>([])
   const [selectedMealDate, setSelectedMealDate] = useState<string | null>(null)
   const [isMealModalOpen, setIsMealModalOpen] = useState(false)
+  const [mealPlanRefreshKey, setMealPlanRefreshKey] = useState(0)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [calendarTitle, setCalendarTitle] = useState('Charlie Calendar')
@@ -1060,12 +1061,17 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
         return
       }
 
-      // Upsert items
+      // Upsert items — use the table's unique constraint (user_id, ingredient_id, measurement)
+      // so new items merge correctly even without an id
+      const itemsWithoutId = uniqueItems.map(({ id: _id, ...rest }: any) => rest)
       const { error } = await supabase
         .from('shopping_list')
-        .upsert(uniqueItems)
+        .upsert(itemsWithoutId, { onConflict: 'user_id,ingredient_id,measurement' })
 
-      if (error) throw error
+      if (error) {
+        console.error('Shopping list upsert error:', JSON.stringify(error), error)
+        throw error
+      }
 
       showToast(`Added ${recipes.length} recipes (${totalIngredients} ingredients) to shopping list!`, 'success')
     } catch (error) {
@@ -1217,19 +1223,33 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                 isSyncingGoogle={isSyncingGoogle}
               />
             ) : currentView === 'recipes' ? (
-              <RecipesView userId={user?.id || ''} />
+              <div className="h-full p-6">
+                <RecipesView
+                  userId={user?.id || ''}
+                  weekStartDay={weekStartDay}
+                  onMealDayClick={handleMealIconClick}
+                  mealRefreshKey={mealPlanRefreshKey}
+                  onAddWeekMealsToList={handleAddWeekMealsToList}
+                />
+              </div>
             ) : currentView === 'shopping-list' ? (
-              <ShoppingListView userId={user?.id || ''} />
+              <div className="h-full p-6">
+                <ShoppingListView userId={user?.id || ''} />
+              </div>
             ) : currentView === 'tasks' ? (
-              <TasksView
-                familyMembers={familyMembers}
-                onShowToast={showToast}
-              />
+              <div className="h-full p-6">
+                <TasksView
+                  familyMembers={familyMembers}
+                  onShowToast={showToast}
+                />
+              </div>
             ) : (
-              <RewardsView
-                familyMembers={familyMembers}
-                onShowToast={showToast}
-              />
+              <div className="h-full p-6">
+                <RewardsView
+                  familyMembers={familyMembers}
+                  onShowToast={showToast}
+                />
+              </div>
             )}
           </div>
         </div>
@@ -1256,7 +1276,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
           onClose={handleCloseMealModal}
           selectedDate={selectedMealDate}
           userId={user?.id || ''}
-          onRefresh={loadMealPlans}
+          onRefresh={() => { loadMealPlans(); setMealPlanRefreshKey(k => k + 1) }}
           onShowToast={showToast}
         />
 

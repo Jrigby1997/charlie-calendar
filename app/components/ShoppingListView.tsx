@@ -358,9 +358,11 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
   )
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+    <div className="h-full flex flex-col">
+      {/* Sticky header */}
+      <div className="flex-shrink-0 space-y-4 pb-4">
+        {/* Header */}
+        <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-white">Shopping List</h2>
         {items.length > 0 && (
           <div className="flex gap-3">
@@ -446,9 +448,11 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
           </button>
         </div>
       </div>
+      </div>{/* end sticky header */}
 
-      {/* Shopping List Items */}
-      {items.length === 0 ? (
+      {/* Scrollable list */}
+      <div className="flex-1 min-h-0 overflow-y-auto view-scroll pr-1">
+        {items.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-white/60">
             Your shopping list is empty. Add ingredients from recipes to get started!
@@ -568,7 +572,8 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
             </div>
           </div>
         </div>
-      )}
+        )}
+      </div>{/* end scrollable list */}
 
       {/* Toast Notification */}
       {toast && (
