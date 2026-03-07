@@ -21,10 +21,11 @@ type Ingredient = {
 }
 
 type ShoppingListViewProps = {
+  sectionTitle?: string
   userId: string
 }
 
-export default function ShoppingListView({ userId }: ShoppingListViewProps) {
+export default function ShoppingListView({ sectionTitle, userId }: ShoppingListViewProps) {
   const [items, setItems] = useState<ShoppingListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set())
@@ -358,12 +359,10 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
   )
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Sticky header */}
-      <div className="flex-shrink-0 space-y-4 pb-4">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-white">Shopping List</h2>
+    <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 h-full flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
+      {/* Header */}
+      <div className="px-6 py-4 flex items-center justify-between flex-shrink-0">
+        <h2 className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle || '🛒 Shopping List'}</h2>
         {items.length > 0 && (
           <div className="flex gap-3">
             <button
@@ -383,6 +382,7 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
       </div>
 
       {/* Add Manual Item */}
+      <div className="flex-shrink-0 px-6 py-4">
       <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-4">
         <div className="text-white/80 font-medium mb-3">Add item</div>
         <div className="flex flex-wrap gap-3 items-center">
@@ -448,10 +448,10 @@ export default function ShoppingListView({ userId }: ShoppingListViewProps) {
           </button>
         </div>
       </div>
-      </div>{/* end sticky header */}
+      </div>{/* end add item */}
 
       {/* Scrollable list */}
-      <div className="flex-1 min-h-0 overflow-y-auto view-scroll pr-1">
+      <div className="flex-1 min-h-0 overflow-y-auto view-scroll px-6 pb-6 pr-1">
         {items.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-white/60">

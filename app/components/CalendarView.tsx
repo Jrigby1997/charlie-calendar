@@ -57,9 +57,10 @@ type CalendarViewProps = {
   isGoogleConnected?: boolean
   onSyncGoogleCalendar?: () => Promise<void>
   isSyncingGoogle?: boolean
+  sectionTitle?: string
 }
 
-export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList, dateFormat = 'MM/DD/YYYY', weekStartDay = 'Sunday', isGoogleConnected = false, onSyncGoogleCalendar, isSyncingGoogle = false }: CalendarViewProps) {
+export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList, dateFormat = 'MM/DD/YYYY', weekStartDay = 'Sunday', isGoogleConnected = false, onSyncGoogleCalendar, isSyncingGoogle = false, sectionTitle }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<'day' | 'week' | 'month'>('week')
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -446,12 +447,17 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
   const dayOfWeekName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][currentDate.getDay()]
 
   return (
-    <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl p-6 h-full flex flex-col border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
+    <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl h-full flex flex-col border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
       {/* Calendar Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-4xl font-bold text-white drop-shadow-lg">
-          {view === 'day' ? `${dayOfWeekName}, ${dayTitle}` : view === 'week' ? weekTitle : `${monthNames[month]} ${year}`}
-        </h2>
+      <div className="px-6 pt-6 flex items-center justify-between mb-4">
+        <div>
+          {sectionTitle && (
+            <p className="text-xs font-semibold text-white/45 uppercase tracking-widest mb-1">{sectionTitle}</p>
+          )}
+          <h2 className="text-4xl font-bold text-white drop-shadow-lg">
+            {view === 'day' ? `${dayOfWeekName}, ${dayTitle}` : view === 'week' ? weekTitle : `${monthNames[month]} ${year}`}
+          </h2>
+        </div>
         <div className="flex flex-col items-end gap-3">
           {/* Family Member Filter Icons */}
           <div className="flex items-center gap-2 avatar-background">
@@ -563,6 +569,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
         </div>
       </div>
 
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-6 pb-6">
       {/* Week View */}
       {view === 'week' && (
         <div className="flex-1 overflow-auto rounded-xl">
@@ -1162,6 +1169,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
         })}
       </div>
       )}
+      </div>
     </div>
   )
 }

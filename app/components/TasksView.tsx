@@ -45,6 +45,7 @@ type MemberPoints = {
 type TasksViewProps = {
   familyMembers: FamilyMember[]
   onShowToast: (message: string, tone: 'success' | 'error') => void
+  sectionTitle?: string
 }
 
 /** Returns YYYY-MM-DD in the user's LOCAL timezone (avoids UTC-date-shift bugs). */
@@ -56,7 +57,7 @@ function toLocalISO(date: Date): string {
   ].join('-')
 }
 
-export default function TasksView({ familyMembers, onShowToast }: TasksViewProps) {
+export default function TasksView({ familyMembers, onShowToast, sectionTitle }: TasksViewProps) {
   const { user } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
   const [completions, setCompletions] = useState<TaskCompletion[]>([])
@@ -420,13 +421,32 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
   return (
     <>
       <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 h-full flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
-        {/* Header: date left | Prev/Today/Next center | + add right */}
-        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
-          <h2 className="text-2xl font-bold text-white drop-shadow-lg flex-1">
-            {viewDateFormatted}
-          </h2>
+        {/* Header */}
+        <div className="px-6 py-4 flex flex-col gap-3 flex-shrink-0">
+          {/* Top row: title left | date center | + right */}
+          <div className="grid grid-cols-3 items-center">
+            <div>
+              {sectionTitle && <p className="text-xs font-semibold text-white/45 uppercase tracking-widest">{sectionTitle}</p>}
+            </div>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-white drop-shadow-lg">{viewDateFormatted}</h2>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  setEditingTask(null)
+                  setIsModalOpen(true)
+                }}
+                className="w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-full transition-all duration-200 border border-white/30 hover:scale-110 flex items-center justify-center text-2xl font-light shadow-lg"
+                title="Add Task"
+              >
+                +
+              </button>
+            </div>
+          </div>
 
-          <div className="flex items-center gap-2">
+          {/* Nav buttons row */}
+          <div className="flex items-center justify-center gap-2">
             <button
               onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() - 1))}
               className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm font-medium transition-all duration-200"
@@ -439,19 +459,6 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
               onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() + 1))}
               className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm font-medium transition-all duration-200"
             >Next →</button>
-          </div>
-
-          <div className="flex-1 flex justify-end">
-            <button
-              onClick={() => {
-                setEditingTask(null)
-                setIsModalOpen(true)
-              }}
-              className="w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-full transition-all duration-200 border border-white/30 hover:scale-110 flex items-center justify-center text-2xl font-light shadow-lg"
-              title="Add Task"
-            >
-              +
-            </button>
           </div>
         </div>
 

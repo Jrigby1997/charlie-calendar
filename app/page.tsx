@@ -1102,6 +1102,9 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
     }
   }
 
+  // Derive the family name prefix (strips " Calendar" suffix if present)
+  const familyName = calendarTitle.replace(/\s*Calendar\s*$/i, '').trim()
+
   return (
     <div className={`h-screen overflow-hidden flex flex-row bg-black ${getThemeGradient()}`}>
       <div className="flex-1 flex min-h-0 gap-4">
@@ -1193,16 +1196,11 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-          {/* Header with Calendar Title */}
-          <div className="px-6 py-4 border-b border-white/10">
-            <h1 className="text-3xl font-bold text-white drop-shadow-lg">{calendarTitle}</h1>
-          </div>
-
-          {/* Main Content - takes full space */}
-          <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden">
             {currentView === 'calendar' ? (
+              <div className="h-full p-4">
               <CalendarView
+                sectionTitle={familyName ? `${familyName} Calendar` : 'Calendar'}
                 events={filteredEvents}
                 onAddEventClick={handleOpenNewEvent}
                 onEventClick={handleEventClick}
@@ -1222,9 +1220,11 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                 onSyncGoogleCalendar={syncGoogleCalendar}
                 isSyncingGoogle={isSyncingGoogle}
               />
+              </div>
             ) : currentView === 'recipes' ? (
-              <div className="h-full p-6">
+              <div className="h-full p-4">
                 <RecipesView
+                  sectionTitle={familyName ? `${familyName} Recipes` : 'Recipes'}
                   userId={user?.id || ''}
                   weekStartDay={weekStartDay}
                   onMealDayClick={handleMealIconClick}
@@ -1233,25 +1233,29 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                 />
               </div>
             ) : currentView === 'shopping-list' ? (
-              <div className="h-full p-6">
-                <ShoppingListView userId={user?.id || ''} />
+              <div className="h-full p-4">
+                <ShoppingListView
+                  sectionTitle={familyName ? `${familyName} Shopping List` : 'Shopping List'}
+                  userId={user?.id || ''}
+                />
               </div>
             ) : currentView === 'tasks' ? (
-              <div className="h-full p-6">
+              <div className="h-full p-4">
                 <TasksView
+                  sectionTitle={familyName ? `${familyName} Tasks` : 'Tasks'}
                   familyMembers={familyMembers}
                   onShowToast={showToast}
                 />
               </div>
             ) : (
-              <div className="h-full p-6">
+              <div className="h-full p-4">
                 <RewardsView
+                  sectionTitle={familyName ? `${familyName} Rewards` : 'Rewards'}
                   familyMembers={familyMembers}
                   onShowToast={showToast}
                 />
               </div>
             )}
-          </div>
         </div>
       </div>
 

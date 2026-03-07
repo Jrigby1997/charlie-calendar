@@ -222,13 +222,8 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
   }
 
   async function handleSave() {
-    if (!calendarTitle.trim() || !familySectionTitle.trim()) {
-      onShowToast?.('Titles cannot be empty', 'error')
-      return
-    }
-
-    if (calendarTitle.length > 30) {
-      onShowToast?.('Calendar title must be 30 characters or less', 'error')
+    if (!familySectionTitle.trim()) {
+      onShowToast?.('Family section title cannot be empty', 'error')
       return
     }
 
@@ -316,10 +311,10 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
             <div className="text-white/60 text-center py-8">Loading settings...</div>
           ) : (
             <>
-              {/* Calendar Title */}
+              {/* Family Name */}
               <div>
                 <label className="block text-white font-semibold mb-2">
-                  Calendar Title
+                  Family Name
                   <span className="text-white/60 font-normal text-sm ml-2">
                     ({calendarTitle.length}/30)
                   </span>
@@ -328,12 +323,12 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                   type="text"
                   value={calendarTitle}
                   onChange={(e) => setCalendarTitle(e.target.value.slice(0, 30))}
-                  placeholder="e.g., Williams Family Calendar"
+                  placeholder="e.g., Williams"
                   maxLength={30}
                   className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/50 focus:ring-2 focus:ring-white/20"
                 />
                 <p className="text-white/60 text-sm mt-1">
-                  This appears as the main title at the top of the page
+                  Prefix shown on each section header (e.g. “Williams” → “Williams Calendar”). Leave blank to omit.
                 </p>
               </div>
 

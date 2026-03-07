@@ -46,9 +46,10 @@ type RedemptionHistory = {
 type RewardsViewProps = {
   familyMembers: FamilyMember[]
   onShowToast: (message: string, tone: 'success' | 'error') => void
+  sectionTitle?: string
 }
 
-export default function RewardsView({ familyMembers, onShowToast }: RewardsViewProps) {
+export default function RewardsView({ familyMembers, onShowToast, sectionTitle }: RewardsViewProps) {
   const { user } = useAuth()
   const [rewards, setRewards] = useState<Reward[]>([])
   const [memberPoints, setMemberPoints] = useState<MemberPoints[]>([])
@@ -362,8 +363,8 @@ export default function RewardsView({ familyMembers, onShowToast }: RewardsViewP
     <>
       <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 h-full flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
-          <h2 className="text-2xl font-bold text-white drop-shadow-lg">🏆 Rewards</h2>
+        <div className="px-6 py-4 flex items-center justify-between flex-shrink-0">
+          <h2 className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle || '🏆 Rewards'}</h2>
           <div className="flex items-center gap-3">
             {/* Subview toggle */}
             <div className="flex bg-white/10 border border-white/20 rounded-xl p-1 gap-1">

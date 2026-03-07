@@ -78,6 +78,7 @@ type RecipeFromDB = {
 }
 
 type RecipesViewProps = {
+  sectionTitle?: string
   userId: string
   weekStartDay?: string
   onMealDayClick?: (date: string) => void
@@ -85,7 +86,7 @@ type RecipesViewProps = {
   onAddWeekMealsToList?: (startDate: string, endDate: string) => void
 }
 
-export default function RecipesView({ userId, weekStartDay = 'Sunday', onMealDayClick, mealRefreshKey, onAddWeekMealsToList }: RecipesViewProps) {
+export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sunday', onMealDayClick, mealRefreshKey, onAddWeekMealsToList }: RecipesViewProps) {
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [categories, setCategories] = useState<RecipeCategory[]>([])
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | null>(null)
@@ -583,11 +584,12 @@ export default function RecipesView({ userId, weekStartDay = 'Sunday', onMealDay
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Sticky header — toggle always visible; filters/search only in recipes subview */}
-      <div className="flex-shrink-0 space-y-3 pb-4">
-        {/* View Toggle */}
-        <div className="flex items-center justify-end">
+    <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 h-full flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
+      {/* Header + controls */}
+      <div className="flex-shrink-0 space-y-3 px-6 py-4">
+        {/* Title + Toggle row */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle || '📖 Recipes'}</h2>
           <div className="flex bg-white/10 border border-white/20 rounded-xl p-1 gap-1">
             <button
               onClick={() => setSubView('recipes')}
@@ -691,7 +693,7 @@ export default function RecipesView({ userId, weekStartDay = 'Sunday', onMealDay
 
       {/* Meal plan — fills remaining height, handles its own internal layout */}
       {subView === 'mealplan' && (
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 px-6 pb-6">
           <MealPlanWeekView
             userId={userId}
             weekStartDay={weekStartDay}
@@ -704,7 +706,7 @@ export default function RecipesView({ userId, weekStartDay = 'Sunday', onMealDay
 
       {/* Recipe grid — scrollable */}
       {subView === 'recipes' && (
-        <div className="flex-1 min-h-0 overflow-y-auto view-scroll pr-1">
+        <div className="flex-1 min-h-0 overflow-y-auto view-scroll px-6 pb-6 pr-1">
           {filteredRecipes.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-white/60">
