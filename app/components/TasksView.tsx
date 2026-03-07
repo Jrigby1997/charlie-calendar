@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/app/contexts/AuthContext'
 import AddTaskModal from './AddTaskModal'
+import confetti from 'canvas-confetti'
 
 type FamilyMember = {
   id: number
@@ -46,6 +47,15 @@ type TasksViewProps = {
   onShowToast: (message: string, tone: 'success' | 'error') => void
 }
 
+/** Returns YYYY-MM-DD in the user's LOCAL timezone (avoids UTC-date-shift bugs). */
+function toLocalISO(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
 export default function TasksView({ familyMembers, onShowToast }: TasksViewProps) {
   const { user } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
@@ -55,8 +65,11 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<any>(null)
   const [viewDate, setViewDate] = useState(new Date())
-  const today = new Date().toISOString().split('T')[0]
-  const viewDateISO = viewDate.toISOString().split('T')[0]
+  const today = toLocalISO(new Date())
+  const viewDateISO = toLocalISO(viewDate)
+  // Keep a ref so realtime callbacks always read the current date (not stale closure)
+  const viewDateISORef = useRef(viewDateISO)
+  useEffect(() => { viewDateISORef.current = viewDateISO }, [viewDateISO])
 
   // Load all task data
   useEffect(() => {
@@ -77,7 +90,8 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
     const completionsChannel = supabase
       .channel('task-completions-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, () => {
-        loadCompletions()
+        // Use ref so we always reload the currently-viewed date, not the date from initial render
+        loadCompletions(viewDateISORef.current)
         loadMemberPoints()
       })
       .subscribe()
@@ -98,7 +112,7 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
   // Reload completions and points when viewDate changes
   useEffect(() => {
     if (!user) return
-    loadCompletions()
+    loadCompletions(viewDateISO)
     loadMemberPoints()
   }, [viewDate, user])
 
@@ -127,11 +141,12 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
     }
   }
 
-  async function loadCompletions() {
+  async function loadCompletions(dateISO?: string) {
+    const date = dateISO ?? viewDateISORef.current
     const { data, error } = await supabase
       .from('task_completions')
       .select('*')
-      .eq('completed_date', viewDateISO)
+      .eq('completed_date', date)
 
     if (error) {
       console.error('Error loading completions:', error)
@@ -256,6 +271,7 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
       }
 
       const member = familyMembers.find((m) => m.id === memberId)
+      fireConfetti()
       onShowToast(`⭐ +${task.points} for ${member?.name || 'member'}!`, 'success')
     }
 
@@ -376,6 +392,15 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
     setEditingTask(null)
   }
 
+  function fireConfetti() {
+    confetti({
+      particleCount: 90,
+      spread: 70,
+      origin: { y: 0.65 },
+      colors: ['#FFD700', '#FFA500', '#2DD4BF', '#A78BFA', '#34D399'],
+    })
+  }
+
   // Format today's date
   const viewDateFormatted = viewDate.toLocaleDateString('en-US', {
     weekday: 'short',
@@ -395,41 +420,39 @@ export default function TasksView({ familyMembers, onShowToast }: TasksViewProps
   return (
     <>
       <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 h-full flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
-        {/* Header */}
+        {/* Header: date left | Prev/Today/Next center | + add right */}
         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-bold text-white drop-shadow-lg">
-              {viewDateFormatted}
-            </h2>
+          <h2 className="text-2xl font-bold text-white drop-shadow-lg flex-1">
+            {viewDateFormatted}
+          </h2>
 
-            <div className="flex gap-2 ml-4">
-              <button
-                className="px-3 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 transition-all duration-200 shadow-md"
-                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() - 1))}
-                title="Previous Day"
-              >←</button>
-              <button
-                className="px-3 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 transition-all duration-200 shadow-md"
-                onClick={() => setViewDate(new Date())}
-                title="Today"
-              >Today</button>
-              <button
-                className="px-3 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 transition-all duration-200 shadow-md"
-                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() + 1))}
-                title="Next Day"
-              >→</button>
-            </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() - 1))}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm font-medium transition-all duration-200"
+            >← Prev</button>
+            <button
+              onClick={() => setViewDate(new Date())}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white/80 hover:text-white text-sm font-medium transition-all duration-200"
+            >Today</button>
+            <button
+              onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() + 1))}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm font-medium transition-all duration-200"
+            >Next →</button>
           </div>
-          <button
-            onClick={() => {
-              setEditingTask(null)
-              setIsModalOpen(true)
-            }}
-            className="w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-full transition-all duration-200 border border-white/30 hover:scale-110 flex items-center justify-center text-2xl font-light shadow-lg"
-            title="Add Task"
-          >
-            +
-          </button>
+
+          <div className="flex-1 flex justify-end">
+            <button
+              onClick={() => {
+                setEditingTask(null)
+                setIsModalOpen(true)
+              }}
+              className="w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-full transition-all duration-200 border border-white/30 hover:scale-110 flex items-center justify-center text-2xl font-light shadow-lg"
+              title="Add Task"
+            >
+              +
+            </button>
+          </div>
         </div>
 
         {/* Columns Container */}
