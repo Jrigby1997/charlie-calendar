@@ -38,6 +38,7 @@ type Event = {
   baseEventId?: number // For virtual instances of recurring/multi-day events
   isExternal?: boolean // True for events synced from external providers (Google, etc.)
   externalProvider?: string // 'google' | 'outlook' | 'apple'
+  custom_color?: string | null
 }
 
 type FamilyMember = {
@@ -70,7 +71,8 @@ export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [calendarTitle, setCalendarTitle] = useState('Charlie Calendar')
   const [familySectionTitle, setFamilySectionTitle] = useState('Family Members')
-  const [colorTheme, setColorTheme] = useState('default')
+  const [colorTheme, setColorTheme] = useState('glass')
+  const [eventColorMode, setEventColorMode] = useState('member')
   const [dateFormat, setDateFormat] = useState('MM/DD/YYYY')
   const [weekStartDay, setWeekStartDay] = useState('Sunday')
   const [externalRawEvents, setExternalRawEvents] = useState<any[]>([])
@@ -88,6 +90,11 @@ export default function Home() {
     calendarName: string
     googleEmail: string | null
   } | null>(null)
+
+  // Apply theme to <html> element whenever settings load/change
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', colorTheme || 'glass')
+  }, [colorTheme])
 
   // Toast auto-dismiss effect
   useEffect(() => {
@@ -275,7 +282,8 @@ export default function Home() {
     } else if (data) {
       setCalendarTitle(data.calendar_title)
       setFamilySectionTitle(data.family_section_title)
-      setColorTheme(data.color_theme || 'default')
+      setColorTheme(data.color_theme || 'glass')
+      setEventColorMode(data.event_color_mode || 'member')
       setDateFormat(data.date_format || 'MM/DD/YYYY')
       setWeekStartDay(data.week_start_day || 'Sunday')
     }
@@ -441,7 +449,7 @@ export default function Home() {
     return null
   }
 
-  async function handleAddEvent(title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[]) {
+  async function handleAddEvent(title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], customColor?: string) {
     if (!user) {
       console.error('No user logged in')
       return
@@ -462,6 +470,7 @@ export default function Home() {
         recurrence_interval: isRecurring ? recurrenceInterval : 1,
         recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate : null,
         recurrence_days: isRecurring && recurrenceDays.length > 0 ? JSON.stringify(recurrenceDays) : null,
+        custom_color: customColor || null,
         user_id: user.id
       }])
       .select()
@@ -490,7 +499,7 @@ export default function Home() {
     }
   }
 
-  async function handleUpdateEvent(id: number, title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], updateScope?: 'single' | 'all' | 'future', instanceDate?: string) {
+  async function handleUpdateEvent(id: number, title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], updateScope?: 'single' | 'all' | 'future', instanceDate?: string, customColor?: string) {
 
     if (updateScope === 'single' && instanceDate) {
       // Create or update exception for this single instance
@@ -504,7 +513,8 @@ export default function Home() {
           modified_start_time: startTime || null,
           modified_end_time: endTime || null,
           modified_description: description || null,
-          modified_family_member_ids: selectedMemberIds.length > 0 ? JSON.stringify(selectedMemberIds) : null
+          modified_family_member_ids: selectedMemberIds.length > 0 ? JSON.stringify(selectedMemberIds) : null,
+          custom_color: customColor || null
         }, {
           onConflict: 'base_event_id,exception_date'
         })
@@ -543,6 +553,7 @@ export default function Home() {
           recurrence_interval: originalEvent.recurrence_interval,
           recurrence_end_date: recurrenceEndDate || null,
           recurrence_days: originalEvent.recurrence_days,
+          custom_color: customColor || null,
           user_id: user?.id
         }])
         .select()
@@ -570,7 +581,8 @@ export default function Home() {
           recurrence_pattern: isRecurring ? recurrencePattern : null,
           recurrence_interval: isRecurring ? recurrenceInterval : 1,
           recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate : null,
-          recurrence_days: isRecurring && recurrenceDays.length > 0 ? JSON.stringify(recurrenceDays) : null
+          recurrence_days: isRecurring && recurrenceDays.length > 0 ? JSON.stringify(recurrenceDays) : null,
+          custom_color: customColor || null
         })
         .eq('id', id)
 
@@ -1219,6 +1231,8 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                 isGoogleConnected={googleConnected}
                 onSyncGoogleCalendar={syncGoogleCalendar}
                 isSyncingGoogle={isSyncingGoogle}
+                eventColorMode={eventColorMode}
+                colorTheme={colorTheme}
               />
               </div>
             ) : currentView === 'recipes' ? (
@@ -1272,6 +1286,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
           initialDate={newEventDate}
           initialStartTime={newEventTime}
           onShowToast={showToast}
+          eventColorMode={eventColorMode}
         />
 
         {/* Meal Plan Modal */}

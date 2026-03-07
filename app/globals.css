@@ -31,13 +31,123 @@
   }
 }
 
-body {
+/* Default (glass) theme — vivid animated gradient */
+body,
+html[data-theme="glass"] body {
   background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab, #667eea, #764ba2, #f093fb, #4facfe);
   background-size: 400% 400%;
   animation: gradient 600s ease infinite;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   min-height: 100vh;
+}
+
+/* Pastel theme — soft solid light background, opaque cards */
+html[data-theme="pastel"] body {
+  background: linear-gradient(135deg, #fce4ec 0%, #f3e5f5 25%, #e8eaf6 50%, #e0f2f1 75%, #fff9c4 100%);
+  background-size: 200% 200%;
+  animation: gradient 30s ease infinite;
+  color: #1e1133;
+  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+}
+
+/* Pastel: outer app wrapper — remove black bg and old gradient overlay */
+html[data-theme="pastel"] .bg-black { background-color: transparent !important; }
+html[data-theme="pastel"] .bg-gradient-to-br { background-image: none !important; }
+html[data-theme="pastel"] .from-blue-900\/20,
+html[data-theme="pastel"] .via-purple-900\/20,
+html[data-theme="pastel"] .to-black { background-image: none !important; }
+
+/* Pastel: sidebar and nav pills */
+html[data-theme="pastel"] .bg-white\/30 { background-color: rgba(255, 255, 255, 0.75) !important; }
+
+/* Pastel: make all glass/blur panels opaque white */
+html[data-theme="pastel"] .backdrop-blur-sm,
+html[data-theme="pastel"] .backdrop-blur-md,
+html[data-theme="pastel"] .backdrop-blur-lg,
+html[data-theme="pastel"] .backdrop-blur-xl,
+html[data-theme="pastel"] .backdrop-blur-2xl,
+html[data-theme="pastel"] .backdrop-blur-3xl {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background-color: rgba(255, 255, 255, 0.88) !important;
+  border-color: rgba(180, 160, 200, 0.4) !important;
+}
+
+/* Pastel: black/translucent panels → opaque white */
+html[data-theme="pastel"] .bg-black\/20,
+html[data-theme="pastel"] .bg-black\/30,
+html[data-theme="pastel"] .bg-black\/40,
+html[data-theme="pastel"] .bg-black\/50 {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+}
+
+/* Pastel: semi-transparent white cards → opaque cream-white */
+html[data-theme="pastel"] .bg-white\/5,
+html[data-theme="pastel"] .bg-white\/10,
+html[data-theme="pastel"] .bg-white\/15,
+html[data-theme="pastel"] .bg-white\/20,
+html[data-theme="pastel"] .bg-white\/25 {
+  background-color: rgba(255, 255, 255, 0.80) !important;
+}
+
+/* Pastel: text — white → dark purple, with proper opacity ladder */
+html[data-theme="pastel"] .text-white          { color: #1e1133 !important; }
+html[data-theme="pastel"] .text-white\/90      { color: #2d1f52 !important; }
+html[data-theme="pastel"] .text-white\/80      { color: #3d2c65 !important; }
+html[data-theme="pastel"] .text-white\/70      { color: #503878 !important; }
+html[data-theme="pastel"] .text-white\/60      { color: #6a508f !important; }
+html[data-theme="pastel"] .text-white\/50      { color: #876aaa !important; }
+/* Slightly deemphasised but still readable */
+html[data-theme="pastel"] .text-white\/45      { color: #7a6098 !important; }
+html[data-theme="pastel"] .text-white\/40      { color: #8f77aa !important; }
+html[data-theme="pastel"] .text-white\/35      { color: #6b6b80 !important; }
+/* Ghost / empty-state text — must stay readable on white bg */
+html[data-theme="pastel"] .text-white\/30      { color: #888899 !important; }
+html[data-theme="pastel"] .text-white\/20      { color: #aaaabc !important; }
+
+/* Pastel: today date — yellow-300 is invisible on light bg → dark amber */
+html[data-theme="pastel"] .text-yellow-300     { color: #b45309 !important; }
+
+/* Pastel: stars and points — keep gold but darken for contrast */
+html[data-theme="pastel"] .text-yellow-400     { color: #b45309 !important; }
+html[data-theme="pastel"] .text-yellow-400\/70 { color: #a16207 !important; }
+html[data-theme="pastel"] .text-yellow-400\/80 { color: #a16207 !important; }
+
+/* Pastel: can't-afford red */
+html[data-theme="pastel"] .text-red-400\/60    { color: #b91c1c !important; }
+
+/* Pastel: green confirmation buttons stay readable */
+html[data-theme="pastel"] .text-green-300      { color: #166534 !important; }
+
+/* Pastel: border overrides */
+html[data-theme="pastel"] .border-white\/20  { border-color: rgba(180, 160, 200, 0.35) !important; }
+html[data-theme="pastel"] .border-white\/30  { border-color: rgba(160, 140, 190, 0.5)  !important; }
+html[data-theme="pastel"] .border-white\/40  { border-color: rgba(150, 125, 185, 0.6)  !important; }
+html[data-theme="pastel"] .border-white\/50  { border-color: rgba(140, 110, 180, 0.7)  !important; }
+html[data-theme="pastel"] .border-white\/60  { border-color: rgba(130, 100, 175, 0.8)  !important; }
+
+/* Pastel: form inputs */
+html[data-theme="pastel"] input:not([type="color"]):not([type="checkbox"]),
+html[data-theme="pastel"] textarea,
+html[data-theme="pastel"] select {
+  background-color: rgba(245, 240, 255, 0.95) !important;
+  color: #1e1133 !important;
+  border-color: rgba(170, 150, 200, 0.55) !important;
+}
+
+/* Pastel: drop-shadow on today indicator is invisible — remove */
+html[data-theme="pastel"] .drop-shadow-lg { filter: none !important; }
+
+/* Pastel: scrollbars — light theme variant */
+html[data-theme="pastel"] .overflow-auto.rounded-xl::-webkit-scrollbar-thumb,
+html[data-theme="pastel"] .view-scroll::-webkit-scrollbar-thumb {
+  background: rgba(160, 130, 200, 0.3);
+}
+html[data-theme="pastel"] .overflow-auto.rounded-xl::-webkit-scrollbar-thumb:hover,
+html[data-theme="pastel"] .view-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 110, 180, 0.5);
 }
 
 /* Width */

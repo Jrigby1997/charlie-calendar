@@ -422,11 +422,11 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
     <>
       <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 h-full flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
         {/* Header */}
-        <div className="px-6 py-4 flex flex-col gap-3 flex-shrink-0">
+        <div className="px-6 pt-6 pb-4 flex flex-col gap-3 flex-shrink-0">
           {/* Top row: title left | date center | + right */}
           <div className="grid grid-cols-3 items-center">
             <div>
-              {sectionTitle && <p className="text-xs font-semibold text-white/45 uppercase tracking-widest">{sectionTitle}</p>}
+              {sectionTitle && <h2 className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle}</h2>}
             </div>
             <div className="text-center">
               <h2 className="text-2xl font-bold text-white drop-shadow-lg">{viewDateFormatted}</h2>

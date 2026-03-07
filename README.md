@@ -2,11 +2,13 @@
 
 | # | Task | Description |
 |---|------|-------------|
-| 1 | **More Themes** | Additional color themes with drastic style differences (dark, minimal, seasonal, high-contrast); theme selector in Settings |
+| 1 | **Glass + Pastel Themes** | ✅ Done — Glassmorphism (vivid animated gradient) and Pastel (soft peach/pink/lavender/mint) themes with live toggle in Settings |
 | 2 | **Fun Reactions** | Confetti/particle burst on task completion; celebration animation on reward redemption; micro-interaction polish |
 | 3 | **Reward History** | Full redemption log per member (who, what, when); view-only proof-of-claim history in Rewards section |
 | 4 | **Better Section Headers** | Distinct styled header for each section with title, contextual actions, and count badges |
 | 5 | **Mobile Optimization** | Responsive layouts, touch-friendly targets, swipe navigation, bottom nav bar on mobile |
+| 6 | **Space Theme** | Colorful galaxy background (purples/pinks/blues, nebula-style); kid-friendly; glowing card borders; star field parallax |
+| 7 | **Seasonal Auto-Theme** | Auto-detects date range and switches theme automatically: Halloween (Oct 15–Nov 1), Christmas (Dec 1–25), Easter (Mar–Apr), Fall (Sep–Oct), Spring (Apr–May); each season has unique CSS + decorative assets |
 
 ---
 

@@ -28,6 +28,7 @@ type Event = {
   baseEventId?: number
   isExternal?: boolean // True for events synced from Google Calendar etc.
   externalProvider?: string // 'google' | 'outlook' | 'apple'
+  custom_color?: string | null
 }
 
 type FamilyMember = {
@@ -58,9 +59,11 @@ type CalendarViewProps = {
   onSyncGoogleCalendar?: () => Promise<void>
   isSyncingGoogle?: boolean
   sectionTitle?: string
+  eventColorMode?: string
+  colorTheme?: string
 }
 
-export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList, dateFormat = 'MM/DD/YYYY', weekStartDay = 'Sunday', isGoogleConnected = false, onSyncGoogleCalendar, isSyncingGoogle = false, sectionTitle }: CalendarViewProps) {
+export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList, dateFormat = 'MM/DD/YYYY', weekStartDay = 'Sunday', isGoogleConnected = false, onSyncGoogleCalendar, isSyncingGoogle = false, sectionTitle, eventColorMode, colorTheme }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<'day' | 'week' | 'month'>('week')
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -202,6 +205,23 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
     }).join(', ')
 
     return `linear-gradient(135deg, ${gradientStops})`
+  }
+
+  // Helper: pastel sticky-note style for events
+  function getPastelEventStyle(hex: string): React.CSSProperties {
+    const r = parseInt(hex.slice(1, 3), 16) || 160
+    const g = parseInt(hex.slice(3, 5), 16) || 160
+    const b = parseInt(hex.slice(5, 7), 16) || 180
+    const bg = `rgb(${Math.round(r * 0.28 + 255 * 0.72)},${Math.round(g * 0.28 + 255 * 0.72)},${Math.round(b * 0.28 + 255 * 0.72)})`
+    const border = `rgb(${Math.round(r * 0.55 + 255 * 0.45)},${Math.round(g * 0.55 + 255 * 0.45)},${Math.round(b * 0.55 + 255 * 0.45)})`
+    return {
+      backgroundColor: bg,
+      border: `1.5px solid ${border}`,
+      boxShadow: `2px 3px 0 rgba(${r},${g},${b},0.22)`,
+      color: '#1e1133',
+      textShadow: 'none',
+      borderRadius: '5px',
+    }
   }
 
   // Helper function to convert color to translucent glass gradient
@@ -449,10 +469,10 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
   return (
     <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl h-full flex flex-col border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
       {/* Calendar Header */}
-      <div className="px-6 pt-6 flex items-center justify-between mb-4">
+      <div className="px-6 pt-6 flex items-start justify-between mb-4">
         <div>
           {sectionTitle && (
-            <p className="text-xs font-semibold text-white/45 uppercase tracking-widest mb-1">{sectionTitle}</p>
+            <p className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle}</p>
           )}
           <h2 className="text-4xl font-bold text-white drop-shadow-lg">
             {view === 'day' ? `${dayOfWeekName}, ${dayTitle}` : view === 'week' ? weekTitle : `${monthNames[month]} ${year}`}
@@ -622,16 +642,17 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                       <div className="space-y-1">
                         {allDayEvents.map(event => {
                           const members = event.event_family_members.map(efm => efm.family_members)
-                          const eventColor = getEventColor(members)
+                          const eventColor = eventColorMode === 'custom' ? (event.custom_color || '#9CA3AF') : getEventColor(members)
                           const glassyColor = getGlassyEventColor(eventColor)
+                          const pastelStyle = colorTheme === 'pastel' ? getPastelEventStyle(eventColor) : null
                           const multiDayRange = isMultiDayEvent(event) ? formatMultiDayRange(event) : null
 
                           return (
                             <div
                               key={event.id}
                               onClick={() => handleEventInteraction(event)}
-                              className="text-xs px-2 py-1.5 rounded-xl cursor-pointer hover:scale-105 transition-all duration-200 border-2 border-white/20"
-                              style={{
+                              className={`text-xs px-2 py-1.5 cursor-pointer hover:scale-105 transition-all duration-200 ${colorTheme === 'pastel' ? 'rounded border' : 'rounded-xl border-2 border-white/20'}`}
+                              style={pastelStyle ?? {
                                 background: glassyColor,
                                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(255, 255, 255, 0.3) inset',
                                 color: 'white',
@@ -741,8 +762,9 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                         {/* Events in this time slot */}
                         {hourEvents.map((event, eventIdx) => {
                           const members = event.event_family_members.map(efm => efm.family_members)
-                          const eventColor = getEventColor(members)
+                          const eventColor = eventColorMode === 'custom' ? (event.custom_color || '#9CA3AF') : getEventColor(members)
                           const glassyColor = getGlassyEventColor(eventColor)
+                          const pastelStyle = colorTheme === 'pastel' ? getPastelEventStyle(eventColor) : null
 
                           // Calculate vertical position based on minutes
                           let topOffset = 0
@@ -772,11 +794,14 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                                 e.stopPropagation()
                                 handleEventInteraction(event)
                               }}
-                              className={`absolute px-2 py-1.5 rounded-xl text-white text-xs ${event.isExternal ? 'cursor-pointer' : 'cursor-move'} hover:scale-[1.08] transition-all duration-200 overflow-hidden border-2 border-white/20`}
+                              className={`absolute px-2 py-1.5 text-xs ${event.isExternal ? 'cursor-pointer' : 'cursor-move'} hover:scale-[1.08] transition-all duration-200 overflow-hidden ${colorTheme === 'pastel' ? 'rounded border' : 'rounded-xl text-white border-2 border-white/20'}`}
                               style={{
-                                background: glassyColor,
-                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(255, 255, 255, 0.3) inset',
-                                textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+                                ...(pastelStyle ?? {
+                                  background: glassyColor,
+                                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(255, 255, 255, 0.3) inset',
+                                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+                                  color: 'white',
+                                }),
                                 top: `${topOffset}%`,
                                 height: eventHeight,
                                 left: `${position.left}%`,
@@ -874,16 +899,17 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                       .filter(event => !event.start_time || isMultiDayEvent(event))
                       .map(event => {
                         const members = event.event_family_members.map(efm => efm.family_members)
-                        const eventColor = getEventColor(members)
+                        const eventColor = eventColorMode === 'custom' ? (event.custom_color || '#9CA3AF') : getEventColor(members)
                         const glassyColor = getGlassyEventColor(eventColor)
+                        const pastelStyle = colorTheme === 'pastel' ? getPastelEventStyle(eventColor) : null
                         const multiDayRange = isMultiDayEvent(event) ? formatMultiDayRange(event) : null
 
                         return (
                           <div
                             key={event.id}
                             onClick={() => handleEventInteraction(event)}
-                            className="text-sm px-3 py-2 rounded-xl cursor-pointer hover:scale-105 transition-all duration-200 border-2 border-white/20"
-                            style={{
+                            className={`text-sm px-3 py-2 cursor-pointer hover:scale-105 transition-all duration-200 ${colorTheme === 'pastel' ? 'rounded border' : 'rounded-xl border-2 border-white/20'}`}
+                            style={pastelStyle ?? {
                               background: glassyColor,
                               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(255, 255, 255, 0.3) inset',
                               color: 'white',
@@ -993,8 +1019,9 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                     {/* Events in this time slot */}
                     {hourEvents.map((event, eventIdx) => {
                       const members = event.event_family_members.map(efm => efm.family_members)
-                      const eventColor = getEventColor(members)
+                      const eventColor = eventColorMode === 'custom' ? (event.custom_color || '#9CA3AF') : getEventColor(members)
                       const glassyColor = getGlassyEventColor(eventColor)
+                      const pastelStyle = colorTheme === 'pastel' ? getPastelEventStyle(eventColor) : null
 
                       // Calculate vertical position based on minutes
                       let topOffset = 0
@@ -1024,11 +1051,14 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                             e.stopPropagation()
                             handleEventInteraction(event)
                           }}
-                          className={`absolute px-2 py-1.5 rounded-xl text-white text-xs ${event.isExternal ? 'cursor-default' : 'cursor-move'} hover:scale-[1.08] transition-all duration-200 overflow-hidden border-2 border-white/20`}
+                          className={`absolute px-2 py-1.5 text-xs ${event.isExternal ? 'cursor-default' : 'cursor-move'} hover:scale-[1.08] transition-all duration-200 overflow-hidden ${colorTheme === 'pastel' ? 'rounded border' : 'rounded-xl text-white border-2 border-white/20'}`}
                           style={{
-                            background: glassyColor,
-                            boxShadow: '0 6px 16px rgba(0, 0, 0, 0.25), 0 2px 10px rgba(255, 255, 255, 0.3) inset',
-                            textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+                            ...(pastelStyle ?? {
+                              background: glassyColor,
+                              boxShadow: '0 6px 16px rgba(0, 0, 0, 0.25), 0 2px 10px rgba(255, 255, 255, 0.3) inset',
+                              textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+                              color: 'white',
+                            }),
                             top: `${topOffset}%`,
                             height: eventHeight,
                             left: `${position.left}%`,
@@ -1133,8 +1163,9 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
               <div className="space-y-1.5">
                 {dayEvents.map(event => {
                   const members = event.event_family_members.map(efm => efm.family_members)
-                  const eventColor = getEventColor(members)
+                  const eventColor = eventColorMode === 'custom' ? (event.custom_color || '#9CA3AF') : getEventColor(members)
                   const glassyColor = getGlassyEventColor(eventColor)
+                  const pastelStyle = colorTheme === 'pastel' ? getPastelEventStyle(eventColor) : null
                   const timeRange = formatTimeRange(event.start_time, event.end_time)
                   const multiDayRange = isMultiDayEvent(event) ? formatMultiDayRange(event) : null
 
@@ -1142,8 +1173,8 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                     <div
                       key={event.id}
                       onClick={() => handleEventInteraction(event)}
-                      className="text-xs p-1.5 rounded-xl cursor-pointer hover:scale-105 transition-all duration-200 border-2 border-white/20"
-                      style={{
+                      className={`text-xs p-1.5 cursor-pointer hover:scale-105 transition-all duration-200 ${colorTheme === 'pastel' ? 'rounded border' : 'rounded-xl border-2 border-white/20'}`}
+                      style={pastelStyle ?? {
                         background: glassyColor,
                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(255, 255, 255, 0.3) inset',
                         color: 'white',

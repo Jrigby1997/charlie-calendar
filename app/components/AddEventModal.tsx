@@ -30,23 +30,25 @@ type Event = {
     }
   }[]
   baseEventId?: number
+  custom_color?: string | null
 }
 
 type AddEventModalProps = {
   isOpen: boolean
   onClose: () => void
   familyMembers: FamilyMember[]
-  onAddEvent: (title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, memberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[]) => void
-  onUpdateEvent?: (id: number, title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, memberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], updateScope?: 'single' | 'all' | 'future', instanceDate?: string) => void
+  onAddEvent: (title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, memberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], customColor?: string) => void
+  onUpdateEvent?: (id: number, title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, memberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], updateScope?: 'single' | 'all' | 'future', instanceDate?: string, customColor?: string) => void
   onDeleteEvent?: (id: number, deleteScope?: 'single' | 'all' | 'future', instanceDate?: string) => void
   editingEvent?: Event | null
   instanceDate?: string // The specific date of the instance being edited (for recurring events)
   initialDate?: string
   initialStartTime?: string
   onShowToast?: (message: string, tone: 'success' | 'error') => void
+  eventColorMode?: string
 }
 
-export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEvent, onUpdateEvent, onDeleteEvent, editingEvent, instanceDate, initialDate, initialStartTime, onShowToast }: AddEventModalProps) {
+export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEvent, onUpdateEvent, onDeleteEvent, editingEvent, instanceDate, initialDate, initialStartTime, onShowToast, eventColorMode }: AddEventModalProps) {
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -61,6 +63,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
   const [recurrenceDays, setRecurrenceDays] = useState<string[]>([])
   const [showUpdateOptions, setShowUpdateOptions] = useState(false)
   const [showDeleteOptions, setShowDeleteOptions] = useState(false)
+  const [customColor, setCustomColor] = useState('#9CA3AF')
 
   // Generate time options in 15-minute increments
   const generateTimeOptions = () => {
@@ -96,6 +99,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
       setRecurrenceInterval(editingEvent.recurrence_interval || 1)
       setRecurrenceEndDate(editingEvent.recurrence_end_date || '')
       setRecurrenceDays(editingEvent.recurrence_days ? JSON.parse(editingEvent.recurrence_days) : [])
+      setCustomColor(editingEvent.custom_color || '#9CA3AF')
     } else if (isOpen && !editingEvent) {
       // Only clear form when opening modal without an event to edit
       setTitle('')
@@ -121,6 +125,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
       setRecurrenceInterval(1)
       setRecurrenceEndDate('')
       setRecurrenceDays([])
+      setCustomColor('#9CA3AF')
     }
   }, [editingEvent, initialDate, initialStartTime, isOpen])
 
@@ -168,18 +173,18 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
       if (editingEvent.is_recurring && instanceDate) {
         setShowUpdateOptions(true)
       } else {
-        onUpdateEvent(editingEvent.id, title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays)
+        onUpdateEvent(editingEvent.id, title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays, undefined, undefined, customColor)
         onClose()
       }
     } else {
-      onAddEvent(title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays)
+      onAddEvent(title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays, customColor)
       onClose()
     }
   }
 
   function handleUpdateWithScope(scope: 'single' | 'all' | 'future') {
     if (editingEvent && onUpdateEvent) {
-      onUpdateEvent(editingEvent.id, title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays, scope, instanceDate)
+      onUpdateEvent(editingEvent.id, title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays, scope, instanceDate, customColor)
     }
     setShowUpdateOptions(false)
     onClose()
@@ -268,6 +273,26 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
               )}
             </div>
           </div>
+
+          {/* Custom Event Color */}
+          {eventColorMode === 'custom' && (
+            <div>
+              <label className="block text-sm font-medium text-white/90 mb-2">Event Color</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={customColor}
+                  onChange={(e) => setCustomColor(e.target.value)}
+                  className="w-12 h-10 rounded-lg border border-white/30 cursor-pointer bg-transparent"
+                />
+                <span className="text-sm text-white/70 font-mono">{customColor}</span>
+                <button type="button" onClick={() => setCustomColor('#9CA3AF')}
+                  className="text-xs text-white/50 hover:text-white/80 transition-colors">
+                  Reset to gray
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Start Date and Time - Grouped together */}
           <div className="border border-white/20 rounded-xl p-4 bg-white/5">

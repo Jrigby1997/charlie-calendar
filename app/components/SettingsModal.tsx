@@ -32,7 +32,8 @@ type SettingsModalProps = {
 export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onShowToast, onExternalCalendarsChange }: SettingsModalProps) {
   const [calendarTitle, setCalendarTitle] = useState('Charlie Calendar')
   const [familySectionTitle, setFamilySectionTitle] = useState('Family Members')
-  const [colorTheme, setColorTheme] = useState('default')
+  const [colorTheme, setColorTheme] = useState('glass')
+  const [eventColorMode, setEventColorMode] = useState('member')
   const [dateFormat, setDateFormat] = useState('MM/DD/YYYY')
   const [weekStartDay, setWeekStartDay] = useState('Sunday')
   const [loading, setLoading] = useState(false)
@@ -213,7 +214,8 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
     } else if (data) {
       setCalendarTitle(data.calendar_title)
       setFamilySectionTitle(data.family_section_title)
-      setColorTheme(data.color_theme || 'default')
+      setColorTheme(data.color_theme || 'glass')
+      setEventColorMode(data.event_color_mode || 'member')
       setDateFormat(data.date_format || 'MM/DD/YYYY')
       setWeekStartDay(data.week_start_day || 'Sunday')
     }
@@ -251,6 +253,7 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
           calendar_title: calendarTitle.trim(),
           family_section_title: familySectionTitle.trim(),
           color_theme: colorTheme,
+          event_color_mode: eventColorMode,
           date_format: dateFormat,
           week_start_day: weekStartDay,
           updated_at: new Date().toISOString()
@@ -267,6 +270,7 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
           calendar_title: calendarTitle.trim(),
           family_section_title: familySectionTitle.trim(),
           color_theme: colorTheme,
+          event_color_mode: eventColorMode,
           date_format: dateFormat,
           week_start_day: weekStartDay
         })
@@ -360,22 +364,45 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
 
               {/* Color Theme */}
               <div>
-                <label className="block text-white font-semibold mb-2">
-                  Color Theme
+                <label className="block text-white font-semibold mb-3">
+                  Theme
                 </label>
-                <select
-                  value={colorTheme}
-                  onChange={(e) => setColorTheme(e.target.value)}
-                  className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl text-white focus:outline-none focus:border-white/50 focus:ring-2 focus:ring-white/20"
-                >
-                  <option value="default" className="bg-gray-800">Default (Purple/Blue)</option>
-                  <option value="ocean" className="bg-gray-800">Ocean (Blue/Teal)</option>
-                  <option value="sunset" className="bg-gray-800">Sunset (Orange/Pink)</option>
-                  <option value="forest" className="bg-gray-800">Forest (Green/Emerald)</option>
-                  <option value="lavender" className="bg-gray-800">Lavender (Purple/Pink)</option>
-                </select>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: 'glass', label: 'Glassmorphism', colors: '#ee7752,#e73c7e,#23a6d5,#667eea' },
+                    { value: 'pastel', label: 'Pastel', colors: '#ffd6a5,#ffadcc,#c9b8ff,#b8e4ff' },
+                  ].map(theme => (
+                    <button key={theme.value} type="button" onClick={() => setColorTheme(theme.value)}
+                      className={`p-3 rounded-xl border-2 transition-all duration-200 text-left ${
+                        colorTheme === theme.value ? 'border-white/60 bg-white/20' : 'border-white/20 bg-white/5 hover:bg-white/10'
+                      }`}>
+                      <div className="h-8 rounded-lg mb-2" style={{ background: `linear-gradient(90deg, ${theme.colors})` }} />
+                      <span className="text-white text-sm font-medium">{theme.label}</span>
+                      {colorTheme === theme.value && <span className="ml-2 text-green-300 text-xs">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Event Colors */}
+              <div>
+                <label className="block text-white font-semibold mb-2">Event Colors</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setEventColorMode('member')}
+                    className={`flex-1 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                      eventColorMode === 'member' ? 'bg-white/25 border-white/50 text-white' : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10'
+                    }`}>
+                    👨‍👩‍👧 Member Colors
+                  </button>
+                  <button type="button" onClick={() => setEventColorMode('custom')}
+                    className={`flex-1 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                      eventColorMode === 'custom' ? 'bg-white/25 border-white/50 text-white' : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10'
+                    }`}>
+                    🎨 Custom Colors
+                  </button>
+                </div>
                 <p className="text-white/60 text-sm mt-1">
-                  Changes the background gradient colors
+                  {eventColorMode === 'member' ? 'Event colors are derived from assigned family members' : 'Each event has its own color chosen when creating/editing'}
                 </p>
               </div>
 
