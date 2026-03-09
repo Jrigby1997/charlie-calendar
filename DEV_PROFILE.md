@@ -1,9 +1,9 @@
 # Developer Profile & Project Context
 
-**Last Updated:** March 6, 2026
+**Last Updated:** March 9, 2026
 **Developer:** jrigb
 **Project:** Skylight-style Calendar Application
-**Current Phase:** Meal Plan Week View Complete ✅ | Production Live ✅ → https://charlie-calendar.vercel.app
+**Current Phase:** Multi-Currency Tasks + Sleep Mode + Calorie Counter planned | Production Live ✅ → https://charlie-calendar.vercel.app
 
 ---
 
@@ -22,30 +22,53 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
 
 ## 🔜 Upcoming Tasks (Next Sessions)
 
-1. **More Themes & Drastic Style Changes**
-   - Additional color themes beyond the current default (e.g. dark mode, light/minimal, seasonal, high-contrast)
-   - More drastic theme differentiation — change gradients, glass opacity, accent colors, and font weights per theme
-   - Theme selector in Settings
+1. **Multi-Currency Reward System** *(highest priority)*
+   - Preset currencies: ⭐ Stars, 💪 Muscles, ❤️ Heart, 🎮 Game Points, 🏆 Trophy
+   - Tasks can award one OR multiple currency types simultaneously
+   - Rewards in the store are priced in a specific currency (only spendable with matching currency)
+   - Per-member balances tracked per currency type
+   - DB: new `reward_currency_types` table; `task_currency_rewards` junction (task_id, currency_type, amount); `member_currency_balances` table; `rewards` gains `currency_type` column
+   - UI: task creation shows currency pickers with amounts; reward tile shows which currency it costs; member column header shows balance per currency type
 
-2. **Fun Reactions on Task Completion & Reward Redemption**
-   - Animated confetti, particle burst, or emoji shower when marking a task complete
-   - Celebration animation when a reward is claimed
-   - Subtle but delightful micro-interactions (scale bounce, sparkle, etc.)
+2. **Grouped / Habit-Linked Tasks**
+   - A task can have sub-items (e.g. "Bedtime Routine" → Brush teeth, Floss, Read)
+   - Sub-item checkboxes shown inline on the task tile
+   - Points/currencies only awarded when ALL sub-items are checked
+   - DB: new `task_sub_items` table (task_id, label, order); `task_sub_completions` (completion_id, sub_item_id, checked)
+   - UI: expanded tile shows inline checklist; completion circle grayed out until all checked
 
-3. **Reward History / Redemption Log**
-   - Show a full history of when rewards were claimed: by whom, which reward, date/time
-   - View-only log to prove claims (useful for kids/parents disputes)
-   - Accessible from the Rewards section, per-member or combined feed
+3. **Rotating Tasks**
+   - A task is assigned to a rotating list of family members rather than one fixed member
+   - Rotation trigger is configurable per task: **on completion** (next person after current marks done) OR **on scheduled date** (auto-rotates on due date)
+   - DB: `task_rotation_members` (task_id, member_id, order); `tasks` gains `rotation_mode` ('completion' | 'date') and `current_rotation_index`
+   - UI: task creation has a "Rotating" toggle and member selector with ordering; current assignee shown on tile with "next up" indicator
 
-4. **Better Section Headers**
-   - Each section (Calendar, Recipes, Shopping List, Tasks, Rewards) should have a distinct, styled header
-   - Include section title, contextual actions, and optionally a subtitle or count badge
+4. **Flexible Task Recurrence**
+   - Extends existing recurrence to support every X days, every X weeks, every X months
+   - Shares UI pattern with existing recurrence (interval + unit dropdown)
 
-5. **Mobile Optimization**
-   - Responsive layouts for all views (Calendar, Recipes/Meal Plan, Tasks, Rewards, Shopping List)
-   - Touch-friendly tap targets, swipe gestures for week navigation
-   - Bottom nav bar on mobile instead of sidebar
-   - Test and fix any overflow/scroll issues on small screens
+5. **Sleep Mode**
+   - Manual-only: dedicated 🌙 Sleep button above ⚙️ Settings in the left sidebar
+   - Full-screen overlay showing a photo slideshow from admin-uploaded images
+   - Photos stored in Supabase Storage; admin uploads in Settings; configurable which photos are used
+   - Tap or click anywhere to dismiss
+   - No auto-trigger / inactivity timer
+   - DB: `sleep_photos` table (id, storage_path, display_order, is_enabled)
+
+6. **Calorie Totals in Meal Plan**
+   - Daily calorie total summed across all meal slots in the week grid
+   - Uses existing `recipe_nutrition` macros (calories field) and per-recipe serving size
+   - Displayed per-day column at the bottom of the Meal Plan week grid
+   - No per-member breakdown, no goals — raw totals only
+
+7. **Mobile Optimization** *(lower priority)*
+   - Responsive layouts, touch targets, swipe nav, bottom nav bar
+
+8. **Space Theme** *(lower priority)*
+   - Galaxy background, glowing borders, star field
+
+9. **Seasonal Auto-Theme** *(lower priority)*
+   - Halloween / Christmas / Easter / Fall / Spring auto-switching by date range
 
 ---
 

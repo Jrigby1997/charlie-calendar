@@ -71,7 +71,9 @@ export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [calendarTitle, setCalendarTitle] = useState('Charlie Calendar')
   const [familySectionTitle, setFamilySectionTitle] = useState('Family Members')
-  const [colorTheme, setColorTheme] = useState('glass')
+  const [colorTheme, setColorTheme] = useState(() => {
+    try { return localStorage.getItem('skylight-theme') || 'glass' } catch (_) { return 'glass' }
+  })
   const [eventColorMode, setEventColorMode] = useState('member')
   const [dateFormat, setDateFormat] = useState('MM/DD/YYYY')
   const [weekStartDay, setWeekStartDay] = useState('Sunday')
@@ -93,7 +95,9 @@ export default function Home() {
 
   // Apply theme to <html> element whenever settings load/change
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', colorTheme || 'glass')
+    const theme = colorTheme || 'glass'
+    document.documentElement.setAttribute('data-theme', theme)
+    try { localStorage.setItem('skylight-theme', theme) } catch (_) {}
   }, [colorTheme])
 
   // Toast auto-dismiss effect

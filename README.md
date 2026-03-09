@@ -2,13 +2,19 @@
 
 | # | Task | Description |
 |---|------|-------------|
-| 1 | **Glass + Pastel Themes** | ✅ Done — Glassmorphism (vivid animated gradient) and Pastel (soft peach/pink/lavender/mint) themes with live toggle in Settings |
-| 2 | **Fun Reactions** | Confetti/particle burst on task completion; celebration animation on reward redemption; micro-interaction polish |
-| 3 | **Reward History** | Full redemption log per member (who, what, when); view-only proof-of-claim history in Rewards section |
-| 4 | **Better Section Headers** | Distinct styled header for each section with title, contextual actions, and count badges |
-| 5 | **Mobile Optimization** | Responsive layouts, touch-friendly targets, swipe navigation, bottom nav bar on mobile |
-| 6 | **Space Theme** | Colorful galaxy background (purples/pinks/blues, nebula-style); kid-friendly; glowing card borders; star field parallax |
-| 7 | **Seasonal Auto-Theme** | Auto-detects date range and switches theme automatically: Halloween (Oct 15–Nov 1), Christmas (Dec 1–25), Easter (Mar–Apr), Fall (Sep–Oct), Spring (Apr–May); each season has unique CSS + decorative assets |
+| 1 | **Glass + Pastel Themes** | ✅ Done — Glassmorphism and Pastel themes with live toggle in Settings; flash-free via localStorage pre-paint script |
+| 2 | **Fun Reactions** | ✅ Done — Confetti/particle burst on task completion; celebration animation on reward redemption |
+| 3 | **Reward History** | ✅ Done — Full redemption log per member (who, what, when); view-only proof-of-claim history in Rewards section |
+| 4 | **Better Section Headers** | ✅ Done — Distinct styled headers with titles, contextual actions, and count badges per section |
+| 5 | **Multi-Currency Rewards** | Preset currencies: ⭐ Stars, 💪 Muscles, ❤️ Heart, 🎮 Game Points, 🏆 Trophy. Tasks award one or more currencies; rewards priced in a specific currency; per-member balances per type |
+| 6 | **Grouped / Habit Tasks** | Sub-task checklist inline on tile; points only awarded when ALL sub-items checked (e.g. Brush teeth + Floss + Read = one reward) |
+| 7 | **Rotating Tasks** | Tasks rotate between selected family members; trigger configurable per task: on completion OR on scheduled date |
+| 8 | **Flexible Recurrence** | Tasks repeat every X days, X weeks, or X months |
+| 9 | **Sleep Mode** | 🌙 Sleep button in sidebar; full-screen photo slideshow from admin-uploaded images (selectable in Settings); tap/click anywhere to wake; manual-only |
+| 10 | **Calorie Totals** | Daily calorie sum across all meal slots in the Meal Plan week grid, using per-recipe macro data |
+| 11 | **Mobile Optimization** | Responsive layouts, touch-friendly targets, swipe navigation, bottom nav bar on mobile |
+| 12 | **Space Theme** | Colorful galaxy background (purples/pinks/blues, nebula-style); kid-friendly; glowing card borders; star field parallax |
+| 13 | **Seasonal Auto-Theme** | Auto-detects date range: Halloween (Oct 15–Nov 1), Christmas (Dec 1–25), Easter (Mar–Apr), Fall (Sep–Oct), Spring (Apr–May); unique CSS + decorative assets per season |
 
 ---
 
