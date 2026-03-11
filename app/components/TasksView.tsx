@@ -22,9 +22,49 @@ type Task = {
   points: number
   is_active: boolean
   created_at: string
-  task_assignments: {
-    family_member_id: number
-  }[]
+  // New fields
+  is_rotating: boolean
+  rotation_mode: 'completion' | 'date' | null
+  current_rotation_index: number
+  group_reset_frequency: 'daily' | 'weekly' | 'monthly' | 'never' | null
+  rotation_days_interval: number | null
+  task_assignments: { family_member_id: number }[]
+}
+
+type TaskCurrencyReward = {
+  task_id: number
+  currency_type: string
+  amount: number
+}
+
+type MemberCurrencyBalance = {
+  id: number
+  family_member_id: number
+  currency_type: string
+  total_earned: number
+  redeemed_amount: number
+}
+
+type TaskSubItem = {
+  id: number
+  task_id: number
+  title: string
+  display_order: number
+}
+
+type TaskSubCompletion = {
+  id: number
+  task_id: number
+  family_member_id: number
+  sub_item_id: number
+  period_key: string
+}
+
+type TaskRotationMember = {
+  id: number
+  task_id: number
+  family_member_id: number
+  rotation_order: number
 }
 
 type TaskCompletion = {
@@ -35,6 +75,7 @@ type TaskCompletion = {
   points_earned: number
 }
 
+// Keep for backward compat (legacy points query)
 type MemberPoints = {
   id: number
   family_member_id: number
@@ -57,18 +98,49 @@ function toLocalISO(date: Date): string {
   ].join('-')
 }
 
+/** Compute the period key for a given reset frequency and date. */
+function getPeriodKey(freq: string | null, date: Date): string {
+  if (freq === 'weekly') {
+    const d = new Date(date)
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1) // align to Monday
+    d.setDate(diff)
+    return toLocalISO(d)
+  }
+  if (freq === 'monthly') {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`
+  }
+  if (freq === 'never') return 'done'
+  // default: 'daily' or null
+  return toLocalISO(date)
+}
+
+const CURRENCY_META: Record<string, { icon: string; label: string }> = {
+  stars:       { icon: '⭐', label: 'Stars'       },
+  muscles:     { icon: '💪', label: 'Muscles'     },
+  heart:       { icon: '❤️',  label: 'Hearts'      },
+  game_points: { icon: '🎮', label: 'Game Points' },
+  trophy:      { icon: '🏆', label: 'Trophies'    },
+}
+
 export default function TasksView({ familyMembers, onShowToast, sectionTitle }: TasksViewProps) {
   const { user } = useAuth()
-  const [tasks, setTasks] = useState<Task[]>([])
+  const [tasks, setTasks]             = useState<Task[]>([])
   const [completions, setCompletions] = useState<TaskCompletion[]>([])
   const [memberPoints, setMemberPoints] = useState<MemberPoints[]>([])
-  const [loading, setLoading] = useState(true)
+  // New state
+  const [currencyRewards, setCurrencyRewards]       = useState<TaskCurrencyReward[]>([])
+  const [memberBalances, setMemberBalances]         = useState<MemberCurrencyBalance[]>([])
+  const [subItems, setSubItems]                     = useState<TaskSubItem[]>([])
+  const [subCompletions, setSubCompletions]         = useState<TaskSubCompletion[]>([])
+  const [rotationMembers, setRotationMembers]       = useState<TaskRotationMember[]>([])
+
+  const [loading, setLoading]         = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<any>(null)
-  const [viewDate, setViewDate] = useState(new Date())
-  const today = toLocalISO(new Date())
+  const [viewDate, setViewDate]       = useState(new Date())
+  const today       = toLocalISO(new Date())
   const viewDateISO = toLocalISO(viewDate)
-  // Keep a ref so realtime callbacks always read the current date (not stale closure)
   const viewDateISORef = useRef(viewDateISO)
   useEffect(() => { viewDateISORef.current = viewDateISO }, [viewDateISO])
 
@@ -77,10 +149,13 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
     if (!user) return
     loadAllData()
 
-    // Realtime subscriptions
     const tasksChannel = supabase
       .channel('tasks-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => loadTasks())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+        loadTasks()
+        loadCurrencyRewards()
+        loadRotationMembers()
+      })
       .subscribe()
 
     const assignmentsChannel = supabase
@@ -91,12 +166,26 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
     const completionsChannel = supabase
       .channel('task-completions-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, () => {
-        // Use ref so we always reload the currently-viewed date, not the date from initial render
         loadCompletions(viewDateISORef.current)
-        loadMemberPoints()
+        loadMemberBalances()
       })
       .subscribe()
 
+    const subCompletionsChannel = supabase
+      .channel('task-sub-completions-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_sub_completions' }, () =>
+        loadSubCompletions()
+      )
+      .subscribe()
+
+    const balancesChannel = supabase
+      .channel('currency-balances-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'member_currency_balances' }, () =>
+        loadMemberBalances()
+      )
+      .subscribe()
+
+    // Fallback: still listen to legacy member_points
     const pointsChannel = supabase
       .channel('member-points-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'member_points' }, () => loadMemberPoints())
@@ -106,6 +195,8 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
       supabase.removeChannel(tasksChannel)
       supabase.removeChannel(assignmentsChannel)
       supabase.removeChannel(completionsChannel)
+      supabase.removeChannel(subCompletionsChannel)
+      supabase.removeChannel(balancesChannel)
       supabase.removeChannel(pointsChannel)
     }
   }, [user])
@@ -114,32 +205,75 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
   useEffect(() => {
     if (!user) return
     loadCompletions(viewDateISO)
-    loadMemberPoints()
+    loadMemberBalances()
+    loadSubCompletions()
   }, [viewDate, user])
 
   async function loadAllData() {
     setLoading(true)
-    await Promise.all([loadTasks(), loadCompletions(), loadMemberPoints()])
+    await Promise.all([
+      loadTasks(),
+      loadCompletions(),
+      loadMemberPoints(),
+      loadMemberBalances(),
+      loadCurrencyRewards(),
+      loadSubItems(),
+      loadSubCompletions(),
+      loadRotationMembers(),
+    ])
     setLoading(false)
   }
 
   async function loadTasks() {
     const { data, error } = await supabase
       .from('tasks')
-      .select(`
-        *,
-        task_assignments (
-          family_member_id
-        )
-      `)
+      .select(`*, task_assignments(family_member_id)`)
       .eq('is_active', true)
       .order('created_at', { ascending: true })
+    if (error) { console.error('Error loading tasks:', error) }
+    else { setTasks(data || []) }
+  }
 
-    if (error) {
-      console.error('Error loading tasks:', error)
-    } else {
-      setTasks(data || [])
-    }
+  async function loadCurrencyRewards() {
+    const { data, error } = await supabase
+      .from('task_currency_rewards')
+      .select('task_id, currency_type, amount')
+    if (error) { console.error('Error loading currency rewards:', error) }
+    else { setCurrencyRewards(data || []) }
+  }
+
+  async function loadMemberBalances() {
+    const { data, error } = await supabase
+      .from('member_currency_balances')
+      .select('*')
+    if (error) { console.error('Error loading member balances:', error) }
+    else { setMemberBalances(data || []) }
+  }
+
+  async function loadSubItems() {
+    const { data, error } = await supabase
+      .from('task_sub_items')
+      .select('*')
+      .order('display_order', { ascending: true })
+    if (error) { console.error('Error loading sub items:', error) }
+    else { setSubItems(data || []) }
+  }
+
+  async function loadSubCompletions() {
+    const { data, error } = await supabase
+      .from('task_sub_completions')
+      .select('*')
+    if (error) { console.error('Error loading sub completions:', error) }
+    else { setSubCompletions(data || []) }
+  }
+
+  async function loadRotationMembers() {
+    const { data, error } = await supabase
+      .from('task_rotation_members')
+      .select('*')
+      .order('rotation_order', { ascending: true })
+    if (error) { console.error('Error loading rotation members:', error) }
+    else { setRotationMembers(data || []) }
   }
 
   async function loadCompletions(dateISO?: string) {
@@ -174,15 +308,67 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
     )
   }
 
-  function getMemberPointsTotal(memberId: number): number {
+  /** Star balance from member_currency_balances (falls back to legacy member_points) */
+  function getStarBalance(memberId: number): number {
+    const bal = memberBalances.find((b) => b.family_member_id === memberId && b.currency_type === 'stars')
+    if (bal) return bal.total_earned - bal.redeemed_amount
+    // Legacy fallback
     const mp = memberPoints.find((p) => p.family_member_id === memberId)
     return mp ? mp.total_points - mp.redeemed_points : 0
   }
 
-  function getTasksForMember(memberId: number): Task[] {
-    return tasks.filter((t) =>
-      t.task_assignments.some((a) => a.family_member_id === memberId)
+  function getBalance(memberId: number, currencyType: string): number {
+    const bal = memberBalances.find((b) => b.family_member_id === memberId && b.currency_type === currencyType)
+    return bal ? bal.total_earned - bal.redeemed_amount : 0
+  }
+
+  function getTaskCurrencyRewards(taskId: number): TaskCurrencyReward[] {
+    const rewards = currencyRewards.filter((r) => r.task_id === taskId)
+    // Legacy fallback: if no currency rewards, use task.points as stars
+    if (rewards.length === 0) {
+      const task = tasks.find((t) => t.id === taskId)
+      if (task && task.points > 0) {
+        return [{ task_id: taskId, currency_type: 'stars', amount: task.points }]
+      }
+    }
+    return rewards
+  }
+
+  function getTaskSubItems(taskId: number): TaskSubItem[] {
+    return subItems.filter((s) => s.task_id === taskId)
+  }
+
+  function isSubItemCompleted(subItemId: number, memberId: number, freq: string | null): boolean {
+    const key = getPeriodKey(freq, viewDate)
+    return subCompletions.some(
+      (sc) => sc.sub_item_id === subItemId && sc.family_member_id === memberId && sc.period_key === key
     )
+  }
+
+  function areAllSubItemsCompleted(taskId: number, memberId: number, freq: string | null): boolean {
+    const items = getTaskSubItems(taskId)
+    if (items.length === 0) return true
+    return items.every((si) => isSubItemCompleted(si.id, memberId, freq))
+  }
+
+  /** Returns the family_member_id who is currently up for a rotating task */
+  function getCurrentRotationMemberId(task: Task): number | null {
+    const roster = rotationMembers
+      .filter((rm) => rm.task_id === task.id)
+      .sort((a, b) => a.rotation_order - b.rotation_order)
+    if (roster.length === 0) return null
+    const idx = task.current_rotation_index % roster.length
+    return roster[idx]?.family_member_id ?? null
+  }
+
+  function getTasksForMember(memberId: number): Task[] {
+    return tasks.filter((t) => {
+      if (t.is_rotating) {
+        // For rotating tasks, show in all rotation members' columns
+        return rotationMembers.some((rm) => rm.task_id === t.id && rm.family_member_id === memberId)
+      }
+      return t.task_assignments.some((a) => a.family_member_id === memberId)
+    })
   }
 
   function getCompletedCountForMember(memberId: number): number {
@@ -190,25 +376,66 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
     return memberTasks.filter((t) => isTaskCompletedByMember(t.id, memberId)).length
   }
 
+  async function handleToggleSubItem(task: Task, subItemId: number, memberId: number) {
+    const key = getPeriodKey(task.group_reset_frequency, viewDate)
+    const done = isSubItemCompleted(subItemId, memberId, task.group_reset_frequency)
+
+    if (done) {
+      await supabase
+        .from('task_sub_completions')
+        .delete()
+        .eq('sub_item_id', subItemId)
+        .eq('family_member_id', memberId)
+        .eq('period_key', key)
+    } else {
+      await supabase.from('task_sub_completions').insert({
+        task_id: task.id,
+        family_member_id: memberId,
+        sub_item_id: subItemId,
+        period_key: key,
+      })
+    }
+    await loadSubCompletions()
+  }
+
   async function handleCompleteTask(taskId: number, memberId: number) {
     const task = tasks.find((t) => t.id === taskId)
     if (!task) return
 
+    // Rotation guard: only let the current rotation member complete
+    if (task.is_rotating) {
+      const currentId = getCurrentRotationMemberId(task)
+      if (currentId !== memberId) {
+        const current = familyMembers.find((m) => m.id === currentId)
+        onShowToast(`It's ${current?.name ?? 'someone else'}'s turn for this task!`, 'error')
+        return
+      }
+    }
+
+    const taskRewards = getTaskCurrencyRewards(taskId)
     const alreadyCompleted = isTaskCompletedByMember(taskId, memberId)
 
     if (alreadyCompleted) {
-      // Check if unchecking would cause negative available points
-      const currentPoints = memberPoints.find((p) => p.family_member_id === memberId)
-      if (currentPoints) {
-        const availableAfterUndo = (currentPoints.total_points - task.points) - currentPoints.redeemed_points
-        if (availableAfterUndo < 0) {
-          const member = familyMembers.find((m) => m.id === memberId)
-          onShowToast(`Can't uncheck — ${member?.name} already spent those stars!`, 'error')
-          return
+      // ── UNDO ────────────────────────────────────────────────────────────────
+      // Check that undoing won't create negative balance for any currency
+      for (const reward of taskRewards) {
+        const bal = memberBalances.find(
+          (b) => b.family_member_id === memberId && b.currency_type === reward.currency_type
+        )
+        if (bal) {
+          const afterUndo = bal.total_earned - reward.amount - bal.redeemed_amount
+          if (afterUndo < 0) {
+            const member = familyMembers.find((m) => m.id === memberId)
+            const meta = CURRENCY_META[reward.currency_type]
+            onShowToast(
+              `Can't uncheck — ${member?.name} already spent those ${meta?.label ?? reward.currency_type}!`,
+              'error'
+            )
+            return
+          }
         }
       }
 
-      // Undo completion
       const { error: deleteError } = await supabase
         .from('task_completions')
         .delete()
@@ -217,51 +444,109 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
         .eq('completed_date', viewDateISO)
 
       if (deleteError) {
-        console.error('Error undoing completion:', deleteError)
         onShowToast('Failed to undo completion', 'error')
         return
       }
 
-      if (currentPoints) {
-        await supabase
-          .from('member_points')
-          .update({ total_points: currentPoints.total_points - task.points })
-          .eq('family_member_id', memberId)
+      // Reverse currency balances
+      for (const reward of taskRewards) {
+        const bal = memberBalances.find(
+          (b) => b.family_member_id === memberId && b.currency_type === reward.currency_type
+        )
+        if (bal) {
+          await supabase
+            .from('member_currency_balances')
+            .update({ total_earned: bal.total_earned - reward.amount, updated_at: new Date().toISOString() })
+            .eq('family_member_id', memberId)
+            .eq('currency_type', reward.currency_type)
+        }
+      }
+      // Also update legacy member_points for stars
+      const starReward = taskRewards.find((r) => r.currency_type === 'stars')
+      if (starReward) {
+        const mp = memberPoints.find((p) => p.family_member_id === memberId)
+        if (mp) {
+          await supabase
+            .from('member_points')
+            .update({ total_points: Math.max(0, mp.total_points - starReward.amount) })
+            .eq('family_member_id', memberId)
+        }
       }
 
       const member = familyMembers.find((m) => m.id === memberId)
-      onShowToast(`Undone! -${task.points}⭐ for ${member?.name || 'member'}`, 'success')
+      const summary = taskRewards.map((r) => `${CURRENCY_META[r.currency_type]?.icon ?? r.currency_type} −${r.amount}`).join(' ')
+      onShowToast(`Undone! ${summary} for ${member?.name ?? 'member'}`, 'success')
     } else {
-      // Complete the task
+      // ── COMPLETE ─────────────────────────────────────────────────────────────
       const { error: insertError } = await supabase
         .from('task_completions')
         .insert({
           task_id: taskId,
           family_member_id: memberId,
           completed_date: viewDateISO,
-          points_earned: task.points,
+          points_earned: taskRewards.find((r) => r.currency_type === 'stars')?.amount ?? task.points,
+          period_key: viewDateISO,
         })
 
       if (insertError) {
-        console.error('Error completing task:', insertError)
         onShowToast('Failed to complete task', 'error')
         return
       }
 
-      const currentPoints = memberPoints.find((p) => p.family_member_id === memberId)
-      if (currentPoints) {
-        await supabase
-          .from('member_points')
-          .update({ total_points: currentPoints.total_points + task.points })
-          .eq('family_member_id', memberId)
-      } else {
-        await supabase
-          .from('member_points')
-          .insert({ family_member_id: memberId, total_points: task.points, redeemed_points: 0 })
+      // Award currencies
+      for (const reward of taskRewards) {
+        const bal = memberBalances.find(
+          (b) => b.family_member_id === memberId && b.currency_type === reward.currency_type
+        )
+        if (bal) {
+          await supabase
+            .from('member_currency_balances')
+            .update({ total_earned: bal.total_earned + reward.amount, updated_at: new Date().toISOString() })
+            .eq('family_member_id', memberId)
+            .eq('currency_type', reward.currency_type)
+        } else {
+          await supabase.from('member_currency_balances').insert({
+            family_member_id: memberId,
+            currency_type: reward.currency_type,
+            total_earned: reward.amount,
+            redeemed_amount: 0,
+          })
+        }
+      }
+      // Update legacy member_points for stars
+      const starReward = taskRewards.find((r) => r.currency_type === 'stars')
+      if (starReward) {
+        const mp = memberPoints.find((p) => p.family_member_id === memberId)
+        if (mp) {
+          await supabase
+            .from('member_points')
+            .update({ total_points: mp.total_points + starReward.amount })
+            .eq('family_member_id', memberId)
+        } else {
+          await supabase.from('member_points').insert({
+            family_member_id: memberId,
+            total_points: starReward.amount,
+            redeemed_points: 0,
+          })
+        }
       }
 
-      // If one-off task, check if all assigned members have completed it
-      if (task.task_type === 'one_off') {
+      // Handle rotation on completion
+      if (task.is_rotating && task.rotation_mode === 'completion') {
+        const roster = rotationMembers
+          .filter((rm) => rm.task_id === task.id)
+          .sort((a, b) => a.rotation_order - b.rotation_order)
+        if (roster.length > 0) {
+          const nextIndex = (task.current_rotation_index + 1) % roster.length
+          await supabase
+            .from('tasks')
+            .update({ current_rotation_index: nextIndex, last_rotated_date: toLocalISO(new Date()) })
+            .eq('id', taskId)
+        }
+      }
+
+      // Handle one-off task completion
+      if (task.task_type === 'one_off' && !task.is_rotating) {
         const assignedMemberIds = task.task_assignments.map((a) => a.family_member_id)
         const allCompleted = assignedMemberIds.every(
           (mid) => mid === memberId || isTaskCompletedByMember(taskId, mid)
@@ -272,23 +557,35 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
       }
 
       const member = familyMembers.find((m) => m.id === memberId)
+      const summary = taskRewards.map((r) => `${CURRENCY_META[r.currency_type]?.icon ?? r.currency_type} +${r.amount}`).join(' ')
       fireConfetti()
-      onShowToast(`⭐ +${task.points} for ${member?.name || 'member'}!`, 'success')
+      onShowToast(`${summary || '✅'} for ${member?.name ?? 'member'}!`, 'success')
     }
 
     await loadCompletions()
+    await loadMemberBalances()
     await loadMemberPoints()
     await loadTasks()
+    await loadSubCompletions()
   }
 
   async function handleAddTask(
     title: string,
     description: string,
     taskType: 'daily' | 'one_off',
-    points: number,
-    assignedMemberIds: number[]
+    taskCurrencyRewards: { currency_type: string; amount: number }[],
+    assignedMemberIds: number[],
+    taskSubItems: string[],
+    groupResetFrequency: 'daily' | 'weekly' | 'monthly' | 'never',
+    isRotating: boolean,
+    rotationMode: 'completion' | 'date',
+    rotationMemberIds: number[],
+    rotationDaysInterval: number
   ) {
     if (!user) return
+
+    // Sum star rewards for legacy points field
+    const starReward = taskCurrencyRewards.find((r) => r.currency_type === 'stars')
 
     const { data: newTask, error: taskError } = await supabase
       .from('tasks')
@@ -297,34 +594,56 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
         title,
         description: description || null,
         task_type: taskType,
-        points,
+        points: starReward?.amount ?? 0,
+        is_rotating: isRotating,
+        rotation_mode: isRotating ? rotationMode : null,
+        rotation_days_interval: isRotating && rotationMode === 'date' ? rotationDaysInterval : null,
+        group_reset_frequency: groupResetFrequency,
+        current_rotation_index: 0,
       })
       .select()
       .single()
 
     if (taskError || !newTask) {
-      console.error('Error adding task:', taskError)
       onShowToast('Failed to add task', 'error')
       return
     }
 
-    if (assignedMemberIds.length > 0) {
-      const assignments = assignedMemberIds.map((memberId) => ({
-        task_id: newTask.id,
-        family_member_id: memberId,
-      }))
+    // Assignments (standard or rotation)
+    const memberIdsToAssign = isRotating ? rotationMemberIds : assignedMemberIds
+    if (memberIdsToAssign.length > 0) {
+      await supabase.from('task_assignments').insert(
+        memberIdsToAssign.map((memberId) => ({ task_id: newTask.id, family_member_id: memberId }))
+      )
+    }
 
-      const { error: assignError } = await supabase
-        .from('task_assignments')
-        .insert(assignments)
+    // Currency rewards
+    if (taskCurrencyRewards.length > 0) {
+      await supabase.from('task_currency_rewards').insert(
+        taskCurrencyRewards.map((r) => ({ task_id: newTask.id, ...r }))
+      )
+    }
 
-      if (assignError) {
-        console.error('Error assigning task:', assignError)
-      }
+    // Sub-items
+    if (taskSubItems.length > 0) {
+      await supabase.from('task_sub_items').insert(
+        taskSubItems.map((title, i) => ({ task_id: newTask.id, title, display_order: i }))
+      )
+    }
+
+    // Rotation roster
+    if (isRotating && rotationMemberIds.length > 0) {
+      await supabase.from('task_rotation_members').insert(
+        rotationMemberIds.map((memberId, i) => ({
+          task_id: newTask.id,
+          family_member_id: memberId,
+          rotation_order: i,
+        }))
+      )
     }
 
     onShowToast(`Task "${title}" added!`, 'success')
-    await loadTasks()
+    await loadAllData()
   }
 
   async function handleUpdateTask(
@@ -332,32 +651,75 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
     title: string,
     description: string,
     taskType: 'daily' | 'one_off',
-    points: number,
-    assignedMemberIds: number[]
+    taskCurrencyRewards: { currency_type: string; amount: number }[],
+    assignedMemberIds: number[],
+    taskSubItems: string[],
+    groupResetFrequency: 'daily' | 'weekly' | 'monthly' | 'never',
+    isRotating: boolean,
+    rotationMode: 'completion' | 'date',
+    rotationMemberIds: number[],
+    rotationDaysInterval: number
   ) {
+    const starReward = taskCurrencyRewards.find((r) => r.currency_type === 'stars')
+
     const { error: taskError } = await supabase
       .from('tasks')
-      .update({ title, description: description || null, task_type: taskType, points })
+      .update({
+        title,
+        description: description || null,
+        task_type: taskType,
+        points: starReward?.amount ?? 0,
+        is_rotating: isRotating,
+        rotation_mode: isRotating ? rotationMode : null,
+        rotation_days_interval: isRotating && rotationMode === 'date' ? rotationDaysInterval : null,
+        group_reset_frequency: groupResetFrequency,
+      })
       .eq('id', id)
 
     if (taskError) {
-      console.error('Error updating task:', taskError)
       onShowToast('Failed to update task', 'error')
       return
     }
 
+    // Replace assignments
     await supabase.from('task_assignments').delete().eq('task_id', id)
+    const memberIdsToAssign = isRotating ? rotationMemberIds : assignedMemberIds
+    if (memberIdsToAssign.length > 0) {
+      await supabase.from('task_assignments').insert(
+        memberIdsToAssign.map((memberId) => ({ task_id: id, family_member_id: memberId }))
+      )
+    }
 
-    if (assignedMemberIds.length > 0) {
-      const assignments = assignedMemberIds.map((memberId) => ({
-        task_id: id,
-        family_member_id: memberId,
-      }))
-      await supabase.from('task_assignments').insert(assignments)
+    // Replace currency rewards
+    await supabase.from('task_currency_rewards').delete().eq('task_id', id)
+    if (taskCurrencyRewards.length > 0) {
+      await supabase.from('task_currency_rewards').insert(
+        taskCurrencyRewards.map((r) => ({ task_id: id, ...r }))
+      )
+    }
+
+    // Replace sub-items
+    await supabase.from('task_sub_items').delete().eq('task_id', id)
+    if (taskSubItems.length > 0) {
+      await supabase.from('task_sub_items').insert(
+        taskSubItems.map((title, i) => ({ task_id: id, title, display_order: i }))
+      )
+    }
+
+    // Replace rotation roster
+    await supabase.from('task_rotation_members').delete().eq('task_id', id)
+    if (isRotating && rotationMemberIds.length > 0) {
+      await supabase.from('task_rotation_members').insert(
+        rotationMemberIds.map((memberId, i) => ({
+          task_id: id,
+          family_member_id: memberId,
+          rotation_order: i,
+        }))
+      )
     }
 
     onShowToast(`Task "${title}" updated!`, 'success')
-    await loadTasks()
+    await loadAllData()
   }
 
   async function handleDeleteTask(id: number) {
@@ -377,13 +739,29 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
   }
 
   function handleEditTask(task: Task) {
+    const taskRewards = currencyRewards.filter((r) => r.task_id === task.id)
+    const taskSubItemTitles = subItems
+      .filter((s) => s.task_id === task.id)
+      .sort((a, b) => a.display_order - b.display_order)
+      .map((s) => s.title)
+    const taskRotationOrder = rotationMembers
+      .filter((rm) => rm.task_id === task.id)
+      .sort((a, b) => a.rotation_order - b.rotation_order)
+      .map((rm) => rm.family_member_id)
+
     setEditingTask({
       id: task.id,
       title: task.title,
       description: task.description || '',
       task_type: task.task_type,
-      points: task.points,
       assigned_member_ids: task.task_assignments.map((a) => a.family_member_id),
+      currency_rewards: taskRewards,
+      sub_items: taskSubItemTitles,
+      group_reset_frequency: task.group_reset_frequency ?? 'daily',
+      is_rotating: task.is_rotating,
+      rotation_mode: task.rotation_mode ?? 'completion',
+      rotation_members: taskRotationOrder,
+      rotation_days_interval: task.rotation_days_interval ?? 7,
     })
     setIsModalOpen(true)
   }
@@ -493,7 +871,7 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
                 const memberTasks = getTasksForMember(member.id)
                 const completedCount = getCompletedCountForMember(member.id)
                 const totalCount = memberTasks.length
-                const pts = getMemberPointsTotal(member.id)
+                const stars = getStarBalance(member.id)
 
                 const dailyTasks = memberTasks.filter((t) => t.task_type === 'daily')
                 const oneOffTasks = memberTasks.filter((t) => t.task_type === 'one_off')
@@ -533,9 +911,9 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
                             <span className="text-white/50 text-xs font-medium">
                               ✓ {completedCount}/{totalCount}
                             </span>
-                            {pts > 0 && (
+                            {stars > 0 && (
                               <span className="text-yellow-400 text-xs font-bold">
-                                ⭐ {pts}
+                                ⭐ {stars}
                               </span>
                             )}
                           </div>
@@ -559,13 +937,28 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
                               </div>
                               {dailyTasks.map((task) => {
                                 const completed = isTaskCompletedByMember(task.id, member.id)
+                                const taskItems = getTaskSubItems(task.id)
+                                const completedSubIds = new Set(
+                                  taskItems.filter((si) => isSubItemCompleted(si.id, member.id, task.group_reset_frequency)).map((si) => si.id)
+                                )
+                                const allSubsDone = areAllSubItemsCompleted(task.id, member.id, task.group_reset_frequency)
+                                const isCurrentRotation = task.is_rotating ? getCurrentRotationMemberId(task) === member.id : true
+                                const rewardSummary = getTaskCurrencyRewards(task.id)
+                                  .map((r) => `${CURRENCY_META[r.currency_type]?.icon ?? r.currency_type} ${r.amount}`)
+                                  .join(' ')
                                 return (
                                   <TaskTile
                                     key={task.id}
                                     task={task}
                                     member={member}
                                     completed={completed}
+                                    taskSubItems={taskItems}
+                                    completedSubItemIds={completedSubIds}
+                                    allSubsDone={allSubsDone}
+                                    isCurrentRotation={isCurrentRotation}
+                                    rewardSummary={rewardSummary}
                                     onComplete={() => handleCompleteTask(task.id, member.id)}
+                                    onToggleSubItem={(subItemId) => handleToggleSubItem(task, subItemId, member.id)}
                                     onEdit={() => handleEditTask(task)}
                                   />
                                 )
@@ -581,13 +974,28 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
                               </div>
                               {oneOffTasks.map((task) => {
                                 const completed = isTaskCompletedByMember(task.id, member.id)
+                                const taskItems = getTaskSubItems(task.id)
+                                const completedSubIds = new Set(
+                                  taskItems.filter((si) => isSubItemCompleted(si.id, member.id, task.group_reset_frequency)).map((si) => si.id)
+                                )
+                                const allSubsDone = areAllSubItemsCompleted(task.id, member.id, task.group_reset_frequency)
+                                const isCurrentRotation = task.is_rotating ? getCurrentRotationMemberId(task) === member.id : true
+                                const rewardSummary = getTaskCurrencyRewards(task.id)
+                                  .map((r) => `${CURRENCY_META[r.currency_type]?.icon ?? r.currency_type} ${r.amount}`)
+                                  .join(' ')
                                 return (
                                   <TaskTile
                                     key={task.id}
                                     task={task}
                                     member={member}
                                     completed={completed}
+                                    taskSubItems={taskItems}
+                                    completedSubItemIds={completedSubIds}
+                                    allSubsDone={allSubsDone}
+                                    isCurrentRotation={isCurrentRotation}
+                                    rewardSummary={rewardSummary}
                                     onComplete={() => handleCompleteTask(task.id, member.id)}
+                                    onToggleSubItem={(subItemId) => handleToggleSubItem(task, subItemId, member.id)}
                                     onEdit={() => handleEditTask(task)}
                                   />
                                 )
@@ -624,19 +1032,37 @@ function TaskTile({
   task,
   member,
   completed,
+  taskSubItems,
+  completedSubItemIds,
+  allSubsDone,
+  isCurrentRotation,
+  rewardSummary,
   onComplete,
+  onToggleSubItem,
   onEdit,
 }: {
   task: Task
   member: FamilyMember
   completed: boolean
+  taskSubItems: TaskSubItem[]
+  completedSubItemIds: Set<number>
+  allSubsDone: boolean
+  isCurrentRotation: boolean
+  rewardSummary: string
   onComplete: () => void
+  onToggleSubItem: (subItemId: number) => void
   onEdit: () => void
 }) {
+  const hasSubItems = taskSubItems.length > 0
+  // Tile is dimmed if: already completed, or rotating and not current member's turn
+  const isDimmed = completed || (!isCurrentRotation && task.is_rotating)
+  // Main circle only enabled when: not yet completed AND (no sub-items OR all sub-items done) AND it's their turn
+  const circleEnabled = !completed && allSubsDone && isCurrentRotation
+
   return (
     <div
       className={`rounded-2xl px-4 py-3.5 transition-all duration-200 cursor-pointer group ${
-        completed ? 'opacity-50' : ''
+        isDimmed ? 'opacity-50' : ''
       }`}
       style={{
         backgroundColor: completed
@@ -646,27 +1072,72 @@ function TaskTile({
       }}
       onClick={onEdit}
     >
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
+          {/* Title */}
           <p
             className={`font-semibold text-[13px] leading-snug ${
               completed ? 'text-white/35 line-through' : 'text-white/90'
             }`}
           >
             {task.title}
+            {task.is_rotating && !completed && (
+              <span className="ml-1.5 text-[10px] text-indigo-300/70 font-normal">
+                {isCurrentRotation ? '🔄 your turn' : '🔄'}
+              </span>
+            )}
           </p>
+
+          {/* Description */}
           {task.description && (
-            <p
-              className={`text-[11px] mt-0.5 ${
-                completed ? 'text-white/20' : 'text-white/45'
-              }`}
-            >
+            <p className={`text-[11px] mt-0.5 ${completed ? 'text-white/20' : 'text-white/45'}`}>
               {task.description}
             </p>
           )}
-          {!completed && (
-            <span className="text-yellow-400/70 text-[11px] font-semibold">
-              {task.points > 0 ? `⭐ ${task.points}` : ''}
+
+          {/* Sub-items checklist */}
+          {hasSubItems && !completed && (
+            <div className="flex flex-col gap-1 mt-2">
+              {taskSubItems.map((si) => {
+                const done = completedSubItemIds.has(si.id)
+                return (
+                  <button
+                    key={si.id}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onToggleSubItem(si.id) }}
+                    className="flex items-center gap-2 text-left group/sub"
+                  >
+                    <span
+                      className={`w-4 h-4 rounded-md border flex-shrink-0 flex items-center justify-center transition-all ${
+                        done
+                          ? 'bg-green-500 border-green-400'
+                          : 'border-white/30 bg-white/5 group-hover/sub:border-white/50'
+                      }`}
+                    >
+                      {done && (
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className={`text-[11px] ${done ? 'line-through text-white/30' : 'text-white/60'}`}>
+                      {si.title}
+                    </span>
+                  </button>
+                )
+              })}
+              {hasSubItems && !allSubsDone && (
+                <p className="text-[10px] text-white/30 mt-0.5">
+                  {completedSubItemIds.size}/{taskSubItems.length} steps done
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Reward summary */}
+          {!completed && rewardSummary && (
+            <span className="text-yellow-400/70 text-[11px] font-semibold block mt-1">
+              {rewardSummary}
             </span>
           )}
         </div>
@@ -675,22 +1146,28 @@ function TaskTile({
         <button
           onClick={(e) => {
             e.stopPropagation()
-            onComplete()
+            if (circleEnabled || completed) onComplete()
           }}
-          className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 hover:scale-110 ${
+          disabled={!circleEnabled && !completed}
+          className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 mt-0.5 ${
             completed
-              ? 'border-green-400 bg-green-500 shadow-[0_0_8px_rgba(74,222,128,0.3)]'
-              : 'border-white/25 bg-white/5 hover:border-white/50 hover:bg-white/10'
+              ? 'border-green-400 bg-green-500 shadow-[0_0_8px_rgba(74,222,128,0.3)] hover:scale-110'
+              : circleEnabled
+              ? 'border-white/50 bg-white/10 hover:border-white/70 hover:bg-white/20 hover:scale-110'
+              : 'border-white/10 bg-white/3 cursor-not-allowed opacity-30'
           }`}
+          title={
+            completed
+              ? 'Undo completion'
+              : !isCurrentRotation
+              ? 'Not your turn'
+              : !allSubsDone
+              ? 'Complete all steps first'
+              : 'Mark complete'
+          }
         >
           {completed && (
-            <svg
-              className="w-4 h-4 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={3}
-            >
+            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           )}

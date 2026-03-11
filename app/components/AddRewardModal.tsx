@@ -16,14 +16,23 @@ type Reward = {
   description: string
   cost: number
   reward_type: 'reusable' | 'one_off'
+  currency_type?: 'stars' | 'muscles' | 'heart' | 'game_points' | 'trophy'
   assigned_member_ids: number[]
+}
+
+const CURRENCY_META: Record<string, { icon: string; label: string }> = {
+  stars:       { icon: '⭐', label: 'Stars'       },
+  muscles:     { icon: '💪', label: 'Muscles'     },
+  heart:       { icon: '❤️',  label: 'Hearts'      },
+  game_points: { icon: '🎮', label: 'Game Points' },
+  trophy:      { icon: '🏆', label: 'Trophies'    },
 }
 
 type AddRewardModalProps = {
   isOpen: boolean
   onClose: () => void
-  onAddReward: (title: string, description: string, cost: number, rewardType: 'reusable' | 'one_off', assignedMemberIds: number[]) => void
-  onUpdateReward?: (id: number, title: string, description: string, cost: number, rewardType: 'reusable' | 'one_off', assignedMemberIds: number[]) => void
+  onAddReward: (title: string, description: string, cost: number, rewardType: 'reusable' | 'one_off', currencyType: string, assignedMemberIds: number[]) => void
+  onUpdateReward?: (id: number, title: string, description: string, cost: number, rewardType: 'reusable' | 'one_off', currencyType: string, assignedMemberIds: number[]) => void
   onDeleteReward?: (id: number) => void
   editReward?: Reward | null
   familyMembers: FamilyMember[]
@@ -43,6 +52,7 @@ export default function AddRewardModal({
   const [cost, setCost] = useState(5)
   const [rewardType, setRewardType] = useState<'reusable' | 'one_off'>('reusable')
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([])
+  const [currencyType, setCurrencyType] = useState<'stars' | 'muscles' | 'heart' | 'game_points' | 'trophy'>('stars')
   const [isLoading, setIsLoading] = useState(false)
 
   const isEditMode = !!editReward?.id
@@ -53,12 +63,14 @@ export default function AddRewardModal({
       setDescription(editReward.description || '')
       setCost(editReward.cost)
       setRewardType(editReward.reward_type)
+      setCurrencyType(editReward.currency_type || 'stars')
       setSelectedMemberIds(editReward.assigned_member_ids || [])
     } else if (!isOpen) {
       setTitle('')
       setDescription('')
       setCost(5)
       setRewardType('reusable')
+      setCurrencyType('stars')
       setSelectedMemberIds([])
     }
   }, [isOpen, editReward])
@@ -78,9 +90,9 @@ export default function AddRewardModal({
     try {
       setIsLoading(true)
       if (isEditMode && editReward?.id && onUpdateReward) {
-        onUpdateReward(editReward.id, title.trim(), description.trim(), cost, rewardType, selectedMemberIds)
+        onUpdateReward(editReward.id, title.trim(), description.trim(), cost, rewardType, currencyType, selectedMemberIds)
       } else {
-        onAddReward(title.trim(), description.trim(), cost, rewardType, selectedMemberIds)
+        onAddReward(title.trim(), description.trim(), cost, rewardType, currencyType, selectedMemberIds)
       }
       onClose()
     } catch (error) {
@@ -174,10 +186,34 @@ export default function AddRewardModal({
             </div>
           </div>
 
+          {/* Currency Type */}
+          <div>
+            <label className="block text-sm font-medium text-white/90 mb-2">
+              Currency required to redeem
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {(Object.entries(CURRENCY_META) as [string, { icon: string; label: string }][]).map(([type, meta]) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setCurrencyType(type as 'stars' | 'muscles' | 'heart' | 'game_points' | 'trophy')}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all border ${
+                    currencyType === type
+                      ? 'bg-white/25 border-white/50 text-white shadow-lg scale-105'
+                      : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10'
+                  }`}
+                >
+                  <span>{meta.icon}</span>
+                  <span>{meta.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Cost */}
           <div>
             <label className="block text-sm font-medium text-white/90 mb-1">
-              Cost ⭐
+              Cost {CURRENCY_META[currencyType]?.icon ?? '⭐'}
             </label>
             <div className="flex items-center gap-3">
               <input
@@ -197,7 +233,7 @@ export default function AddRewardModal({
                   onChange={(e) => setCost(Math.max(1, Number(e.target.value)))}
                   className="w-20 px-3 py-2 bg-yellow-500/30 border border-yellow-400/50 rounded-xl text-white font-bold text-center"
                 />
-                <span className="text-yellow-400 text-lg">⭐</span>
+                <span className="text-yellow-400 text-lg">{CURRENCY_META[currencyType]?.icon ?? '⭐'}</span>
               </div>
             </div>
           </div>
@@ -267,7 +303,7 @@ export default function AddRewardModal({
               <button
                 type="button"
                 onClick={handleDelete}
-                className="px-4 py-2.5 bg-red-500/20 hover:bg-red-500/40 text-red-200 rounded-xl transition-all duration-200 border border-red-400/30"
+                className="px-4 py-2.5 bg-red-500/30 hover:bg-red-500/50 text-white rounded-xl transition-all duration-200 border border-red-400/40"
               >
                 Delete
               </button>

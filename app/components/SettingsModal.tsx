@@ -501,7 +501,7 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                         </div>
                         <button
                           onClick={() => handleDisconnectGoogle(account.integration_id)}
-                          className="flex-shrink-0 px-3 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-red-200 text-xs font-medium transition-all duration-200 hover:scale-105"
+                          className="flex-shrink-0 px-3 py-1 bg-red-500/30 hover:bg-red-500/50 border border-red-500/40 rounded-lg text-white text-xs font-medium transition-all duration-200 hover:scale-105"
                         >
                           Disconnect
                         </button>

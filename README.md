@@ -6,19 +6,61 @@
 | 2 | **Fun Reactions** | ✅ Done — Confetti/particle burst on task completion; celebration animation on reward redemption |
 | 3 | **Reward History** | ✅ Done — Full redemption log per member (who, what, when); view-only proof-of-claim history in Rewards section |
 | 4 | **Better Section Headers** | ✅ Done — Distinct styled headers with titles, contextual actions, and count badges per section |
-| 5 | **Multi-Currency Rewards** | Preset currencies: ⭐ Stars, 💪 Muscles, ❤️ Heart, 🎮 Game Points, 🏆 Trophy. Tasks award one or more currencies; rewards priced in a specific currency; per-member balances per type |
-| 6 | **Grouped / Habit Tasks** | Sub-task checklist inline on tile; points only awarded when ALL sub-items checked (e.g. Brush teeth + Floss + Read = one reward) |
-| 7 | **Rotating Tasks** | Tasks rotate between selected family members; trigger configurable per task: on completion OR on scheduled date |
+| 5 | **Multi-Currency Rewards** | ✅ Done — ⭐ Stars, 💪 Muscles, ❤️ Heart, 🎮 Game Points, 🏆 Trophy. Tasks award one or more currencies; rewards priced in a specific currency; per-member balances per type |
+| 6 | **Grouped / Habit Tasks** | ✅ Done — Sub-task checklist inline on tile; completion circle only activates when ALL sub-items checked; configurable reset frequency (daily/weekly/monthly/never) |
+| 7 | **Rotating Tasks** | ✅ Done — Ordered roster per task; rotates on completion or every N days; "🔄 your turn" badge; non-current members' circles disabled |
 | 8 | **Flexible Recurrence** | Tasks repeat every X days, X weeks, or X months |
 | 9 | **Sleep Mode** | 🌙 Sleep button in sidebar; full-screen photo slideshow from admin-uploaded images (selectable in Settings); tap/click anywhere to wake; manual-only |
 | 10 | **Calorie Totals** | Daily calorie sum across all meal slots in the Meal Plan week grid, using per-recipe macro data |
 | 11 | **Mobile Optimization** | Responsive layouts, touch-friendly targets, swipe navigation, bottom nav bar on mobile |
 | 12 | **Space Theme** | Colorful galaxy background (purples/pinks/blues, nebula-style); kid-friendly; glowing card borders; star field parallax |
 | 13 | **Seasonal Auto-Theme** | Auto-detects date range: Halloween (Oct 15–Nov 1), Christmas (Dec 1–25), Easter (Mar–Apr), Fall (Sep–Oct), Spring (Apr–May); unique CSS + decorative assets per season |
+| 14 | **AI Meal Planner** | "Ask the AI" generates a full week of meals based on family size, dietary restrictions, favorite cuisines, and pantry staples — formula-driven with a conversational AI feel |
+| 15 | **AI Scheduler** | Conversational scheduler suggests optimal event times based on existing calendar load, family member preferences, and recurring patterns — formula-driven with natural language output |
 
 ---
 
-## 📝 Latest Updates (March 6, 2026)
+## 📝 Latest Updates (March 11, 2026)
+
+### Phase 9: Multi-Currency Rewards, Grouped Tasks & Rotating Tasks
+
+**Multi-Currency Rewards:**
+- ✅ 5 preset currencies: ⭐ Stars, 💪 Muscles, ❤️ Heart, 🎮 Game Points, 🏆 Trophy
+- ✅ Tasks award multiple currencies simultaneously, each with its own configurable amount
+- ✅ Rewards priced in one specific currency; balances checked per-currency per-member
+- ✅ `member_currency_balances` table is source of truth; `member_points` maintained as legacy mirror
+- ✅ Rewards view member header shows all non-zero currency balances inline
+- ✅ Redemption deducts correct currency; history shows the correct icon per row
+
+**Grouped / Habit Tasks:**
+- ✅ Add ordered sub-items (steps) to any task inside AddTaskModal
+- ✅ Sub-item checklist rendered inline on each TaskTile; tap to toggle
+- ✅ Completion circle disabled until ALL sub-items are checked for that period
+- ✅ Configurable reset frequency per task: Daily, Weekly, Monthly, or Never
+- ✅ Period key system ensures sub-completions reset correctly per period
+
+**Rotating Tasks:**
+- ✅ Toggle any task to "rotating" mode with an ordered member roster
+- ✅ Rotation trigger: on completion OR every N days (date mode)
+- ✅ "🔄 your turn" badge shown on the current assignee's tile
+- ✅ Completion circles disabled for non-current-rotation members
+- ✅ Assign To picker hidden when rotating (roster replaces it)
+- ✅ Rotation index advances automatically after each completion
+
+**Database Migrations (run in this order in Supabase):**
+- `supabase_migration_multi_currency.sql` — `member_currency_balances`, `task_currency_rewards`, currency columns on rewards/redemptions
+- `supabase_migration_grouped_tasks.sql` — `task_sub_items`, `task_sub_completions`, `group_reset_frequency` on tasks, `period_key` on completions
+- `supabase_migration_rotating_tasks.sql` — rotation columns on tasks, `task_rotation_members` table
+
+**Modified Files:**
+- `app/components/AddTaskModal.tsx` — complete rewrite: 11-param signature, currency rewards, sub-items, rotation sections
+- `app/components/AddRewardModal.tsx` — currency type picker; updated onAdd/onUpdate signatures
+- `app/components/TasksView.tsx` — new types/state/load functions, period key system, multi-currency award, rotation logic, updated TaskTile
+- `app/components/RewardsView.tsx` — multi-currency balances, currency-specific redemption, updated UI
+
+---
+
+## 📝 Previous Updates (March 6, 2026)
 
 ### Phase 8: Meal Plan Week View in Recipes Section
 

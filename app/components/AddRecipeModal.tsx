@@ -695,7 +695,7 @@ export default function AddRecipeModal({
                     <button
                       type="button"
                       onClick={() => removeIngredientRow(index)}
-                      className="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded-lg transition-all duration-200 text-sm"
+                      className="px-3 py-2 bg-red-500/30 hover:bg-red-500/50 text-white rounded-lg transition-all duration-200 text-sm"
                     >
                       ✕
                     </button>

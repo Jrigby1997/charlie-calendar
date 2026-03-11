@@ -20,6 +20,7 @@ type Reward = {
   description: string | null
   cost: number
   reward_type: 'reusable' | 'one_off'
+  currency_type: string
   is_active: boolean
   created_at: string
   reward_assignments: {
@@ -34,13 +35,29 @@ type MemberPoints = {
   redeemed_points: number
 }
 
+type MemberCurrencyBalance = {
+  id: number
+  family_member_id: number
+  currency_type: string
+  total_earned: number
+  redeemed_amount: number
+}
+
 type RedemptionHistory = {
   id: number
   reward_id: number
   family_member_id: number
   points_spent: number
   redeemed_at: string
-  rewards: { title: string } | null
+  rewards: { title: string; currency_type?: string } | null
+}
+
+const CURRENCY_META: Record<string, { icon: string; label: string }> = {
+  stars:       { icon: '⭐', label: 'Stars'       },
+  muscles:     { icon: '💪', label: 'Muscles'     },
+  heart:       { icon: '❤️',  label: 'Hearts'      },
+  game_points: { icon: '🎮', label: 'Game Points' },
+  trophy:      { icon: '🏆', label: 'Trophies'    },
 }
 
 type RewardsViewProps = {
@@ -53,6 +70,7 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
   const { user } = useAuth()
   const [rewards, setRewards] = useState<Reward[]>([])
   const [memberPoints, setMemberPoints] = useState<MemberPoints[]>([])
+  const [memberBalances, setMemberBalances] = useState<MemberCurrencyBalance[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingReward, setEditingReward] = useState<any>(null)
@@ -89,17 +107,23 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
       .on('postgres_changes', { event: '*', schema: 'public', table: 'member_points' }, () => loadMemberPoints())
       .subscribe()
 
+    const balancesChannel = supabase
+      .channel('rewards-currency-balances-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'member_currency_balances' }, () => loadMemberBalances())
+      .subscribe()
+
     return () => {
       supabase.removeChannel(rewardsChannel)
       supabase.removeChannel(assignmentsChannel)
       supabase.removeChannel(redemptionsChannel)
       supabase.removeChannel(pointsChannel)
+      supabase.removeChannel(balancesChannel)
     }
   }, [user])
 
   async function loadAllData() {
     setLoading(true)
-    await Promise.all([loadRewards(), loadMemberPoints(), loadHistory()])
+    await Promise.all([loadRewards(), loadMemberPoints(), loadMemberBalances(), loadHistory()])
     setLoading(false)
   }
 
@@ -134,6 +158,18 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
     }
   }
 
+  async function loadMemberBalances() {
+    const { data, error } = await supabase
+      .from('member_currency_balances')
+      .select('*')
+
+    if (error) {
+      console.error('Error loading member balances:', error)
+    } else {
+      setMemberBalances(data || [])
+    }
+  }
+
   async function loadHistory() {
     const { data, error } = await supabase
       .from('reward_redemptions')
@@ -148,9 +184,22 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
     }
   }
 
+  function getAvailableBalance(memberId: number, currencyType: string): number {
+    const bal = memberBalances.find(
+      (b) => b.family_member_id === memberId && b.currency_type === currencyType
+    )
+    if (bal) return bal.total_earned - bal.redeemed_amount
+    // Legacy fallback for stars
+    if (currencyType === 'stars') {
+      const mp = memberPoints.find((p) => p.family_member_id === memberId)
+      return mp ? mp.total_points - mp.redeemed_points : 0
+    }
+    return 0
+  }
+
+  /** @deprecated use getAvailableBalance(memberId, 'stars') */
   function getAvailablePoints(memberId: number): number {
-    const mp = memberPoints.find((p) => p.family_member_id === memberId)
-    return mp ? mp.total_points - mp.redeemed_points : 0
+    return getAvailableBalance(memberId, 'stars')
   }
 
   function getRewardsForMember(memberId: number): Reward[] {
@@ -159,18 +208,24 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
       .sort((a, b) => a.cost - b.cost)
   }
 
-  function canAfford(memberId: number, cost: number): boolean {
-    return getAvailablePoints(memberId) >= cost
+  function canAfford(memberId: number, reward: Reward): boolean {
+    return getAvailableBalance(memberId, reward.currency_type || 'stars') >= reward.cost
   }
 
   async function handleRedeemReward(rewardId: number, memberId: number) {
     const reward = rewards.find((r) => r.id === rewardId)
     if (!reward) return
 
-    const available = getAvailablePoints(memberId)
+    const currencyType = reward.currency_type || 'stars'
+    const available = getAvailableBalance(memberId, currencyType)
+
     if (available < reward.cost) {
       const member = familyMembers.find((m) => m.id === memberId)
-      onShowToast(`${member?.name || 'Member'} needs ${reward.cost - available} more ⭐ for this reward!`, 'error')
+      const meta = CURRENCY_META[currencyType]
+      onShowToast(
+        `${member?.name || 'Member'} needs ${reward.cost - available} more ${meta?.icon ?? currencyType} for this reward!`,
+        'error'
+      )
       return
     }
 
@@ -181,6 +236,7 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
         reward_id: rewardId,
         family_member_id: memberId,
         points_spent: reward.cost,
+        currency_type: currencyType,
       })
 
     if (redeemError) {
@@ -189,32 +245,41 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
       return
     }
 
-    // Update member points (increment redeemed_points)
-    const currentPoints = memberPoints.find((p) => p.family_member_id === memberId)
-    if (currentPoints) {
+    // Deduct from member_currency_balances
+    const bal = memberBalances.find(
+      (b) => b.family_member_id === memberId && b.currency_type === currencyType
+    )
+    if (bal) {
       await supabase
-        .from('member_points')
-        .update({ redeemed_points: currentPoints.redeemed_points + reward.cost })
+        .from('member_currency_balances')
+        .update({ redeemed_amount: bal.redeemed_amount + reward.cost, updated_at: new Date().toISOString() })
         .eq('family_member_id', memberId)
+        .eq('currency_type', currencyType)
     }
 
-    // One-off reward: deactivate after redemption for this member
+    // Update legacy member_points for stars compatibility
+    if (currencyType === 'stars') {
+      const currentPoints = memberPoints.find((p) => p.family_member_id === memberId)
+      if (currentPoints) {
+        await supabase
+          .from('member_points')
+          .update({ redeemed_points: currentPoints.redeemed_points + reward.cost })
+          .eq('family_member_id', memberId)
+      }
+    }
+
+    // One-off reward handling
     if (reward.reward_type === 'one_off') {
-      // Check if all assigned members have now redeemed
       const assignedIds = reward.reward_assignments.map((a) => a.family_member_id)
-      // For one-off, deactivate for this member by removing their assignment
-      // If only one member was assigned or all have redeemed, deactivate the reward entirely
       if (assignedIds.length === 1) {
         await supabase.from('rewards').update({ is_active: false }).eq('id', rewardId)
       } else {
-        // Remove this member's assignment so they can't redeem again
         await supabase
           .from('reward_assignments')
           .delete()
           .eq('reward_id', rewardId)
           .eq('family_member_id', memberId)
 
-        // Check if any assignments remain
         const remaining = assignedIds.filter((id) => id !== memberId)
         if (remaining.length === 0) {
           await supabase.from('rewards').update({ is_active: false }).eq('id', rewardId)
@@ -223,12 +288,18 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
     }
 
     const member = familyMembers.find((m) => m.id === memberId)
+    const meta = CURRENCY_META[currencyType]
     fireFireworks()
-    onShowToast(`🎉 ${member?.name} redeemed "${reward.title}" for ${reward.cost}⭐!`, 'success')
+    onShowToast(
+      `🎉 ${member?.name} redeemed "${reward.title}" for ${reward.cost}${meta?.icon ?? currencyType}!`,
+      'success'
+    )
     setConfirmRedeem(null)
 
     await loadRewards()
+    await loadMemberBalances()
     await loadMemberPoints()
+    await loadHistory()
   }
 
   async function handleAddReward(
@@ -236,6 +307,7 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
     description: string,
     cost: number,
     rewardType: 'reusable' | 'one_off',
+    currencyType: string,
     assignedMemberIds: number[]
   ) {
     if (!user) return
@@ -248,6 +320,7 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
         description: description || null,
         cost,
         reward_type: rewardType,
+        currency_type: currencyType || 'stars',
       })
       .select()
       .single()
@@ -276,11 +349,12 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
     description: string,
     cost: number,
     rewardType: 'reusable' | 'one_off',
+    currencyType: string,
     assignedMemberIds: number[]
   ) {
     const { error } = await supabase
       .from('rewards')
-      .update({ title, description: description || null, cost, reward_type: rewardType })
+      .update({ title, description: description || null, cost, reward_type: rewardType, currency_type: currencyType || 'stars' })
       .eq('id', id)
 
     if (error) {
@@ -325,6 +399,7 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
       description: reward.description || '',
       cost: reward.cost,
       reward_type: reward.reward_type,
+      currency_type: reward.currency_type || 'stars',
       assigned_member_ids: reward.reward_assignments.map((a) => a.family_member_id),
     })
     setIsModalOpen(true)
@@ -449,7 +524,9 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
                                 {item.rewards?.title ?? 'Unknown reward'}
                               </p>
                               <div className="flex items-center justify-between mt-1">
-                                <span className="text-yellow-400/80 text-[11px] font-bold">⭐ {item.points_spent}</span>
+                                <span className="text-yellow-400/80 text-[11px] font-bold">
+                                  {CURRENCY_META[item.rewards?.currency_type || 'stars']?.icon ?? '⭐'} {item.points_spent}
+                                </span>
                                 <span className="text-white/35 text-[10px]">
                                   {new Date(item.redeemed_at).toLocaleDateString('en-US', {
                                     month: 'short', day: 'numeric', year: 'numeric',
@@ -494,7 +571,6 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
               <div className="flex h-full min-w-0">
                 {familyMembers.map((member) => {
                   const memberRewards = getRewardsForMember(member.id)
-                  const available = getAvailablePoints(member.id)
 
                   const reusableRewards = memberRewards.filter((r) => r.reward_type === 'reusable')
                   const oneOffRewards = memberRewards.filter((r) => r.reward_type === 'one_off')
@@ -530,11 +606,19 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
                             <h3 className="text-white font-bold text-lg truncate drop-shadow-md">
                               {member.name}
                             </h3>
-                            <div className="flex items-center gap-2">
-                              <span className="text-yellow-400 text-sm font-bold">
-                                ⭐ {available}
-                              </span>
-                              <span className="text-white/40 text-xs">to spend</span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {Object.entries(CURRENCY_META).map(([ct, meta]) => {
+                                const bal = getAvailableBalance(member.id, ct)
+                                if (bal <= 0) return null
+                                return (
+                                  <span key={ct} className="text-white/80 text-xs font-bold">
+                                    {meta.icon} {bal}
+                                  </span>
+                                )
+                              })}
+                              {Object.keys(CURRENCY_META).every((ct) => getAvailableBalance(member.id, ct) === 0) && (
+                                <span className="text-white/40 text-xs">No balance yet</span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -559,7 +643,7 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
                                     key={reward.id}
                                     reward={reward}
                                     member={member}
-                                    canAfford={canAfford(member.id, reward.cost)}
+                                    canAfford={canAfford(member.id, reward)}
                                     isConfirming={confirmRedeem?.rewardId === reward.id && confirmRedeem?.memberId === member.id}
                                     onRedeem={() => {
                                       if (confirmRedeem?.rewardId === reward.id && confirmRedeem?.memberId === member.id) {
@@ -586,7 +670,7 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
                                     key={reward.id}
                                     reward={reward}
                                     member={member}
-                                    canAfford={canAfford(member.id, reward.cost)}
+                                    canAfford={canAfford(member.id, reward)}
                                     isConfirming={confirmRedeem?.rewardId === reward.id && confirmRedeem?.memberId === member.id}
                                     onRedeem={() => {
                                       if (confirmRedeem?.rewardId === reward.id && confirmRedeem?.memberId === member.id) {
@@ -670,7 +754,7 @@ function RewardTile({
           )}
           <div className="flex items-center gap-2 mt-1">
             <span className={`text-[12px] font-bold ${canAfford ? 'text-yellow-400/80' : 'text-red-400/60'}`}>
-              ⭐ {reward.cost}
+              {CURRENCY_META[reward.currency_type || 'stars']?.icon ?? '⭐'} {reward.cost}
             </span>
             {reward.reward_type === 'one_off' && (
               <span className="text-[9px] bg-amber-500/25 text-amber-300/80 px-1.5 py-0.5 rounded-full border border-amber-400/20">

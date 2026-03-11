@@ -373,7 +373,7 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
             </button>
             <button
               onClick={clearShoppingList}
-              className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded-lg text-red-200 font-medium transition-all duration-200"
+              className="px-4 py-2 bg-red-500/30 hover:bg-red-500/50 border border-red-500/50 rounded-lg text-white font-medium transition-all duration-200"
             >
               Clear All
             </button>
@@ -552,7 +552,7 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
                 {/* Delete Button */}
                 <button
                   onClick={() => removeItem(group.ingredient_id)}
-                  className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded-lg transition-all duration-200 text-sm"
+                  className="px-3 py-1 bg-red-500/30 hover:bg-red-500/50 text-white rounded-lg transition-all duration-200 text-sm"
                 >
                   Remove
                 </button>
