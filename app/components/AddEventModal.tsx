@@ -26,6 +26,18 @@ const DEFAULT_LINKED_REWARDS: CurrencyReward[] = [
   { currency_type: 'trophy',      amount: 1, enabled: false },
 ]
 
+const PRESET_COLORS: { hex: string; label: string }[] = [
+  { hex: '#9CA3AF', label: 'Gray'   },
+  { hex: '#EF4444', label: 'Red'    },
+  { hex: '#F97316', label: 'Orange' },
+  { hex: '#EAB308', label: 'Yellow' },
+  { hex: '#22C55E', label: 'Green'  },
+  { hex: '#14B8A6', label: 'Teal'   },
+  { hex: '#3B82F6', label: 'Blue'   },
+  { hex: '#8B5CF6', label: 'Purple' },
+  { hex: '#EC4899', label: 'Pink'   },
+]
+
 type FamilyMember = {
   id: number
   name: string
@@ -311,18 +323,21 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
           {eventColorMode === 'custom' && (
             <div>
               <label className="block text-sm font-medium text-white/90 mb-2">Event Color</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={customColor}
-                  onChange={(e) => setCustomColor(e.target.value)}
-                  className="w-12 h-10 rounded-lg border border-white/30 cursor-pointer bg-transparent"
-                />
-                <span className="text-sm text-white/70 font-mono">{customColor}</span>
-                <button type="button" onClick={() => setCustomColor('#9CA3AF')}
-                  className="text-xs text-white/50 hover:text-white/80 transition-colors">
-                  Reset to gray
-                </button>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_COLORS.map(({ hex, label }) => (
+                  <button
+                    key={hex}
+                    type="button"
+                    onClick={() => setCustomColor(hex)}
+                    title={label}
+                    className={`w-8 h-8 rounded-full transition-all duration-150 hover:scale-110 ${
+                      customColor === hex
+                        ? 'ring-2 ring-white ring-offset-2 ring-offset-transparent scale-110 shadow-lg'
+                        : 'ring-1 ring-white/20 hover:ring-white/60'
+                    }`}
+                    style={{ backgroundColor: hex }}
+                  />
+                ))}
               </div>
             </div>
           )}

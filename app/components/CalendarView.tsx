@@ -225,6 +225,30 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
     }
   }
 
+  // Helper: pastel sticky-note style for multi-member events
+  function getPastelMultiEventStyle(memberColors: string[]): React.CSSProperties {
+    const toPastel = (hex: string) => {
+      const r = parseInt(hex.slice(1, 3), 16) || 160
+      const g = parseInt(hex.slice(3, 5), 16) || 160
+      const b = parseInt(hex.slice(5, 7), 16) || 180
+      return {
+        bg: `rgb(${Math.round(r * 0.28 + 255 * 0.72)},${Math.round(g * 0.28 + 255 * 0.72)},${Math.round(b * 0.28 + 255 * 0.72)})`,
+        border: `rgb(${Math.round(r * 0.55 + 255 * 0.45)},${Math.round(g * 0.55 + 255 * 0.45)},${Math.round(b * 0.55 + 255 * 0.45)})`,
+      }
+    }
+    const pastel = memberColors.map(toPastel)
+    const pct = 100 / pastel.length
+    const stops = pastel.map((c, i) => `${c.bg} ${i * pct}%, ${c.bg} ${(i + 1) * pct}%`).join(', ')
+    return {
+      background: `linear-gradient(135deg, ${stops})`,
+      border: `1.5px solid ${pastel[0].border}`,
+      boxShadow: '2px 3px 0 rgba(0,0,0,0.1)',
+      color: '#1e1133',
+      textShadow: 'none',
+      borderRadius: '5px',
+    }
+  }
+
   // Helper function to convert color to translucent glass gradient
   function getGlassyEventColor(eventColor: string): string {
     // Parse color from hex or gradient
@@ -645,7 +669,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                           const members = event.event_family_members.map(efm => efm.family_members)
                           const eventColor = eventColorMode === 'custom' ? (event.custom_color || '#9CA3AF') : getEventColor(members)
                           const glassyColor = getGlassyEventColor(eventColor)
-                          const pastelStyle = colorTheme === 'pastel' ? getPastelEventStyle(eventColor) : null
+                          const pastelStyle = colorTheme === 'pastel' ? (eventColorMode !== 'custom' && members.length > 1 ? getPastelMultiEventStyle(members.map(m => m.color)) : getPastelEventStyle(eventColor)) : null
                           const multiDayRange = isMultiDayEvent(event) ? formatMultiDayRange(event) : null
 
                           return (
@@ -765,7 +789,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                           const members = event.event_family_members.map(efm => efm.family_members)
                           const eventColor = eventColorMode === 'custom' ? (event.custom_color || '#9CA3AF') : getEventColor(members)
                           const glassyColor = getGlassyEventColor(eventColor)
-                          const pastelStyle = colorTheme === 'pastel' ? getPastelEventStyle(eventColor) : null
+                          const pastelStyle = colorTheme === 'pastel' ? (eventColorMode !== 'custom' && members.length > 1 ? getPastelMultiEventStyle(members.map(m => m.color)) : getPastelEventStyle(eventColor)) : null
 
                           // Calculate vertical position based on minutes
                           let topOffset = 0
@@ -903,7 +927,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                         const members = event.event_family_members.map(efm => efm.family_members)
                         const eventColor = eventColorMode === 'custom' ? (event.custom_color || '#9CA3AF') : getEventColor(members)
                         const glassyColor = getGlassyEventColor(eventColor)
-                        const pastelStyle = colorTheme === 'pastel' ? getPastelEventStyle(eventColor) : null
+                        const pastelStyle = colorTheme === 'pastel' ? (eventColorMode !== 'custom' && members.length > 1 ? getPastelMultiEventStyle(members.map(m => m.color)) : getPastelEventStyle(eventColor)) : null
                         const multiDayRange = isMultiDayEvent(event) ? formatMultiDayRange(event) : null
 
                         return (
@@ -1023,7 +1047,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                       const members = event.event_family_members.map(efm => efm.family_members)
                       const eventColor = eventColorMode === 'custom' ? (event.custom_color || '#9CA3AF') : getEventColor(members)
                       const glassyColor = getGlassyEventColor(eventColor)
-                      const pastelStyle = colorTheme === 'pastel' ? getPastelEventStyle(eventColor) : null
+                      const pastelStyle = colorTheme === 'pastel' ? (eventColorMode !== 'custom' && members.length > 1 ? getPastelMultiEventStyle(members.map(m => m.color)) : getPastelEventStyle(eventColor)) : null
 
                       // Calculate vertical position based on minutes
                       let topOffset = 0
@@ -1165,7 +1189,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                   const members = event.event_family_members.map(efm => efm.family_members)
                   const eventColor = eventColorMode === 'custom' ? (event.custom_color || '#9CA3AF') : getEventColor(members)
                   const glassyColor = getGlassyEventColor(eventColor)
-                  const pastelStyle = colorTheme === 'pastel' ? getPastelEventStyle(eventColor) : null
+                  const pastelStyle = colorTheme === 'pastel' ? (eventColorMode !== 'custom' && members.length > 1 ? getPastelMultiEventStyle(members.map(m => m.color)) : getPastelEventStyle(eventColor)) : null
                   const timeRange = formatTimeRange(event.start_time, event.end_time)
                   const multiDayRange = isMultiDayEvent(event) ? formatMultiDayRange(event) : null
 

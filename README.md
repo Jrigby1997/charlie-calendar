@@ -9,8 +9,8 @@
 | 5 | **Multi-Currency Rewards** | ✅ Done — ⭐ Stars, 💪 Muscles, ❤️ Heart, 🎮 Game Points, 🏆 Trophy. Tasks award one or more currencies; rewards priced in a specific currency; per-member balances per type |
 | 6 | **Grouped / Habit Tasks** | ✅ Done — Sub-task checklist inline on tile; completion circle only activates when ALL sub-items checked; configurable reset frequency (daily/weekly/monthly/never) |
 | 7 | **Rotating Tasks** | ✅ Done — Ordered roster per task; rotates on completion or every N days; "🔄 your turn" badge; non-current members' circles disabled |
-| 8 | **Flexible Recurrence** | Tasks repeat every X days, X weeks, or X months |
-| 9 | **Calendar-Linked Tasks** | When creating a calendar event, check "Also add as a task" to have it appear in both the Calendar view (as an event) and the Task view (as a one-off task for that specific date). Ideal for dated to-dos like "Get oil change", "File taxes", or "Medical checkup" — one entry, two places |
+| 8 | **Flexible Recurrence** | ✅ Done — Tasks repeat every X days, X weeks, or X months with configurable interval; `isDueOnDate()` filtering shows tasks only on their correct days |
+| 9 | **Calendar-Linked Tasks** | ✅ Done — When creating a calendar event, check "Also add as a task" to have it appear in both the Calendar view (as an event) and the Task view (as a one-off task for that specific date). Linked events show a 📋 badge. Ideal for dated to-dos like "Get oil change", "File taxes", or "Medical checkup" — one entry, two places |
 | 10 | **Sleep Mode** | 🌙 Sleep button in sidebar; full-screen photo slideshow from admin-uploaded images (selectable in Settings); tap/click anywhere to wake; manual-only |
 | 11 | **Calorie Totals** | Daily calorie sum across all meal slots in the Meal Plan week grid, using per-recipe macro data |
 | 12 | **Mobile Optimization** | Responsive layouts, touch-friendly targets, swipe navigation, bottom nav bar on mobile |
@@ -18,10 +18,75 @@
 | 14 | **Seasonal Auto-Theme** | Auto-detects date range: Halloween (Oct 15–Nov 1), Christmas (Dec 1–25), Easter (Mar–Apr), Fall (Sep–Oct), Spring (Apr–May); unique CSS + decorative assets per season |
 | 15 | **AI Meal Planner** | "Ask the AI" generates a full week of meals based on family size, dietary restrictions, favorite cuisines, and pantry staples — formula-driven with a conversational AI feel |
 | 16 | **AI Scheduler** | Conversational scheduler suggests optimal event times based on existing calendar load, family member preferences, and recurring patterns — formula-driven with natural language output |
+| 17 | **Google Calendar Write** | Create, edit, and delete events directly on connected Google Calendars from within the app (currently read-only sync) |
+| 18 | **Apple Calendar Read** | Sync and display events from Apple Calendar / iCloud Calendar (CalDAV) in all calendar views |
+| 19 | **Apple Calendar Write** | Create, edit, and delete events on connected Apple/iCloud Calendars from within the app |
+| 20 | **Outlook Calendar Read** | Sync and display events from Microsoft Outlook / Office 365 Calendar (Microsoft Graph API) in all calendar views |
+| 21 | **Outlook Calendar Write** | Create, edit, and delete events on connected Outlook/Office 365 Calendars from within the app |
 
 ---
 
 ## 📝 Latest Updates (March 11, 2026)
+
+### Phase 10: Flexible Recurrence, Calendar-Linked Tasks & UX Polish
+
+**Flexible Recurrence (Task 8):**
+- ✅ Tasks can repeat every X days, X weeks, or X months (configurable interval + unit)
+- ✅ `isDueOnDate()` helper filters tasks per-day correctly across all recurrence modes
+- ✅ AddTaskModal: "Repeating" mode shows inline "Repeat every [N] [days/weeks/months]" picker
+- ✅ `recurrence_interval` + `recurrence_unit` persisted to Supabase
+
+**Calendar-Linked Tasks (Task 9):**
+- ✅ "📋 Also add as a task" toggle in AddEventModal (disabled when no member assigned)
+- ✅ Creates a `one_off` task with `linked_event_id` and `due_date` matching the event date
+- ✅ 5-currency reward picker shown when toggle is enabled
+- ✅ 📋 badge shown on calendar event tiles in all 5 view locations when a linked task exists
+- ✅ Editing an event syncs `due_date` on its linked task automatically
+- ✅ Task tile in TasksView shows 📅 badge when the task has a `linked_event_id`
+
+**Settings Isolation (Multi-Account Fix):**
+- ✅ Settings (family name, section title, theme) were previously shared across all accounts — fixed
+- ✅ `loadSettings()` now scopes to `auth.getUser()` then filters `.eq('user_id', user.id)`
+- ✅ `handleSave()` rewritten to use `upsert({ onConflict: 'user_id' })` — one atomic call per user
+- ✅ `supabase_migration_app_settings_user_scoped.sql` — adds `UNIQUE(user_id)`, makes `user_id NOT NULL`, deletes shared null row, replaces permissive RLS policies with strict per-user ones
+
+**Auth Email Redirect Fix:**
+- ✅ Confirmation emails previously linked to `localhost:3000` regardless of environment
+- ✅ Fixed by passing `emailRedirectTo: window.location.origin` in `signUp()` — dynamically uses the domain the user signed up from
+
+**Custom Color Swatches:**
+- ✅ Replaced free-form color wheel with 9 preset swatches: Gray, Red, Orange, Yellow, Green, Teal, Blue, Purple, Pink
+- ✅ Selected swatch shows white ring + scale; no more similar-purple-but-slightly-different events
+
+**Pastel Theme Multi-Member Events:**
+- ✅ Previously defaulted to a flat blue for any multi-member event in pastel theme
+- ✅ Now renders a diagonal gradient of each member's pastelized color (e.g. soft-pink / soft-blue for 2 members)
+- ✅ `getPastelMultiEventStyle()` added; all 5 event tile locations updated
+
+**UX Polish:**
+- ✅ Event title renders above time range in all calendar tiles (title is more important at a glance)
+- ✅ New event end time defaults to 1 hour after start (was 30 min)
+- ✅ "Also add as task" checkbox disabled + dimmed when no family member is assigned
+- ✅ Pastel theme `<select>` dropdown options now readable (explicit `background-color` + `color` on `option` elements)
+- ✅ Fixed duplicate `event.description` rendering bug in day-view timed tiles
+
+**Database Migrations:**
+- `supabase_migration_flexible_recurrence_and_linked_tasks.sql` — adds `recurrence_interval`, `recurrence_unit`, `due_date`, `linked_event_id` to tasks
+- `supabase_migration_app_settings_user_scoped.sql` — per-user settings isolation (run this if on shared DB)
+
+**Modified Files:**
+- `app/components/AddTaskModal.tsx` — recurrence interval/unit UI and params
+- `app/components/TasksView.tsx` — `isDueOnDate()` filtering, new task fields, linked-task badge
+- `app/components/AddEventModal.tsx` — linked task toggle, 5-currency picker, color swatches, 60-min default, checkbox disable logic
+- `app/components/CalendarView.tsx` — 📋 badge on linked events, title-above-time layout, pastel multi-member gradient, duplicate description fix
+- `app/components/SettingsModal.tsx` — per-user `loadSettings()` and `handleSave()` with upsert
+- `app/contexts/AuthContext.tsx` — `emailRedirectTo: window.location.origin` in `signUp()`
+- `app/page.tsx` — `linkedTaskEventIds` state + load function, linked task creation in `handleAddEvent`, `due_date` sync in `handleUpdateEvent`, per-user `loadSettings()`
+- `app/globals.css` — pastel `select option` color fix
+
+---
+
+## 📝 Previous Updates (March 11, 2026)
 
 ### Phase 9: Multi-Currency Rewards, Grouped Tasks & Rotating Tasks
 
