@@ -28,6 +28,12 @@ type Task = {
   current_rotation_index: number
   group_reset_frequency: 'daily' | 'weekly' | 'monthly' | 'never' | null
   rotation_days_interval: number | null
+  // Flexible recurrence
+  recurrence_interval: number
+  recurrence_unit: 'days' | 'weeks' | 'months'
+  // Calendar-linked task
+  due_date: string | null
+  linked_event_id: number | null
   task_assignments: { family_member_id: number }[]
 }
 
@@ -113,6 +119,39 @@ function getPeriodKey(freq: string | null, date: Date): string {
   if (freq === 'never') return 'done'
   // default: 'daily' or null
   return toLocalISO(date)
+}
+
+/** Returns true if the task should be visible on the given date. */
+function isDueOnDate(task: Task, date: Date): boolean {
+  if (task.task_type === 'one_off') {
+    // No due_date = always visible (backward compat for existing tasks)
+    if (!task.due_date) return true
+    return task.due_date === toLocalISO(date)
+  }
+
+  // Repeating task — enforce recurrence interval
+  const anchor = new Date(task.created_at)
+  const diffMs = date.getTime() - anchor.getTime()
+  if (diffMs < 0) return false
+
+  const interval = task.recurrence_interval || 1
+  const unit = task.recurrence_unit || 'days'
+
+  if (unit === 'days') {
+    const diffDays = Math.floor(diffMs / 86_400_000)
+    return diffDays % interval === 0
+  }
+  if (unit === 'weeks') {
+    const diffDays = Math.floor(diffMs / 86_400_000)
+    return diffDays % (7 * interval) === 0
+  }
+  if (unit === 'months') {
+    const monthsDiff =
+      (date.getFullYear() - anchor.getFullYear()) * 12 +
+      (date.getMonth() - anchor.getMonth())
+    return monthsDiff % interval === 0 && date.getDate() === anchor.getDate()
+  }
+  return true
 }
 
 const CURRENCY_META: Record<string, { icon: string; label: string }> = {
@@ -363,6 +402,8 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
 
   function getTasksForMember(memberId: number): Task[] {
     return tasks.filter((t) => {
+      // Recurrence / due-date gate — hide tasks not due on viewDate
+      if (!isDueOnDate(t, viewDate)) return false
       if (t.is_rotating) {
         // For rotating tasks, show in all rotation members' columns
         return rotationMembers.some((rm) => rm.task_id === t.id && rm.family_member_id === memberId)
@@ -580,7 +621,9 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
     isRotating: boolean,
     rotationMode: 'completion' | 'date',
     rotationMemberIds: number[],
-    rotationDaysInterval: number
+    rotationDaysInterval: number,
+    recurrenceInterval: number,
+    recurrenceUnit: 'days' | 'weeks' | 'months'
   ) {
     if (!user) return
 
@@ -600,6 +643,8 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
         rotation_days_interval: isRotating && rotationMode === 'date' ? rotationDaysInterval : null,
         group_reset_frequency: groupResetFrequency,
         current_rotation_index: 0,
+        recurrence_interval: taskType === 'daily' ? recurrenceInterval : 1,
+        recurrence_unit: taskType === 'daily' ? recurrenceUnit : 'days',
       })
       .select()
       .single()
@@ -658,7 +703,9 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
     isRotating: boolean,
     rotationMode: 'completion' | 'date',
     rotationMemberIds: number[],
-    rotationDaysInterval: number
+    rotationDaysInterval: number,
+    recurrenceInterval: number,
+    recurrenceUnit: 'days' | 'weeks' | 'months'
   ) {
     const starReward = taskCurrencyRewards.find((r) => r.currency_type === 'stars')
 
@@ -673,6 +720,8 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
         rotation_mode: isRotating ? rotationMode : null,
         rotation_days_interval: isRotating && rotationMode === 'date' ? rotationDaysInterval : null,
         group_reset_frequency: groupResetFrequency,
+        recurrence_interval: taskType === 'daily' ? recurrenceInterval : 1,
+        recurrence_unit: taskType === 'daily' ? recurrenceUnit : 'days',
       })
       .eq('id', id)
 
@@ -762,6 +811,8 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
       rotation_mode: task.rotation_mode ?? 'completion',
       rotation_members: taskRotationOrder,
       rotation_days_interval: task.rotation_days_interval ?? 7,
+      recurrence_interval: task.recurrence_interval ?? 1,
+      recurrence_unit: task.recurrence_unit ?? 'days',
     })
     setIsModalOpen(true)
   }
@@ -1081,12 +1132,28 @@ function TaskTile({
             }`}
           >
             {task.title}
+            {task.linked_event_id && !completed && (
+              <span className="ml-1.5 text-[10px] text-sky-300/70 font-normal">📅</span>
+            )}
             {task.is_rotating && !completed && (
               <span className="ml-1.5 text-[10px] text-indigo-300/70 font-normal">
                 {isCurrentRotation ? '🔄 your turn' : '🔄'}
               </span>
             )}
           </p>
+
+          {/* Recurrence label */}
+          {task.task_type === 'daily' && !completed && (() => {
+            const interval = task.recurrence_interval || 1
+            const unit = task.recurrence_unit || 'days'
+            if (interval === 1 && unit === 'days') return null // plain daily — no label needed
+            const label = interval === 1
+              ? unit.slice(0, -1).charAt(0).toUpperCase() + unit.slice(1, -1) + 'ly' // "weekly", "monthly"
+              : `Every ${interval} ${unit}`
+            return (
+              <p className="text-[10px] text-white/35 mt-0.5">{label}</p>
+            )
+          })()}
 
           {/* Description */}
           {task.description && (

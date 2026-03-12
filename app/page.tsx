@@ -85,6 +85,7 @@ export default function Home() {
   }>>(new Map())
   const [googleConnected, setGoogleConnected] = useState(false)
   const [isSyncingGoogle, setIsSyncingGoogle] = useState(false)
+  const [linkedTaskEventIds, setLinkedTaskEventIds] = useState<Set<number>>(new Set())
 
   // External event detail modal
   const [externalEventDetail, setExternalEventDetail] = useState<{
@@ -159,6 +160,7 @@ export default function Home() {
     loadMealPlans()
     loadSettings()
     loadExternalData()
+    loadLinkedTaskEventIds()
 
     // Subscribe to realtime changes
     const eventsChannel = supabase
@@ -274,11 +276,14 @@ export default function Home() {
   }
 
   async function loadSettings() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
     const { data, error } = await supabase
       .from('app_settings')
       .select('*')
-      .limit(1)
-      .single()
+      .eq('user_id', user.id)
+      .maybeSingle()
 
     if (error) {
       console.error('Error loading settings:', error)
@@ -290,6 +295,16 @@ export default function Home() {
       setEventColorMode(data.event_color_mode || 'member')
       setDateFormat(data.date_format || 'MM/DD/YYYY')
       setWeekStartDay(data.week_start_day || 'Sunday')
+    }
+  }
+
+  async function loadLinkedTaskEventIds() {
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('linked_event_id')
+      .not('linked_event_id', 'is', null)
+    if (!error && data) {
+      setLinkedTaskEventIds(new Set(data.map((t: any) => t.linked_event_id as number)))
     }
   }
 
@@ -453,7 +468,7 @@ export default function Home() {
     return null
   }
 
-  async function handleAddEvent(title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], customColor?: string) {
+  async function handleAddEvent(title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], customColor?: string, createLinkedTask?: boolean, linkedTaskRewards?: { currency_type: string; amount: number }[]) {
     if (!user) {
       console.error('No user logged in')
       return
@@ -500,6 +515,47 @@ export default function Home() {
         console.error('Error adding family member associations:', associationError)
         return
       }
+    }
+
+    // Create a linked one-off task if requested
+    if (createLinkedTask && newEvent) {
+      const starReward = linkedTaskRewards?.find((r) => r.currency_type === 'stars')
+      const { data: newTask, error: taskError } = await supabase
+        .from('tasks')
+        .insert({
+          user_id: user.id,
+          title,
+          description: description || null,
+          task_type: 'one_off',
+          points: starReward?.amount ?? 0,
+          is_active: true,
+          is_rotating: false,
+          current_rotation_index: 0,
+          group_reset_frequency: 'daily',
+          recurrence_interval: 1,
+          recurrence_unit: 'days',
+          due_date: date,
+          linked_event_id: newEvent.id,
+        })
+        .select()
+        .single()
+
+      if (!taskError && newTask) {
+        if (selectedMemberIds.length > 0) {
+          await supabase.from('task_assignments').insert(
+            selectedMemberIds.map((memberId) => ({ task_id: newTask.id, family_member_id: memberId }))
+          )
+        }
+        if (linkedTaskRewards && linkedTaskRewards.length > 0) {
+          await supabase.from('task_currency_rewards').insert(
+            linkedTaskRewards.map((r) => ({ task_id: newTask.id, currency_type: r.currency_type, amount: r.amount }))
+          )
+        }
+      } else if (taskError) {
+        console.error('Error creating linked task:', taskError)
+      }
+      // Refresh linked task badge set
+      loadLinkedTaskEventIds()
     }
   }
 
@@ -616,6 +672,13 @@ export default function Home() {
           console.error('Error updating family member associations:', associationError)
         }
       }
+
+      // Sync the due_date of any linked task when the event's date changes
+      await supabase
+        .from('tasks')
+        .update({ due_date: date })
+        .eq('linked_event_id', id)
+        .eq('task_type', 'one_off')
     }
 
     await loadEvents()
@@ -1237,6 +1300,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                 isSyncingGoogle={isSyncingGoogle}
                 eventColorMode={eventColorMode}
                 colorTheme={colorTheme}
+                linkedTaskEventIds={linkedTaskEventIds}
               />
               </div>
             ) : currentView === 'recipes' ? (

@@ -34,6 +34,9 @@ type Task = {
   rotation_mode?: 'completion' | 'date'
   rotation_members?: number[]
   rotation_days_interval?: number
+  // Flexible recurrence
+  recurrence_interval?: number
+  recurrence_unit?: 'days' | 'weeks' | 'months'
 }
 
 type AddTaskModalProps = {
@@ -50,7 +53,9 @@ type AddTaskModalProps = {
     isRotating: boolean,
     rotationMode: 'completion' | 'date',
     rotationMembers: number[],
-    rotationDaysInterval: number
+    rotationDaysInterval: number,
+    recurrenceInterval: number,
+    recurrenceUnit: 'days' | 'weeks' | 'months'
   ) => void
   onUpdateTask?: (
     id: number,
@@ -64,7 +69,9 @@ type AddTaskModalProps = {
     isRotating: boolean,
     rotationMode: 'completion' | 'date',
     rotationMembers: number[],
-    rotationDaysInterval: number
+    rotationDaysInterval: number,
+    recurrenceInterval: number,
+    recurrenceUnit: 'days' | 'weeks' | 'months'
   ) => void
   onDeleteTask?: (id: number) => void
   editTask?: Task | null
@@ -119,6 +126,10 @@ export default function AddTaskModal({
   const [rotationMemberIds, setRotationMemberIds] = useState<number[]>([])
   const [rotationDays, setRotationDays]           = useState(7)
 
+  // Flexible recurrence
+  const [recurrenceInterval, setRecurrenceInterval] = useState(1)
+  const [recurrenceUnit, setRecurrenceUnit]         = useState<'days' | 'weeks' | 'months'>('days')
+
   const isEditMode = !!editTask?.id
 
   // ── Pre-fill when editing ──────────────────────────────────────────────────
@@ -150,6 +161,8 @@ export default function AddTaskModal({
       setRotationMode(editTask.rotation_mode || 'completion')
       setRotationMemberIds(editTask.rotation_members || [])
       setRotationDays(editTask.rotation_days_interval || 7)
+      setRecurrenceInterval(editTask.recurrence_interval || 1)
+      setRecurrenceUnit(editTask.recurrence_unit || 'days')
     } else if (!isOpen) {
       setTitle('')
       setDescription('')
@@ -162,6 +175,8 @@ export default function AddTaskModal({
       setRotationMode('completion')
       setRotationMemberIds([])
       setRotationDays(7)
+      setRecurrenceInterval(1)
+      setRecurrenceUnit('days')
     }
   }, [isOpen, editTask])
 
@@ -251,7 +266,9 @@ export default function AddTaskModal({
           isRotating,
           rotationMode,
           rotMembers,
-          rotationDays
+          rotationDays,
+          taskType === 'daily' ? recurrenceInterval : 1,
+          taskType === 'daily' ? recurrenceUnit : 'days'
         )
       } else {
         onAddTask(
@@ -265,7 +282,9 @@ export default function AddTaskModal({
           isRotating,
           rotationMode,
           rotMembers,
-          rotationDays
+          rotationDays,
+          taskType === 'daily' ? recurrenceInterval : 1,
+          taskType === 'daily' ? recurrenceUnit : 'days'
         )
       }
       onClose()
@@ -340,8 +359,8 @@ export default function AddTaskModal({
                 }`}
               >
                 <div className="text-lg mb-0.5">🔄</div>
-                <div className="text-sm font-semibold">Daily</div>
-                <div className="text-xs text-white/60">Resets every day</div>
+                <div className="text-sm font-semibold">Repeating</div>
+                <div className="text-xs text-white/60">Recurs on a schedule</div>
               </button>
               <button
                 type="button"
@@ -353,10 +372,41 @@ export default function AddTaskModal({
                 }`}
               >
                 <div className="text-lg mb-0.5">📌</div>
-                <div className="text-sm font-semibold">One-Off</div>
+                <div className="text-sm font-semibold">One-Time</div>
                 <div className="text-xs text-white/60">Until completed</div>
               </button>
             </div>
+
+            {/* Recurrence interval — shown when Repeating is selected */}
+            {taskType === 'daily' && (
+              <div className="mt-3 flex items-center gap-2 bg-white/5 border border-white/15 rounded-xl px-4 py-3">
+                <span className="text-sm text-white/70 flex-shrink-0">Repeat every</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={recurrenceInterval}
+                  onChange={(e) => setRecurrenceInterval(Math.max(1, Number(e.target.value)))}
+                  className="w-14 text-center bg-white/10 border border-white/20 rounded-lg text-white text-sm font-bold py-1.5"
+                />
+                <div className="flex gap-1.5">
+                  {(['days', 'weeks', 'months'] as const).map((unit) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      onClick={() => setRecurrenceUnit(unit)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                        recurrenceUnit === unit
+                          ? 'bg-blue-500/40 border-blue-400/60 text-white'
+                          : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10'
+                      }`}
+                    >
+                      {unit}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Currency Rewards ──────────────────────────────────────────── */}

@@ -10,13 +10,14 @@
 | 6 | **Grouped / Habit Tasks** | ✅ Done — Sub-task checklist inline on tile; completion circle only activates when ALL sub-items checked; configurable reset frequency (daily/weekly/monthly/never) |
 | 7 | **Rotating Tasks** | ✅ Done — Ordered roster per task; rotates on completion or every N days; "🔄 your turn" badge; non-current members' circles disabled |
 | 8 | **Flexible Recurrence** | Tasks repeat every X days, X weeks, or X months |
-| 9 | **Sleep Mode** | 🌙 Sleep button in sidebar; full-screen photo slideshow from admin-uploaded images (selectable in Settings); tap/click anywhere to wake; manual-only |
-| 10 | **Calorie Totals** | Daily calorie sum across all meal slots in the Meal Plan week grid, using per-recipe macro data |
-| 11 | **Mobile Optimization** | Responsive layouts, touch-friendly targets, swipe navigation, bottom nav bar on mobile |
-| 12 | **Space Theme** | Colorful galaxy background (purples/pinks/blues, nebula-style); kid-friendly; glowing card borders; star field parallax |
-| 13 | **Seasonal Auto-Theme** | Auto-detects date range: Halloween (Oct 15–Nov 1), Christmas (Dec 1–25), Easter (Mar–Apr), Fall (Sep–Oct), Spring (Apr–May); unique CSS + decorative assets per season |
-| 14 | **AI Meal Planner** | "Ask the AI" generates a full week of meals based on family size, dietary restrictions, favorite cuisines, and pantry staples — formula-driven with a conversational AI feel |
-| 15 | **AI Scheduler** | Conversational scheduler suggests optimal event times based on existing calendar load, family member preferences, and recurring patterns — formula-driven with natural language output |
+| 9 | **Calendar-Linked Tasks** | When creating a calendar event, check "Also add as a task" to have it appear in both the Calendar view (as an event) and the Task view (as a one-off task for that specific date). Ideal for dated to-dos like "Get oil change", "File taxes", or "Medical checkup" — one entry, two places |
+| 10 | **Sleep Mode** | 🌙 Sleep button in sidebar; full-screen photo slideshow from admin-uploaded images (selectable in Settings); tap/click anywhere to wake; manual-only |
+| 11 | **Calorie Totals** | Daily calorie sum across all meal slots in the Meal Plan week grid, using per-recipe macro data |
+| 12 | **Mobile Optimization** | Responsive layouts, touch-friendly targets, swipe navigation, bottom nav bar on mobile |
+| 13 | **Space Theme** | Colorful galaxy background (purples/pinks/blues, nebula-style); kid-friendly; glowing card borders; star field parallax |
+| 14 | **Seasonal Auto-Theme** | Auto-detects date range: Halloween (Oct 15–Nov 1), Christmas (Dec 1–25), Easter (Mar–Apr), Fall (Sep–Oct), Spring (Apr–May); unique CSS + decorative assets per season |
+| 15 | **AI Meal Planner** | "Ask the AI" generates a full week of meals based on family size, dietary restrictions, favorite cuisines, and pantry staples — formula-driven with a conversational AI feel |
+| 16 | **AI Scheduler** | Conversational scheduler suggests optimal event times based on existing calendar load, family member preferences, and recurring patterns — formula-driven with natural language output |
 
 ---
 

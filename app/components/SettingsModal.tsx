@@ -201,12 +201,14 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
   async function loadSettings() {
     setLoading(true)
 
-    // Load settings (for now, get the first row since we don't have auth)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoading(false); return }
+
     const { data, error } = await supabase
       .from('app_settings')
       .select('*')
-      .limit(1)
-      .single()
+      .eq('user_id', user.id)
+      .maybeSingle()
 
     if (error) {
       console.error('Error loading settings:', error)
@@ -236,47 +238,25 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
 
     setLoading(true)
 
-    // First, check if settings exist
-    const { data: existingSettings } = await supabase
-      .from('app_settings')
-      .select('id')
-      .limit(1)
-      .single()
-
-    let error
-
-    if (existingSettings) {
-      // Update existing settings
-      const result = await supabase
-        .from('app_settings')
-        .update({
-          calendar_title: calendarTitle.trim(),
-          family_section_title: familySectionTitle.trim(),
-          color_theme: colorTheme,
-          event_color_mode: eventColorMode,
-          date_format: dateFormat,
-          week_start_day: weekStartDay,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existingSettings.id)
-
-      error = result.error
-    } else {
-      // Insert new settings
-      const result = await supabase
-        .from('app_settings')
-        .insert({
-          user_id: null, // Will be updated when auth is added
-          calendar_title: calendarTitle.trim(),
-          family_section_title: familySectionTitle.trim(),
-          color_theme: colorTheme,
-          event_color_mode: eventColorMode,
-          date_format: dateFormat,
-          week_start_day: weekStartDay
-        })
-
-      error = result.error
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      onShowToast?.('Not signed in — please refresh and try again', 'error')
+      setLoading(false)
+      return
     }
+
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert({
+        user_id: user.id,
+        calendar_title: calendarTitle.trim(),
+        family_section_title: familySectionTitle.trim(),
+        color_theme: colorTheme,
+        event_color_mode: eventColorMode,
+        date_format: dateFormat,
+        week_start_day: weekStartDay,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' })
 
     setLoading(false)
 

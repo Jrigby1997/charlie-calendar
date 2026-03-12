@@ -2,6 +2,30 @@
 
 import { useState, useEffect } from 'react'
 
+// ── Linked-task helpers (mirrors AddTaskModal) ─────────────────────────────
+
+type CurrencyReward = {
+  currency_type: 'stars' | 'muscles' | 'heart' | 'game_points' | 'trophy'
+  amount: number
+  enabled: boolean
+}
+
+const CURRENCY_META: Record<string, { icon: string; label: string }> = {
+  stars:       { icon: '⭐', label: 'Stars'       },
+  muscles:     { icon: '💪', label: 'Muscles'     },
+  heart:       { icon: '❤️',  label: 'Hearts'      },
+  game_points: { icon: '🎮', label: 'Game Points' },
+  trophy:      { icon: '🏆', label: 'Trophies'    },
+}
+
+const DEFAULT_LINKED_REWARDS: CurrencyReward[] = [
+  { currency_type: 'stars',       amount: 1, enabled: true  },
+  { currency_type: 'muscles',     amount: 1, enabled: false },
+  { currency_type: 'heart',       amount: 1, enabled: false },
+  { currency_type: 'game_points', amount: 1, enabled: false },
+  { currency_type: 'trophy',      amount: 1, enabled: false },
+]
+
 type FamilyMember = {
   id: number
   name: string
@@ -37,7 +61,7 @@ type AddEventModalProps = {
   isOpen: boolean
   onClose: () => void
   familyMembers: FamilyMember[]
-  onAddEvent: (title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, memberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], customColor?: string) => void
+  onAddEvent: (title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, memberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], customColor?: string, createLinkedTask?: boolean, linkedTaskRewards?: { currency_type: string; amount: number }[]) => void
   onUpdateEvent?: (id: number, title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, memberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], updateScope?: 'single' | 'all' | 'future', instanceDate?: string, customColor?: string) => void
   onDeleteEvent?: (id: number, deleteScope?: 'single' | 'all' | 'future', instanceDate?: string) => void
   editingEvent?: Event | null
@@ -64,6 +88,10 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
   const [showUpdateOptions, setShowUpdateOptions] = useState(false)
   const [showDeleteOptions, setShowDeleteOptions] = useState(false)
   const [customColor, setCustomColor] = useState('#9CA3AF')
+
+  // Linked-task state
+  const [createLinkedTask, setCreateLinkedTask] = useState(false)
+  const [linkedTaskRewards, setLinkedTaskRewards] = useState<CurrencyReward[]>(DEFAULT_LINKED_REWARDS)
 
   // Generate time options in 15-minute increments
   const generateTimeOptions = () => {
@@ -100,6 +128,9 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
       setRecurrenceEndDate(editingEvent.recurrence_end_date || '')
       setRecurrenceDays(editingEvent.recurrence_days ? JSON.parse(editingEvent.recurrence_days) : [])
       setCustomColor(editingEvent.custom_color || '#9CA3AF')
+      // Linked task not shown when editing
+      setCreateLinkedTask(false)
+      setLinkedTaskRewards(DEFAULT_LINKED_REWARDS)
     } else if (isOpen && !editingEvent) {
       // Only clear form when opening modal without an event to edit
       setTitle('')
@@ -111,7 +142,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
         const [hours, minutes] = initialStartTime.split(':').map(Number)
         const startDate = new Date()
         startDate.setHours(hours, minutes, 0)
-        startDate.setMinutes(startDate.getMinutes() + 30)
+        startDate.setMinutes(startDate.getMinutes() + 60)
         const endHours = String(startDate.getHours()).padStart(2, '0')
         const endMinutes = String(startDate.getMinutes()).padStart(2, '0')
         setEndTime(`${endHours}:${endMinutes}`)
@@ -126,6 +157,8 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
       setRecurrenceEndDate('')
       setRecurrenceDays([])
       setCustomColor('#9CA3AF')
+      setCreateLinkedTask(false)
+      setLinkedTaskRewards(DEFAULT_LINKED_REWARDS)
     }
   }, [editingEvent, initialDate, initialStartTime, isOpen])
 
@@ -137,7 +170,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
       const [hours, minutes] = newStartTime.split(':').map(Number)
       const startDate = new Date()
       startDate.setHours(hours, minutes, 0)
-      startDate.setMinutes(startDate.getMinutes() + 30)
+      startDate.setMinutes(startDate.getMinutes() + 60)
       const endHours = String(startDate.getHours()).padStart(2, '0')
       const endMinutes = String(startDate.getMinutes()).padStart(2, '0')
       setEndTime(`${endHours}:${endMinutes}`)
@@ -177,7 +210,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
         onClose()
       }
     } else {
-      onAddEvent(title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays, customColor)
+      onAddEvent(title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays, customColor, createLinkedTask, linkedTaskRewards.filter(r => r.enabled).map(({ currency_type, amount }) => ({ currency_type, amount })))
       onClose()
     }
   }
@@ -385,6 +418,115 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
               placeholder="Additional details..."
             />
           </div>
+
+          {/* Also add as a task — only shown when creating a new event */}
+          {!editingEvent && (
+            <div className="border-t border-white/20 pt-4">
+              <div className="flex items-center mb-3">
+                <input
+                  type="checkbox"
+                  id="createLinkedTask"
+                  checked={createLinkedTask}
+                  onChange={(e) => setCreateLinkedTask(e.target.checked)}
+                  disabled={selectedMemberIds.length === 0}
+                  className="w-4 h-4 text-white border-white/30 rounded focus:ring-white/50 bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                />
+                <label htmlFor="createLinkedTask" className={`ml-2 text-sm font-medium ${selectedMemberIds.length === 0 ? 'text-white/40' : 'text-white/90'}`}>
+                  📋 Also add as a task
+                </label>
+                {selectedMemberIds.length === 0 && (
+                  <span className="ml-2 text-xs text-white/40">(assign a member first)</span>
+                )}
+              </div>
+
+              {createLinkedTask && (
+                <div className="pl-6 border-l-2 border-white/30 space-y-2">
+                  <p className="text-xs text-white/50 mb-3">
+                    This event will appear in both the Calendar and the Tasks view on {date || 'the event date'}. Choose what rewards to award on completion:
+                  </p>
+                  {linkedTaskRewards.map((reward) => {
+                    const meta = CURRENCY_META[reward.currency_type]
+                    return (
+                      <div
+                        key={reward.currency_type}
+                        className={`flex items-center gap-3 rounded-xl px-3 py-2 border transition-all duration-200 ${
+                          reward.enabled ? 'bg-white/10 border-white/30' : 'bg-white/3 border-white/10 opacity-50'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setLinkedTaskRewards((prev) =>
+                              prev.map((r) =>
+                                r.currency_type === reward.currency_type ? { ...r, enabled: !r.enabled } : r
+                              )
+                            )
+                          }
+                          className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                            reward.enabled ? 'bg-white/30 border-white/60' : 'bg-transparent border-white/30'
+                          }`}
+                        >
+                          {reward.enabled && (
+                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </button>
+                        <span className="text-lg flex-shrink-0">{meta.icon}</span>
+                        <span className="text-sm text-white/80 font-medium flex-1">{meta.label}</span>
+                        {reward.enabled && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setLinkedTaskRewards((prev) =>
+                                  prev.map((r) =>
+                                    r.currency_type === reward.currency_type
+                                      ? { ...r, amount: Math.max(1, r.amount - 1) }
+                                      : r
+                                  )
+                                )
+                              }
+                              className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors"
+                            >−</button>
+                            <input
+                              type="number"
+                              min={1}
+                              max={999}
+                              value={reward.amount}
+                              onChange={(e) =>
+                                setLinkedTaskRewards((prev) =>
+                                  prev.map((r) =>
+                                    r.currency_type === reward.currency_type
+                                      ? { ...r, amount: Math.max(1, Math.min(999, Number(e.target.value))) }
+                                      : r
+                                  )
+                                )
+                              }
+                              className="w-12 text-center bg-white/10 border border-white/20 rounded-lg text-white text-sm font-bold py-0.5"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setLinkedTaskRewards((prev) =>
+                                  prev.map((r) =>
+                                    r.currency_type === reward.currency_type
+                                      ? { ...r, amount: Math.min(999, r.amount + 1) }
+                                      : r
+                                  )
+                                )
+                              }
+                              className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors"
+                            >+</button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Recurring Event Options */}
           <div className="border-t border-white/20 pt-4">

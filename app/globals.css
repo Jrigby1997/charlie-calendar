@@ -137,6 +137,12 @@ html[data-theme="pastel"] select {
   border-color: rgba(170, 150, 200, 0.55) !important;
 }
 
+/* Pastel: select dropdown options need explicit colors since they render outside the shadow DOM */
+html[data-theme="pastel"] select option {
+  background-color: rgba(245, 240, 255, 0.98) !important;
+  color: #1e1133 !important;
+}
+
 /* Pastel: drop-shadow on today indicator is invisible — remove */
 html[data-theme="pastel"] .drop-shadow-lg { filter: none !important; }
 

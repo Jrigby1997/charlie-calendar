@@ -61,9 +61,10 @@ type CalendarViewProps = {
   sectionTitle?: string
   eventColorMode?: string
   colorTheme?: string
+  linkedTaskEventIds?: Set<number>
 }
 
-export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList, dateFormat = 'MM/DD/YYYY', weekStartDay = 'Sunday', isGoogleConnected = false, onSyncGoogleCalendar, isSyncingGoogle = false, sectionTitle, eventColorMode, colorTheme }: CalendarViewProps) {
+export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList, dateFormat = 'MM/DD/YYYY', weekStartDay = 'Sunday', isGoogleConnected = false, onSyncGoogleCalendar, isSyncingGoogle = false, sectionTitle, eventColorMode, colorTheme, linkedTaskEventIds }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<'day' | 'week' | 'month'>('week')
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -663,7 +664,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                               {multiDayRange && (
                                 <div className="text-[9px] opacity-90 truncate">{multiDayRange}</div>
                               )}
-                              <div className="font-medium truncate">{event.title}{event.isExternal && <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold ml-1 flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>}</div>
+                              <div className="font-medium truncate flex items-center gap-0.5">{linkedTaskEventIds?.has(event.id) && <span className="text-[9px]" title="Has linked task">📋</span>}{event.title}{event.isExternal && <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold ml-1 flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>}</div>
                             </div>
                           )
                         })}
@@ -810,14 +811,15 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                               }}
                               title={`${event.title}${timeRange ? ` at ${timeRange}` : ''}\n${members.map(m => m.name).join(', ')}${event.isExternal ? '\n(Google Calendar — read only)' : ''}`}
                             >
-                              {timeRange && (
-                                <div className="text-[10px] font-semibold mb-0.5 opacity-90">{timeRange}</div>
-                              )}
                               <div className="font-medium truncate flex items-center gap-1">
                                 {event.baseEventId && <span className="text-[10px]" title="Recurring or multi-day event">↻</span>}
                                 {event.isExternal && <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>}
+                                {linkedTaskEventIds?.has(event.id) && <span className="text-[10px]" title="Has linked task">📋</span>}
                                 <span className="truncate">{event.title}</span>
                               </div>
+                              {timeRange && (
+                                <div className="text-[10px] opacity-75 mt-0.5">{timeRange}</div>
+                              )}
                               {members.length > 0 && (
                                 <div className="text-[10px] opacity-90 truncate">
                                   {members.map(m => m.name).join(', ')}
@@ -920,7 +922,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                             {multiDayRange && (
                               <div className="text-[10px] opacity-90 mb-1">{multiDayRange}</div>
                             )}
-                            <div className="font-semibold">{event.title}{event.isExternal && <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold ml-1 flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>}</div>
+                            <div className="font-semibold flex items-center gap-0.5">{linkedTaskEventIds?.has(event.id) && <span className="text-[10px]" title="Has linked task">📋</span>}{event.title}{event.isExternal && <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold ml-1 flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>}</div>
                             {members.length > 0 && (
                               <div className="text-xs opacity-90 mt-1">
                                 {members.map(m => m.name).join(', ')}
@@ -1067,21 +1069,19 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                           }}
                           title={`${event.title}${timeRange ? ` at ${timeRange}` : ''}\n${members.map(m => m.name).join(', ')}${event.isExternal ? '\n(Google Calendar — read only)' : ''}`}
                         >
-                          {timeRange && (
-                            <div className="text-xs font-semibold mb-1 opacity-90">{timeRange}</div>
-                          )}
                           <div className="font-semibold flex items-center gap-1">
                             {event.baseEventId && <span className="text-sm" title="Recurring or multi-day event">↻</span>}
                             {event.isExternal && <span className="text-[8px] opacity-60" title="Google Calendar">🔗</span>}
+                            {linkedTaskEventIds?.has(event.id) && <span className="text-xs" title="Has linked task">📋</span>}
                             <span className="truncate">{event.title}</span>
                           </div>
+                          {timeRange && (
+                            <div className="text-xs opacity-75 mt-0.5">{timeRange}</div>
+                          )}
                           {members.length > 0 && (
                             <div className="text-xs opacity-90 mt-1">
                               {members.map(m => m.name).join(', ')}
                             </div>
-                          )}
-                          {event.description && calculateEventDuration(event.start_time, event.end_time) >= 60 && (
-                            <div className="text-xs opacity-75 mt-1 truncate">{event.description}</div>
                           )}
                           {event.description && (
                             <div className="text-xs opacity-75 mt-1">{event.description}</div>
@@ -1188,8 +1188,9 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                       <div className="font-medium truncate flex items-center gap-1">
                         {event.baseEventId && <span title="Recurring or multi-day event">↻</span>}
                         {event.isExternal && <span className="text-[8px] opacity-60" title="Google Calendar">🔗</span>}
-                        {!multiDayRange && timeRange && <span>{timeRange}</span>}
+                        {linkedTaskEventIds?.has(event.id) && <span title="Has linked task">📋</span>}
                         <span className="truncate">{event.title}</span>
+                        {!multiDayRange && timeRange && <span className="opacity-75 ml-0.5 flex-shrink-0">{timeRange}</span>}
                       </div>
                     </div>
                   )
