@@ -34,44 +34,72 @@ These are the five action colours used on interactive elements. Each maps to a T
 
 ## 3. Buttons
 
-### Glass classes (copy-paste)
+Use the **`GlassButton`** component (`app/components/ui/GlassButton.tsx`) — never copy-paste raw class strings for standard push buttons.
+
+### GlassButton
 
 ```tsx
-// Ghost (most common — nav, cancel, secondary)
-"px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm font-medium transition-all duration-200"
+import GlassButton from '@/app/components/ui/GlassButton';
 
-// Primary (purple)
-"px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 rounded-lg text-sm font-medium transition-all duration-200"
-// + add semantic class (see §6): meal-generate-btn
+<GlassButton variant="default" size="md" onClick={handleClick}>
+  Label
+</GlassButton>
 
-// Success (green)
-"px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/40 rounded-lg text-green-200 text-sm font-medium transition-all duration-200"
+// Destructive
+<GlassButton variant="red" size="sm" onClick={handleDelete}>
+  Delete
+</GlassButton>
 
-// Danger (red)
-"px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded-lg text-sm font-medium transition-all duration-200"
-// + add semantic class: meal-clear-btn
-
-// Info (emerald — recipe pills)
-"px-2 py-1.5 bg-emerald-500/25 hover:bg-emerald-500/35 border border-emerald-400/40 rounded-md text-xs font-medium transition-all duration-150"
-// + add semantic class: meal-recipe-pill
+// Passing a semantic class for pastel theme override
+<GlassButton variant="red" className="meal-clear-btn whitespace-nowrap" onClick={handleClear}>
+  Clear Week
+</GlassButton>
 ```
 
-### Disabled state
-Always add `disabled:opacity-50` to buttons that can be in a loading/disabled state.
+| Prop | Type | Default | Options |
+|---|---|---|---|
+| `variant` | string | `"default"` | `default` · `blue` · `red` · `green` |
+| `size` | string | `"md"` | `xs` · `sm` · `md` · `lg` · `xl` |
+| `onClick` | function | — | |
+| `disabled` | boolean | `false` | |
+| `type` | string | `"button"` | `button` · `submit` · `reset` |
+| `className` | string | — | Extra classes / semantic overrides |
+| `title` | string | — | Tooltip |
 
 ### Size scale
 
-| Size | Classes |
+| Size | Padding |
 |---|---|
-| `xs` | `px-2 py-1 text-xs rounded` |
-| `sm` | `px-3 py-1.5 text-xs rounded-lg` |
-| `md` | `px-4 py-2 text-sm rounded-lg` ← default |
-| `lg` | `px-5 py-2.5 text-base rounded-lg` |
+| `xs` | `px-2 py-1` |
+| `sm` | `px-3 py-1.5` |
+| `md` | `px-4 py-2` ← default |
+| `lg` | `px-5 py-2.5` |
+| `xl` | `px-6 py-3` |
+
+All sizes use `rounded-xl text-sm font-medium`.
+
+### Disabled state
+`GlassButton` applies `disabled:opacity-50 disabled:cursor-not-allowed` automatically. Never hide or remove a button when loading — disable it instead.
 
 ### Icon-only / circular buttons
+
+Use the **`IconButton`** component (`app/components/ui/IconButton.tsx`) instead of raw class strings.
+
 ```tsx
-"w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white transition-all duration-150"
+import IconButton from '@/app/components/ui/IconButton';
+
+<IconButton icon="+" size="md" onClick={handleAdd} title="Add Task" />
 ```
+
+| Prop | Type | Default | Options |
+|---|---|---|---|
+| `icon` | string | `"+"` | Any emoji/text |
+| `size` | string | `"md"` | `sm` · `md` |
+| `onClick` | function | — | |
+| `title` | string | — | Tooltip |
+| `className` | string | — | Extra classes |
+
+`md` renders `w-12 h-12 text-2xl`; `sm` renders `w-8 h-8`.
 
 ---
 
@@ -344,3 +372,98 @@ effectiveCap = goal - alreadyUsed - Σ(goal × weight for each unfilled later sl
 
 - **Week-level**: `weekUsedIds` Set — initialised from existing `mealPlans`, updated on each pick. Leftovers are exempt.
 - **Day-level**: `getDayUsedIds(dateISO)` — built from `mealPlans` + `planned` for that date. Called fresh for each slot.
+
+---
+
+## 14. Section Anatomy
+
+Every full-screen section view (Calendar, Recipes, Tasks, Shopping List, Rewards) follows this shell pattern:
+
+```tsx
+// Loading fallback
+<SectionCard className="p-8 h-full flex items-center justify-center">
+  <div className="text-white/50 text-sm">Loading...</div>
+</SectionCard>
+
+// Main shell
+<SectionCard className="h-full flex flex-col">
+  {/* Header */}
+  <div className="px-6 pt-6 pb-4 flex items-center justify-between flex-shrink-0">
+    <h1 className="text-4xl font-bold text-white drop-shadow-lg">{title}</h1>
+    <div className="flex items-center gap-2">
+      {/* right-side controls — GlassButton, PillToggle, IconButton */}
+    </div>
+  </div>
+
+  {/* Scrollable body */}
+  <div className="flex-1 overflow-y-auto px-6 pb-6">
+    {/* content */}
+  </div>
+</SectionCard>
+```
+
+### SectionCard base styles
+
+`SectionCard` (`app/components/ui/SectionCard.tsx`) renders:
+
+```
+bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]
+```
+
+Pass `className` to extend — the base classes are always present.
+
+### Empty state
+
+```tsx
+<div className="flex flex-col items-center justify-center py-16 gap-4">
+  <p className="text-white/40 text-sm">Nothing here yet.</p>
+  <GlassButton size="xl" onClick={handleCreate}>
+    ＋ Create First Item
+  </GlassButton>
+</div>
+```
+
+---
+
+## 15. Component Catalog
+
+All shared UI primitives live in `app/components/ui/`. Import them directly — do not reproduce their class strings inline.
+
+| Component | File | Key Props | Used By |
+|---|---|---|---|
+| `SectionCard` | `ui/SectionCard.tsx` | `className?` | All section views |
+| `NavTab` | `ui/NavTab.tsx` | `icon`, `label`, `active`, `onClick`, `title?` | `page.tsx` sidebar |
+| `PillToggle` | `ui/PillToggle.tsx` | `items[]`, `value`, `onChange`, `size: sm\|md\|lg` | CalendarView, RecipesView, RewardsView |
+| `GlassButton` | `ui/GlassButton.tsx` | `variant`, `size`, `onClick`, `disabled`, `className`, `type` | All section views, MealPlanWeekView |
+| `IconButton` | `ui/IconButton.tsx` | `icon?`, `size: sm\|md`, `onClick`, `title`, `className` | TasksView, RewardsView |
+| `AvatarBadge` | `ui/AvatarBadge.tsx` | `name`, `color`, `avatarUrl?`, `active`, `onClick?`, `size: md\|lg` | CalendarView, AvatarFilterGroup |
+| `AvatarFilterGroup` | `ui/AvatarFilterGroup.tsx` | `members[]`, `visibleMembers: Set<number>`, `onToggle`, `showUnassigned`, `onToggleUnassigned` | CalendarView header |
+| `CategoryChip` | `ui/CategoryChip.tsx` | `name`, `color`, `selected?`, `onClick?`, `size?` | RecipesView, CategoryFilterBar |
+| `CategoryFilterBar` | `ui/CategoryFilterBar.tsx` | `categories[]`, `selected: number\|null`, `onChange` | RecipesView filter bar |
+
+### PillToggle sizes
+
+| Size | Container extras | Active item classes |
+|---|---|---|
+| `sm` | — | `bg-white/25 shadow-sm` |
+| `md` | — | `bg-white/25 shadow-sm` |
+| `lg` | `backdrop-blur-lg shadow-lg` | `bg-white/30 scale-105 border border-white/40` |
+
+### CategoryChip — colour metadata
+
+`CategoryChip` exports `COLOR_META` and `DEFAULT_COLOR_META`. Import them when you need colour info for a recipe category outside the chip itself:
+
+```tsx
+import CategoryChip, { COLOR_META, DEFAULT_COLOR_META } from '@/app/components/ui/CategoryChip';
+
+const meta = COLOR_META[category.color] ?? DEFAULT_COLOR_META;
+```
+
+| Key | Color | Tailwind family |
+|---|---|---|
+| `1` | Blue | `blue-*` |
+| `2` | Purple | `purple-*` |
+| `3` | Orange | `orange-*` |
+| `4` | Green | `green-*` |
+| `5` | Yellow | `yellow-*` |
+| `6` | Pink | `pink-*` |

@@ -13,6 +13,7 @@ import AddEventModal from './components/AddEventModal'
 import MealPlanModal from './components/MealPlanModal'
 import SettingsModal from './components/SettingsModal'
 import ExternalEventDetailModal from './components/ExternalEventDetailModal'
+import NavTab from './components/ui/NavTab'
 
 type Event = {
   id: number
@@ -1191,86 +1192,17 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
         <div className="w-20 flex-shrink-0 flex flex-col gap-3 overflow-y-auto py-4">
           {/* View Toggle - Vertical, Minimal */}
           <div className="flex flex-col gap-2">
-            <button
-              onClick={() => setCurrentView('calendar')}
-              className={`px-3 py-2.5 rounded-lg transition-all duration-200 flex flex-col items-center gap-1 ${
-                currentView === 'calendar'
-                  ? 'bg-white/30 text-white'
-                  : 'text-white/60 hover:text-white hover:bg-white/10'
-              }`}
-              title="Calendar"
-            >
-              <span className="text-xl">📅</span>
-              <span className="text-xs font-medium">Calendar</span>
-            </button>
-            <button
-              onClick={() => setCurrentView('recipes')}
-              className={`px-3 py-2.5 rounded-lg transition-all duration-200 flex flex-col items-center gap-1 ${
-                currentView === 'recipes'
-                  ? 'bg-white/30 text-white'
-                  : 'text-white/60 hover:text-white hover:bg-white/10'
-              }`}
-              title="Recipes"
-            >
-              <span className="text-xl">📖</span>
-              <span className="text-xs font-medium">Recipes</span>
-            </button>
-            <button
-              onClick={() => setCurrentView('shopping-list')}
-              className={`px-3 py-2.5 rounded-lg transition-all duration-200 flex flex-col items-center gap-1 ${
-                currentView === 'shopping-list'
-                  ? 'bg-white/30 text-white'
-                  : 'text-white/60 hover:text-white hover:bg-white/10'
-              }`}
-              title="Shopping List"
-            >
-              <span className="text-xl">🛒</span>
-              <span className="text-xs font-medium">Lists</span>
-            </button>
-            <button
-              onClick={() => setCurrentView('tasks')}
-              className={`px-3 py-2.5 rounded-lg transition-all duration-200 flex flex-col items-center gap-1 ${
-                currentView === 'tasks'
-                  ? 'bg-white/30 text-white'
-                  : 'text-white/60 hover:text-white hover:bg-white/10'
-              }`}
-              title="Tasks"
-            >
-              <span className="text-xl">✅</span>
-              <span className="text-xs font-medium">Tasks</span>
-            </button>
-            <button
-              onClick={() => setCurrentView('rewards')}
-              className={`px-3 py-2.5 rounded-lg transition-all duration-200 flex flex-col items-center gap-1 ${
-                currentView === 'rewards'
-                  ? 'bg-white/30 text-white'
-                  : 'text-white/60 hover:text-white hover:bg-white/10'
-              }`}
-              title="Rewards"
-            >
-              <span className="text-xl">🏆</span>
-              <span className="text-xs font-medium">Rewards</span>
-            </button>
+            <NavTab icon="📅" label="Calendar"      active={currentView === 'calendar'}      onClick={() => setCurrentView('calendar')} />
+            <NavTab icon="📖" label="Recipes"       active={currentView === 'recipes'}       onClick={() => setCurrentView('recipes')} />
+            <NavTab icon="🛒" label="Lists"         active={currentView === 'shopping-list'} onClick={() => setCurrentView('shopping-list')} title="Shopping List" />
+            <NavTab icon="✅" label="Tasks"         active={currentView === 'tasks'}         onClick={() => setCurrentView('tasks')} />
+            <NavTab icon="🏆" label="Rewards"       active={currentView === 'rewards'}       onClick={() => setCurrentView('rewards')} />
           </div>
 
           {/* Settings and Sign Out Buttons */}
           <div className="flex flex-col gap-2 mt-auto">
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="px-3 py-2.5 rounded-lg transition-all duration-200 flex flex-col items-center gap-1 text-white/60 hover:text-white hover:bg-white/10"
-              title="Settings"
-            >
-              <span className="text-xl">⚙️</span>
-              <span className="text-xs font-medium">Settings</span>
-            </button>
-            <button
-              onClick={handleSignOut}
-              className="px-3 py-2.5 rounded-lg transition-all duration-200 flex flex-col items-center gap-1 text-white/60 hover:text-white hover:bg-white/10"
-              title="Sign Out"
-            >
-              <span className="text-xl">🚪</span>
-              <span className="text-xs font-medium">Sign Out</span>
-            </button>
+            <NavTab icon="⚙️" label="Settings" active={false} onClick={() => setIsSettingsOpen(true)} />
+            <NavTab icon="🚪" label="Sign Out" active={false} onClick={handleSignOut} />
           </div>
         </div>
 

@@ -1,19 +1,14 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import AddRecipeModal from './AddRecipeModal'
 import MealPlanWeekView from './MealPlanWeekView'
-
-const COLOR_META: Record<string, { r: number; g: number; b: number; label: string; order: number }> = {
-  blue:   { r: 59,  g: 130, b: 246, label: 'Meal Type', order: 1 },
-  purple: { r: 168, g: 85,  b: 247, label: 'Course',    order: 2 },
-  orange: { r: 249, g: 115, b: 22,  label: 'Attribute', order: 3 },
-  green:  { r: 34,  g: 197, b: 94,  label: 'Dietary',   order: 4 },
-  yellow: { r: 234, g: 179, b: 8,   label: 'Other',     order: 5 },
-  pink:   { r: 236, g: 72,  b: 153, label: 'Other',     order: 6 },
-}
-const DEFAULT_COLOR_META = { r: 99, g: 102, b: 241, label: 'Other', order: 99 }
+import SectionCard from './ui/SectionCard'
+import PillToggle from './ui/PillToggle'
+import CategoryFilterBar from './ui/CategoryFilterBar'
+import CategoryChip from './ui/CategoryChip'
+import GlassButton from './ui/GlassButton'
 
 type Ingredient = {
   id: number
@@ -594,107 +589,30 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
   }
 
   return (
-    <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 h-full flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
+    <SectionCard className="h-full flex flex-col">
       {/* Header + controls */}
       <div className="flex-shrink-0 space-y-3 px-6 pt-6 pb-4">
         {/* Title + Toggle row */}
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle || '📖 Recipes'}</h2>
-          <div className="flex bg-white/10 border border-white/20 rounded-xl p-1 gap-1">
-            <button
-              onClick={() => setSubView('recipes')}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                subView === 'recipes'
-                  ? 'bg-white/25 text-white shadow-sm'
-                  : 'text-white/50 hover:text-white/80 hover:bg-white/10'
-              }`}
-            >
-              🍳 Recipes
-            </button>
-            <button
-              onClick={() => setSubView('mealplan')}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                subView === 'mealplan'
-                  ? 'bg-white/25 text-white shadow-sm'
-                  : 'text-white/50 hover:text-white/80 hover:bg-white/10'
-              }`}
-            >
-              📅 Meal Plan
-            </button>
-          </div>
+          <PillToggle
+            items={[
+              { value: 'recipes',  label: '🍳 Recipes' },
+              { value: 'mealplan', label: '📅 Meal Plan' },
+            ]}
+            value={subView}
+            onChange={setSubView}
+            size="md"
+          />
         </div>
 
         {subView === 'recipes' && (<>
-      {/* Category Filters — compact single wrapping row, grouped by color */}
-      {categories.length > 0 && (() => {
-        const grouped = new Map<string, typeof categories>()
-        categories.forEach(cat => {
-          const key = cat.color || '__unknown'
-          if (!grouped.has(key)) grouped.set(key, [])
-          grouped.get(key)!.push(cat)
-        })
-        const sortedGroups = [...grouped.entries()].sort(([a], [b]) =>
-          (COLOR_META[a]?.order ?? DEFAULT_COLOR_META.order) - (COLOR_META[b]?.order ?? DEFAULT_COLOR_META.order)
-        )
-        return (
-          <div className="flex gap-1.5 flex-wrap items-center">
-            <button
-              onClick={() => setSelectedCategoryFilter(null)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                selectedCategoryFilter === null ? 'filter-all-active' : 'filter-all-inactive'
-              }`}
-            >
-              All
-            </button>
-            {sortedGroups.map(([colorKey, cats], groupIdx) => {
-              const meta = COLOR_META[colorKey] ?? DEFAULT_COLOR_META
-              const { r, g, b } = meta
-              return (
-                <React.Fragment key={colorKey}>
-                  {groupIdx > 0 && <span className="text-white/20 text-xs select-none px-0.5">·</span>}
-                  {cats.map(category => {
-                    const isSelected = selectedCategoryFilter === category.id
-                    return (
-                      <button
-                        key={category.id}
-                        onClick={() => setSelectedCategoryFilter(isSelected ? null : category.id)}
-                        style={isSelected ? {
-                          backgroundColor: `rgba(${r},${g},${b},0.40)`,
-                          borderColor: `rgba(${r},${g},${b},0.75)`,
-                          borderWidth: '2px',
-                          color: 'white',
-                        } : {
-                          backgroundColor: `rgba(${r},${g},${b},0.12)`,
-                          borderColor: `rgba(${r},${g},${b},0.30)`,
-                          borderWidth: '1px',
-                          color: `rgba(${r},${g},${b},0.85)`,
-                        }}
-                        onMouseEnter={e => {
-                          if (!isSelected) {
-                            e.currentTarget.style.backgroundColor = `rgba(${r},${g},${b},0.22)`
-                            e.currentTarget.style.borderColor = `rgba(${r},${g},${b},0.50)`
-                            e.currentTarget.style.color = 'white'
-                          }
-                        }}
-                        onMouseLeave={e => {
-                          if (!isSelected) {
-                            e.currentTarget.style.backgroundColor = `rgba(${r},${g},${b},0.12)`
-                            e.currentTarget.style.borderColor = `rgba(${r},${g},${b},0.30)`
-                            e.currentTarget.style.color = `rgba(${r},${g},${b},0.85)`
-                          }
-                        }}
-                        className="px-3 py-1 rounded-full text-xs font-medium transition-colors border"
-                      >
-                        {category.name}
-                      </button>
-                    )
-                  })}
-                </React.Fragment>
-              )
-            })}
-          </div>
-        )
-      })()}
+      {/* Category Filters */}
+      <CategoryFilterBar
+        categories={categories}
+        selected={selectedCategoryFilter}
+        onChange={setSelectedCategoryFilter}
+      />
 
       {/* Header with Search and Add Button */}
       <div className="flex gap-4 items-center">
@@ -707,15 +625,16 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
             className="recipe-input w-full px-4 py-2 bg-black/20 border border-white/25 rounded-lg text-white focus:outline-none focus:border-white/45 focus:ring-1 focus:ring-white/20"
           />
         </div>
-        <button
+        <GlassButton
+          size="md"
+          className="px-6"
           onClick={() => {
             setEditingRecipe(null)
             setIsModalOpen(true)
           }}
-          className="px-6 py-2 bg-white/20 hover:bg-white/30 border border-white/30 rounded-lg text-white font-medium transition-all duration-200"
         >
           + Add Recipe
-        </button>
+        </GlassButton>
       </div>
         </>)}
       </div>{/* end sticky header */}
@@ -762,22 +681,9 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
               {/* Category Badges */}
               {recipe.categories && recipe.categories.length > 0 && (
                 <div className="flex gap-1 flex-wrap mb-3">
-                  {recipe.categories.map((category) => {
-                    const { r, g, b } = COLOR_META[category.color] ?? DEFAULT_COLOR_META
-                    return (
-                      <span
-                        key={category.id}
-                        style={{
-                          backgroundColor: `rgba(${r},${g},${b},0.25)`,
-                          borderColor: `rgba(${r},${g},${b},0.50)`,
-                          color: `rgba(${r},${g},${b},1)`,
-                        }}
-                        className="px-2 py-0.5 rounded-full text-xs font-medium border"
-                      >
-                        {category.name}
-                      </span>
-                    )
-                  })}
+                  {recipe.categories.map((category) => (
+                    <CategoryChip key={category.id} name={category.name} color={category.color} size="md" />
+                  ))}
                 </div>
               )}
 
@@ -868,22 +774,9 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
             {/* Category badges */}
             {selectedRecipe.categories && selectedRecipe.categories.length > 0 && (
               <div className="flex gap-1.5 flex-wrap mb-5">
-                {selectedRecipe.categories.map((category) => {
-                  const { r, g, b } = COLOR_META[category.color] ?? DEFAULT_COLOR_META
-                  return (
-                    <span
-                      key={category.id}
-                      style={{
-                        backgroundColor: `rgba(${r},${g},${b},0.25)`,
-                        borderColor: `rgba(${r},${g},${b},0.50)`,
-                        color: `rgba(${r},${g},${b},1)`,
-                      }}
-                      className="px-2.5 py-0.5 rounded-full text-xs font-medium border"
-                    >
-                      {category.name}
-                    </span>
-                  )
-                })}
+                {selectedRecipe.categories.map((category) => (
+                  <CategoryChip key={category.id} name={category.name} color={category.color} size="md" />
+                ))}
               </div>
             )}
 
@@ -1027,6 +920,6 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
           </div>
         </div>
       )}
-    </div>
+    </SectionCard>
   )
 }

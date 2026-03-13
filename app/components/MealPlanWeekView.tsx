@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getWeekStart } from '@/lib/dateUtils'
+import GlassButton from './ui/GlassButton'
 
 type MealType = {
   id: number
@@ -600,46 +601,22 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
         <h2 className="text-4xl font-bold text-white drop-shadow-lg flex-1">{getWeekRangeLabel()}</h2>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={goToPrevWeek}
-            className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm font-medium transition-all duration-200"
-          >
-            ← Prev
-          </button>
-          <button
-            onClick={goToCurrentWeek}
-            className="px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white/80 hover:text-white text-sm font-medium transition-all duration-200"
-          >
-            Today
-          </button>
-          <button
-            onClick={goToNextWeek}
-            className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm font-medium transition-all duration-200"
-          >
-            Next →
-          </button>
+          <GlassButton size="sm" onClick={goToPrevWeek}>← Prev</GlassButton>
+          <GlassButton size="sm" onClick={goToCurrentWeek}>Today</GlassButton>
+          <GlassButton size="sm" onClick={goToNextWeek}>Next →</GlassButton>
         </div>
 
         <div className="flex-1 flex justify-end gap-2">
-          <button
-            onClick={handleClearWeek}
-            className="meal-clear-btn px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap"
-          >
+          <GlassButton variant="red" size="md" className="meal-clear-btn whitespace-nowrap" onClick={handleClearWeek}>
             🗑️ Clear Week
-          </button>
-          <button
-            onClick={openGenerateModal}
-            className="meal-generate-btn px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap"
-          >
+          </GlassButton>
+          <GlassButton size="md" className="meal-generate-btn whitespace-nowrap" onClick={openGenerateModal}>
             🍽️ Generate Meal Plan
-          </button>
+          </GlassButton>
           {onAddWeekMealsToList && (
-            <button
-              onClick={() => onAddWeekMealsToList(toLocalISO(weekDays[0]), toLocalISO(weekDays[6]))}
-              className="px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/40 rounded-lg text-green-200 text-sm font-medium transition-all duration-200 whitespace-nowrap"
-            >
+            <GlassButton variant="green" size="md" className="whitespace-nowrap" onClick={() => onAddWeekMealsToList(toLocalISO(weekDays[0]), toLocalISO(weekDays[6]))}>
               🛒 Add Week's Meals to Shopping List
-            </button>
+            </GlassButton>
           )}
         </div>
       </div>

@@ -5,6 +5,10 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/app/contexts/AuthContext'
 import AddRewardModal from './AddRewardModal'
 import confetti from 'canvas-confetti'
+import SectionCard from './ui/SectionCard'
+import PillToggle from './ui/PillToggle'
+import IconButton from './ui/IconButton'
+import GlassButton from './ui/GlassButton'
 
 type FamilyMember = {
   id: number
@@ -428,44 +432,36 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
 
   if (loading) {
     return (
-      <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20 h-full flex items-center justify-center">
+      <SectionCard className="p-8 h-full flex items-center justify-center">
         <div className="text-white/70 text-lg">Loading rewards...</div>
-      </div>
+      </SectionCard>
     )
   }
 
   return (
     <>
-      <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 h-full flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
+      <SectionCard className="h-full flex flex-col">
         {/* Header */}
         <div className="px-6 pt-6 pb-4 flex items-center justify-between flex-shrink-0">
           <h2 className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle || '🏆 Rewards'}</h2>
           <div className="flex items-center gap-3">
             {/* Subview toggle */}
-            <div className="flex bg-white/10 border border-white/20 rounded-xl p-1 gap-1">
-              <button
-                onClick={() => setSubView('rewards')}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 ${
-                  subView === 'rewards' ? 'bg-white/25 text-white shadow-sm' : 'text-white/50 hover:text-white/80 hover:bg-white/10'
-                }`}
-              >🎁 Rewards</button>
-              <button
-                onClick={() => setSubView('history')}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 ${
-                  subView === 'history' ? 'bg-white/25 text-white shadow-sm' : 'text-white/50 hover:text-white/80 hover:bg-white/10'
-                }`}
-              >📜 History</button>
-            </div>
-            <button
+            <PillToggle
+              items={[
+                { value: 'rewards', label: '🎁 Rewards' },
+                { value: 'history', label: '📜 History' },
+              ]}
+              value={subView}
+              onChange={setSubView}
+              size="sm"
+            />
+            <IconButton
               onClick={() => {
                 setEditingReward(null)
                 setIsModalOpen(true)
               }}
-              className="w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-full transition-all duration-200 border border-white/30 hover:scale-110 flex items-center justify-center text-2xl font-light shadow-lg"
               title="Add Reward"
-            >
-              +
-            </button>
+            />
           </div>
         </div>
 
@@ -557,15 +553,15 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
                 <p className="text-white/50 mb-6 max-w-sm">
                   Create rewards that family members can redeem with their earned stars.
                 </p>
-                <button
+                <GlassButton
+                  size="xl"
                   onClick={() => {
                     setEditingReward(null)
                     setIsModalOpen(true)
                   }}
-                  className="px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl transition-all duration-200 border border-white/30 font-medium"
                 >
                   + Create First Reward
-                </button>
+                </GlassButton>
               </div>
             ) : (
               <div className="flex h-full min-w-0">
@@ -695,7 +691,7 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
             )
           )}
         </div>
-      </div>
+      </SectionCard>
 
       <AddRewardModal
         isOpen={isModalOpen}

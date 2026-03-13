@@ -23,13 +23,70 @@
 | 19 | **Apple Calendar Write** | Create, edit, and delete events on connected Apple/iCloud Calendars from within the app |
 | 20 | **Outlook Calendar Read** | Sync and display events from Microsoft Outlook / Office 365 Calendar (Microsoft Graph API) in all calendar views |
 | 21 | **Outlook Calendar Write** | Create, edit, and delete events on connected Outlook/Office 365 Calendars from within the app |
-| 22 | ✅ **Style Guide** | `STYLE_GUIDE.md` documents colour tokens, button variants, modal anatomy, form inputs, pastel override pattern, semantic class naming, and rules for new components. Component library refactor planned after feature set stabilises. |
+| 22 | ✅ **Style Guide + Component Library** | `STYLE_GUIDE.md` documents colour tokens, button variants, modal anatomy, form inputs, pastel override pattern, semantic class naming, and rules for new components. `app/components/ui/` ships 9 shared primitives (`SectionCard`, `NavTab`, `PillToggle`, `GlassButton`, `IconButton`, `AvatarBadge`, `AvatarFilterGroup`, `CategoryChip`, `CategoryFilterBar`) — all inline button/card strings replaced across every view. |
 | 23 | **Admin Password** | Create an admin password functionality that you can apply to parts of the software so only the admin(s) can edit/add to certain sections |
 | 24 | **Life360 Mockup** | Add tracking software, maybe add it to notify you tied to events (suzie arrived to soccer) |
 
 ---
 
-## 📝 Latest Updates (March 12, 2026)
+## 📝 Latest Updates (March 13, 2026)
+
+### Phase 13: Component Library Refactor (Task 22)
+
+**New `app/components/ui/` library — 9 shared primitives:**
+
+| Component | File | Purpose |
+|---|---|---|
+| `SectionCard` | `ui/SectionCard.tsx` | Outer glass panel shell for all section views |
+| `NavTab` | `ui/NavTab.tsx` | Sidebar navigation tab (icon + label, active state) |
+| `PillToggle` | `ui/PillToggle.tsx` | Segment control — Day/Week/Month, Recipes/Meal Plan, etc. |
+| `GlassButton` | `ui/GlassButton.tsx` | All glass push buttons (default/blue/red/green, xs–xl) |
+| `IconButton` | `ui/IconButton.tsx` | Circular icon-only button (Add Task, Add Reward) |
+| `AvatarBadge` | `ui/AvatarBadge.tsx` | Member avatar chip — static display or interactive filter |
+| `AvatarFilterGroup` | `ui/AvatarFilterGroup.tsx` | Row of AvatarBadge filter buttons + unassigned toggle |
+| `CategoryChip` | `ui/CategoryChip.tsx` | Recipe category badge / filter chip; exports `COLOR_META` |
+| `CategoryFilterBar` | `ui/CategoryFilterBar.tsx` | Full filter bar — "All" button + grouped CategoryChips |
+
+**Consumer files updated:**
+- ✅ `app/page.tsx` — all 7 sidebar nav buttons → `NavTab`
+- ✅ `app/components/CalendarView.tsx` — `SectionCard`, `PillToggle` (lg), `AvatarFilterGroup`, `GlassButton` for Add Event / Sync / Today / ←/→
+- ✅ `app/components/RecipesView.tsx` — `SectionCard`, `PillToggle` (md), `CategoryFilterBar`, `CategoryChip`, `GlassButton` for Add Recipe; `COLOR_META` moved to `CategoryChip`
+- ✅ `app/components/TasksView.tsx` — `SectionCard`, `IconButton` for Add Task, `GlassButton` for Prev/Today/Next/empty-state
+- ✅ `app/components/ShoppingListView.tsx` — `SectionCard`, `GlassButton` (Share=blue, Clear=red, Add=default); placeholder visibility fixed via `recipe-input` semantic class
+- ✅ `app/components/RewardsView.tsx` — `SectionCard`, `PillToggle` (sm), `IconButton` for Add Reward, `GlassButton` for empty-state
+- ✅ `app/components/MealPlanWeekView.tsx` — `GlassButton` for Prev/Today/Next/Clear Week/Generate/Add Week's Meals; semantic classes (`meal-clear-btn`, `meal-generate-btn`) preserved via `className` prop
+
+**Style guide updates (§3, §14, §15):**
+- ✅ §3 Buttons rewritten — copy-paste class strings replaced with `GlassButton` / `IconButton` component API reference
+- ✅ §14 Section Anatomy added — `SectionCard` shell, header layout, empty-state pattern
+- ✅ §15 Component Catalog added — full table of all 9 components with props and consumers
+
+**Bug fix:**
+- ✅ `ShoppingListView` — three inputs had `placeholder-white/60` (broken Tailwind pattern that made placeholder invisible); replaced with `recipe-input` semantic class defined in `globals.css`
+
+**Modified Files:**
+- `app/components/ui/SectionCard.tsx` — new
+- `app/components/ui/NavTab.tsx` — new
+- `app/components/ui/PillToggle.tsx` — new
+- `app/components/ui/GlassButton.tsx` — new
+- `app/components/ui/IconButton.tsx` — new
+- `app/components/ui/AvatarBadge.tsx` — new
+- `app/components/ui/AvatarFilterGroup.tsx` — new
+- `app/components/ui/CategoryChip.tsx` — new (absorbs `COLOR_META` from RecipesView)
+- `app/components/ui/CategoryFilterBar.tsx` — new
+- `app/page.tsx` — NavTab conversion
+- `app/components/CalendarView.tsx` — full component library integration
+- `app/components/RecipesView.tsx` — full component library integration
+- `app/components/TasksView.tsx` — full component library integration
+- `app/components/ShoppingListView.tsx` — full component library integration + placeholder fix
+- `app/components/RewardsView.tsx` — full component library integration
+- `app/components/MealPlanWeekView.tsx` — GlassButton integration
+- `app/globals.css` — `recipe-input` semantic class for placeholder visibility
+- `STYLE_GUIDE.md` — §3 updated, §14 and §15 added
+
+---
+
+## 📝 Previous Updates (March 12, 2026)
 
 ### Phase 12: Generate Meal Plan Refinements
 

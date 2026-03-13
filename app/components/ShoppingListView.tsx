@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import SectionCard from './ui/SectionCard'
+import GlassButton from './ui/GlassButton'
 
 type ShoppingListItem = {
   id: number
@@ -359,24 +361,14 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
   )
 
   return (
-    <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 h-full flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
+    <SectionCard className="h-full flex flex-col">
       {/* Header */}
       <div className="px-6 pt-6 pb-4 flex items-center justify-between flex-shrink-0">
         <h2 className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle || '🛒 Shopping List'}</h2>
         {items.length > 0 && (
           <div className="flex gap-3">
-            <button
-              onClick={handleShareList}
-              className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 rounded-lg text-blue-200 font-medium transition-all duration-200 flex items-center gap-2"
-            >
-              <span>📤</span> Share List
-            </button>
-            <button
-              onClick={clearShoppingList}
-              className="px-4 py-2 bg-red-500/30 hover:bg-red-500/50 border border-red-500/50 rounded-lg text-white font-medium transition-all duration-200"
-            >
-              Clear All
-            </button>
+            <GlassButton variant="blue" size="md" onClick={handleShareList}><span>📤</span> Share List</GlassButton>
+            <GlassButton variant="red" size="md" onClick={clearShoppingList}>Clear All</GlassButton>
           </div>
         )}
       </div>
@@ -392,7 +384,7 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
             value={newAmount}
             onChange={(e) => setNewAmount(e.target.value === '' ? '' : Number(e.target.value))}
             placeholder="Amt"
-            className="w-24 px-3 py-2 border border-white/30 rounded-lg text-white placeholder-white/60 bg-white/10"
+            className="w-24 px-3 py-2 border border-white/30 rounded-lg text-white recipe-input bg-white/10"
           />
           <select
             value={newMeasurement}
@@ -418,7 +410,7 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
                 setTimeout(() => setShowIngredientSuggestions(false), 150)
               }}
               placeholder="Ingredient name"
-              className="w-full px-3 py-2 border border-white/30 rounded-lg text-white placeholder-white/60 bg-white/10"
+              className="w-full px-3 py-2 border border-white/30 rounded-lg text-white recipe-input bg-white/10"
             />
             {showIngredientSuggestions && getManualIngredientSuggestions().length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white/20 backdrop-blur-lg border border-white/30 rounded-lg z-50 max-h-40 overflow-y-auto shadow-lg">
@@ -439,13 +431,7 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
               </div>
             )}
           </div>
-          <button
-            type="button"
-            onClick={addManualItem}
-            className="px-4 py-2 bg-white/20 hover:bg-white/30 border border-white/30 rounded-lg text-white font-medium transition-all duration-200"
-          >
-            Add to list
-          </button>
+          <GlassButton type="button" size="md" onClick={addManualItem}>Add to list</GlassButton>
         </div>
       </div>
       </div>{/* end add item */}
@@ -496,7 +482,7 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
                               onChange={(e) =>
                                 setEditingAmount(e.target.value === '' ? '' : Number(e.target.value))
                               }
-                              className="w-16 px-2 py-1 border border-white/30 rounded text-white placeholder-white/60 bg-white/10 text-sm"
+                              className="w-16 px-2 py-1 border border-white/30 rounded text-white recipe-input bg-white/10 text-sm"
                             />
                             <select
                               value={editingMeasurement}
@@ -587,6 +573,6 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
           </div>
         </div>
       )}
-    </div>
+    </SectionCard>
   )
 }

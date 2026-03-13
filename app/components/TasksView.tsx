@@ -5,6 +5,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/app/contexts/AuthContext'
 import AddTaskModal from './AddTaskModal'
 import confetti from 'canvas-confetti'
+import SectionCard from './ui/SectionCard'
+import IconButton from './ui/IconButton'
+import GlassButton from './ui/GlassButton'
 
 type FamilyMember = {
   id: number
@@ -841,15 +844,15 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
 
   if (loading) {
     return (
-      <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20 h-full flex items-center justify-center">
+      <SectionCard className="p-8 h-full flex items-center justify-center">
         <div className="text-white/70 text-lg">Loading tasks...</div>
-      </div>
+      </SectionCard>
     )
   }
 
   return (
     <>
-      <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 h-full flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)]">
+      <SectionCard className="h-full flex flex-col">
         {/* Header */}
         <div className="px-6 pt-6 pb-4 flex flex-col gap-3 flex-shrink-0">
           {/* Top row: title left | date center | + right */}
@@ -861,33 +864,21 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
               <h2 className="text-2xl font-bold text-white drop-shadow-lg">{viewDateFormatted}</h2>
             </div>
             <div className="flex justify-end">
-              <button
+              <IconButton
                 onClick={() => {
                   setEditingTask(null)
                   setIsModalOpen(true)
                 }}
-                className="w-12 h-12 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-full transition-all duration-200 border border-white/30 hover:scale-110 flex items-center justify-center text-2xl font-light shadow-lg"
                 title="Add Task"
-              >
-                +
-              </button>
+              />
             </div>
           </div>
 
           {/* Nav buttons row */}
           <div className="flex items-center justify-center gap-2">
-            <button
-              onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() - 1))}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm font-medium transition-all duration-200"
-            >← Prev</button>
-            <button
-              onClick={() => setViewDate(new Date())}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white/80 hover:text-white text-sm font-medium transition-all duration-200"
-            >Today</button>
-            <button
-              onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() + 1))}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm font-medium transition-all duration-200"
-            >Next →</button>
+            <GlassButton size="sm" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() - 1))}>← Prev</GlassButton>
+            <GlassButton size="sm" onClick={() => setViewDate(new Date())}>Today</GlassButton>
+            <GlassButton size="sm" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() + 1))}>Next →</GlassButton>
           </div>
         </div>
 
@@ -906,15 +897,15 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
               <p className="text-white/50 mb-6 max-w-sm">
                 Create daily chores or one-off tasks and assign them to family members.
               </p>
-              <button
+              <GlassButton
+                size="xl"
                 onClick={() => {
                   setEditingTask(null)
                   setIsModalOpen(true)
                 }}
-                className="px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl transition-all duration-200 border border-white/30 font-medium"
               >
                 + Create First Task
-              </button>
+              </GlassButton>
             </div>
           ) : (
             <div className="flex h-full min-w-0">
@@ -1062,7 +1053,7 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
             </div>
           )}
         </div>
-      </div>
+      </SectionCard>
 
       <AddTaskModal
         isOpen={isModalOpen}
