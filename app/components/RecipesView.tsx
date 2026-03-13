@@ -869,7 +869,7 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
               )}
               {selectedRecipe.calories && (
                 <div>
-                  <div className="text-white/60 text-sm">Calories</div>
+                  <div className="text-white/60 text-sm">Calories<span className="text-white/40 text-xs ml-1">/serving</span></div>
                   <div className="text-white font-semibold">{selectedRecipe.calories}</div>
                 </div>
               )}
@@ -877,25 +877,28 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
 
             {/* Nutrition Macros */}
             {(selectedRecipe.protein || selectedRecipe.fat || selectedRecipe.carbs) && (
-              <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-white/5 rounded-lg">
-                {selectedRecipe.protein && (
-                  <div>
-                    <div className="text-white/60 text-sm">Protein</div>
-                    <div className="text-white font-semibold">{selectedRecipe.protein}g</div>
-                  </div>
-                )}
-                {selectedRecipe.fat && (
-                  <div>
-                    <div className="text-white/60 text-sm">Fat</div>
-                    <div className="text-white font-semibold">{selectedRecipe.fat}g</div>
-                  </div>
-                )}
-                {selectedRecipe.carbs && (
-                  <div>
-                    <div className="text-white/60 text-sm">Carbs</div>
-                    <div className="text-white font-semibold">{selectedRecipe.carbs}g</div>
-                  </div>
-                )}
+              <div className="mb-6">
+                <div className="text-xs font-semibold text-white/50 uppercase tracking-wide mb-2">Macros per serving</div>
+                <div className="grid grid-cols-3 gap-4 p-4 bg-white/5 rounded-lg">
+                  {selectedRecipe.protein && (
+                    <div>
+                      <div className="text-white/60 text-sm">Protein</div>
+                      <div className="text-white font-semibold">{selectedRecipe.protein}g</div>
+                    </div>
+                  )}
+                  {selectedRecipe.fat && (
+                    <div>
+                      <div className="text-white/60 text-sm">Fat</div>
+                      <div className="text-white font-semibold">{selectedRecipe.fat}g</div>
+                    </div>
+                  )}
+                  {selectedRecipe.carbs && (
+                    <div>
+                      <div className="text-white/60 text-sm">Carbs</div>
+                      <div className="text-white font-semibold">{selectedRecipe.carbs}g</div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

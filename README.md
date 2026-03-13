@@ -16,17 +16,49 @@
 | 12 | **Mobile Optimization** | Responsive layouts, touch-friendly targets, swipe navigation, bottom nav bar on mobile |
 | 13 | **Space Theme** | Colorful galaxy background (purples/pinks/blues, nebula-style); kid-friendly; glowing card borders; star field parallax |
 | 14 | **Seasonal Auto-Theme** | Auto-detects date range: Halloween (Oct 15–Nov 1), Christmas (Dec 1–25), Easter (Mar–Apr), Fall (Sep–Oct), Spring (Apr–May); unique CSS + decorative assets per season |
-| 15 | **AI Meal Planner** | "Ask the AI" generates a full week of meals based on family size, dietary restrictions, favorite cuisines, and pantry staples — formula-driven with a conversational AI feel |
+| 15 | ✅ **Generate Meal Plan** | "Generate Meal Plan" button fills empty weekly slots with recipes matching per-day nutrition goals (calories/protein/fat/carbs, each with ≤/≥ direction); respects recipe category tags so tagged recipes only appear in matching meal-type slots; Allow Leftovers copies yesterday's dinner into today's lunch; goals persist across sessions via app_settings |
 | 16 | **AI Scheduler** | Conversational scheduler suggests optimal event times based on existing calendar load, family member preferences, and recurring patterns — formula-driven with natural language output |
 | 17 | **Google Calendar Write** | Create, edit, and delete events directly on connected Google Calendars from within the app (currently read-only sync) |
 | 18 | **Apple Calendar Read** | Sync and display events from Apple Calendar / iCloud Calendar (CalDAV) in all calendar views |
 | 19 | **Apple Calendar Write** | Create, edit, and delete events on connected Apple/iCloud Calendars from within the app |
 | 20 | **Outlook Calendar Read** | Sync and display events from Microsoft Outlook / Office 365 Calendar (Microsoft Graph API) in all calendar views |
 | 21 | **Outlook Calendar Write** | Create, edit, and delete events on connected Outlook/Office 365 Calendars from within the app |
+| 22 | **Create Components** | Create Components/ style guide to help the software be more uniform |
+| 23 | **Admin Password** | Create an admin password functionality that you can apply to parts of the software so only the admin(s) can edit/add to certain sections |
+| 24 | **Life360 Mockup** | Add tracking software, maybe add it to notify you tied to events (suzie arrived to soccer) |
 
 ---
 
-## 📝 Latest Updates (March 11, 2026)
+## 📝 Latest Updates (March 12, 2026)
+
+### Phase 11: Generate Meal Plan (Task 15)
+
+**Generate Meal Plan Button:**
+- ✅ "🍽️ Generate Meal Plan" button added to the Meal Plan week-view toolbar
+- ✅ Modal shows per-day nutrition goals for Calories, Protein, Fat, and Carbs
+- ✅ Each goal has a checkbox (enable/disable), a ≤/≥ direction toggle, and a numeric input
+- ✅ Goals are saved to `app_settings` (`meal_plan_goals` JSONB + `meal_plan_allow_leftovers` boolean) and pre-loaded next time the modal opens
+- ✅ Algorithm fills only empty slots — already-placed meals are never overwritten
+- ✅ Recipe category tag matching: if a recipe is tagged with a meal type name (e.g. "Dinner"), it only appears in that meal type's slots; untagged recipes may appear anywhere
+- ✅ Nutrition filtering: for any enabled ≤ goal, recipes that would push the day's running total over the limit are excluded (≥ goals are soft targets and don't filter)
+- ✅ Allow Leftovers checkbox: when enabled, yesterday's dinner is automatically reused as today's lunch (checks both existing and newly-planned meals)
+- ✅ Slot assignment is randomised within the eligible pool for variety
+- ✅ Toast feedback: success count or descriptive error
+
+**Macro Totals Row (Task 11 expansion):**
+- ✅ Daily Totals row shows 🔥 cal / 💪 pro / 🥑 fat / 🌾 carb centred in each column
+- ✅ Macro data fetched from the joined `recipes` table for every plan entry
+
+**Database Migration:**
+- `supabase_migration_meal_plan_goals.sql` — adds `meal_plan_goals JSONB` and `meal_plan_allow_leftovers BOOLEAN` to `app_settings`
+
+**Modified Files:**
+- `app/components/MealPlanWeekView.tsx` — `MacroGoal`/`MealPlanGoals` types, `goals` state, `loadGoals`/`saveGoals`/`updateGoal`, `handleGeneratePlan` algorithm, generate modal JSX, updated toolbar with Generate + Shopping List buttons
+- `supabase_migration_meal_plan_goals.sql` — new migration file
+
+---
+
+## 📝 Previous Updates (March 11, 2026)
 
 ### Phase 10: Flexible Recurrence, Calendar-Linked Tasks & UX Polish
 

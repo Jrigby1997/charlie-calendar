@@ -16,6 +16,10 @@ type MealPlanEntry = {
   meal_type: string
   date: string
   recipe_name: string
+  calories: number | null
+  protein: number | null
+  fat: number | null
+  carbs: number | null
 }
 
 type RecipeDetail = {
@@ -45,6 +49,20 @@ type MealPlanWeekViewProps = {
   onDayClick: (date: string) => void
   refreshKey?: number
   onAddWeekMealsToList?: (startDate: string, endDate: string) => void
+}
+
+type MacroGoal = {
+  enabled: boolean
+  direction: '≤' | '≥'
+  value: number
+}
+
+type MealPlanGoals = {
+  calories: MacroGoal
+  protein: MacroGoal
+  fat: MacroGoal
+  carbs: MacroGoal
+  allowLeftovers: boolean
 }
 
 const DAY_ABBREVS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -82,10 +100,41 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
   const [removingId, setRemovingId] = useState<number | null>(null)
   const [addingToList, setAddingToList] = useState(false)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
+  const [generatingPlan, setGeneratingPlan] = useState(false)
+  const [goals, setGoals] = useState<MealPlanGoals>({
+    calories: { enabled: false, direction: '≤', value: 2000 },
+    protein: { enabled: false, direction: '≥', value: 50 },
+    fat: { enabled: false, direction: '≤', value: 65 },
+    carbs: { enabled: false, direction: '≤', value: 200 },
+    allowLeftovers: false,
+  })
 
   function showToast(message: string, tone: 'success' | 'error') {
     setToast({ message, tone })
     setTimeout(() => setToast(null), 3000)
+  }
+
+  function updateGoal(macro: 'calories' | 'protein' | 'fat' | 'carbs', field: 'enabled' | 'direction' | 'value', value: boolean | string | number) {
+    setGoals(prev => ({ ...prev, [macro]: { ...prev[macro], [field]: value } }))
+  }
+
+  async function loadGoals() {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('meal_plan_goals, meal_plan_allow_leftovers')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (data?.meal_plan_goals) {
+      setGoals({ ...data.meal_plan_goals, allowLeftovers: data.meal_plan_allow_leftovers ?? false })
+    } else if (data?.meal_plan_allow_leftovers != null) {
+      setGoals(prev => ({ ...prev, allowLeftovers: data.meal_plan_allow_leftovers }))
+    }
+  }
+
+  async function openGenerateModal() {
+    await loadGoals()
+    setShowGenerateModal(true)
   }
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -109,7 +158,11 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
           meal_type,
           date,
           recipes (
-            name
+            name,
+            calories,
+            protein,
+            fat,
+            carbs
           )
         `)
         .eq('user_id', userId)
@@ -136,7 +189,11 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
         recipe_id: item.recipe_id,
         meal_type: item.meal_type,
         date: item.date,
-        recipe_name: item.recipes?.name ?? '(Unknown Recipe)'
+        recipe_name: item.recipes?.name ?? '(Unknown Recipe)',
+        calories: item.recipes?.calories ?? null,
+        protein: item.recipes?.protein ?? null,
+        fat: item.recipes?.fat ?? null,
+        carbs: item.recipes?.carbs ?? null
       }))
       setMealPlans(entries)
     }
@@ -208,6 +265,143 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
     const { error } = await supabase.from('meal_plans').delete().eq('id', planId)
     if (!error) setMealPlans(prev => prev.filter(p => p.id !== planId))
     setRemovingId(null)
+  }
+
+  async function handleClearWeek() {
+    if (!confirm('Clear all meals for this week?')) return
+    const ids = mealPlans.map(p => p.id)
+    if (ids.length === 0) { showToast('No meals to clear this week.', 'error'); return }
+    const { error } = await supabase.from('meal_plans').delete().in('id', ids)
+    if (error) { showToast('Failed to clear the week.', 'error'); return }
+    setMealPlans([])
+    showToast('Week cleared.', 'success')
+  }
+
+  async function saveGoals(g: MealPlanGoals) {
+    const { calories, protein, fat, carbs, allowLeftovers } = g
+    await supabase.from('app_settings').upsert(
+      { user_id: userId, meal_plan_goals: { calories, protein, fat, carbs }, meal_plan_allow_leftovers: allowLeftovers },
+      { onConflict: 'user_id' }
+    )
+  }
+
+  async function handleGeneratePlan() {
+    setGeneratingPlan(true)
+
+    // Fetch all recipes with category tags and macro data
+    const { data: recipesData, error: recipesError } = await supabase
+      .from('recipes')
+      .select(`id, name, calories, protein, fat, carbs,
+        recipe_categories_junction ( recipe_categories ( name ) )`)
+      .eq('user_id', userId)
+
+    if (recipesError || !recipesData || recipesData.length === 0) {
+      showToast('No recipes found. Add some recipes first!', 'error')
+      setGeneratingPlan(false)
+      return
+    }
+
+    // Build a set of known meal type names (lowercase) for tag matching
+    const mealTypeNames = new Set(mealTypes.map(mt => mt.name.toLowerCase()))
+
+    type RecipeCandidate = {
+      id: number; name: string
+      calories: number | null; protein: number | null; fat: number | null; carbs: number | null
+      eligibleMealTypes: string[] // empty = any slot
+    }
+
+    const candidates: RecipeCandidate[] = recipesData.map((r: any) => {
+      const catNames: string[] = (r.recipe_categories_junction || []).flatMap((j: any) => {
+        const cats = j.recipe_categories
+        if (Array.isArray(cats)) return cats.map((c: any) => (c?.name as string | undefined)?.toLowerCase()).filter(Boolean)
+        if (cats?.name) return [(cats.name as string).toLowerCase()]
+        return []
+      })
+      // Only keep category tags that are actual meal type names
+      const mealTypeTags = catNames.filter(c => mealTypeNames.has(c))
+      return { id: r.id, name: r.name, calories: r.calories ?? null, protein: r.protein ?? null, fat: r.fat ?? null, carbs: r.carbs ?? null, eligibleMealTypes: mealTypeTags }
+    })
+
+    type PlannedMeal = { date: string; meal_type: string; recipe_id: number; recipe_name: string; calories: number | null; protein: number | null; fat: number | null; carbs: number | null }
+    const planned: PlannedMeal[] = []
+
+    function isSlotFilled(dateISO: string, mealTypeName: string) {
+      return mealPlans.some(p => p.date === dateISO && p.meal_type === mealTypeName) ||
+             planned.some(p => p.date === dateISO && p.meal_type === mealTypeName)
+    }
+
+    function getDayTotals(dateISO: string) {
+      const all = [...mealPlans.filter(p => p.date === dateISO), ...planned.filter(p => p.date === dateISO)]
+      return {
+        calories: all.reduce((s, p) => s + (p.calories ?? 0), 0),
+        protein: all.reduce((s, p) => s + (p.protein ?? 0), 0),
+        fat: all.reduce((s, p) => s + (p.fat ?? 0), 0),
+        carbs: all.reduce((s, p) => s + (p.carbs ?? 0), 0),
+      }
+    }
+
+    function passesGoals(dateISO: string, r: RecipeCandidate) {
+      const t = getDayTotals(dateISO)
+      if (goals.calories.enabled && goals.calories.direction === '≤' && (t.calories + (r.calories ?? 0)) > goals.calories.value) return false
+      if (goals.protein.enabled && goals.protein.direction === '≤' && (t.protein + (r.protein ?? 0)) > goals.protein.value) return false
+      if (goals.fat.enabled && goals.fat.direction === '≤' && (t.fat + (r.fat ?? 0)) > goals.fat.value) return false
+      if (goals.carbs.enabled && goals.carbs.direction === '≤' && (t.carbs + (r.carbs ?? 0)) > goals.carbs.value) return false
+      return true
+    }
+
+    function shuffle<T>(arr: T[]): T[] { return [...arr].sort(() => Math.random() - 0.5) }
+
+    const dinnerMTName = mealTypes.find(mt => mt.name.toLowerCase() === 'dinner')?.name
+    const lunchMTName = mealTypes.find(mt => mt.name.toLowerCase() === 'lunch')?.name
+
+    for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
+      const dateISO = toLocalISO(weekDays[dayIdx])
+      for (const mealType of mealTypes) {
+        if (isSlotFilled(dateISO, mealType.name)) continue
+
+        // Leftovers: yesterday's dinner fills today's lunch
+        if (goals.allowLeftovers && lunchMTName && mealType.name === lunchMTName && dayIdx > 0) {
+          const prevISO = toLocalISO(weekDays[dayIdx - 1])
+          const prevDinner =
+            mealPlans.find(p => p.date === prevISO && !!dinnerMTName && p.meal_type === dinnerMTName) ||
+            planned.find(p => p.date === prevISO && !!dinnerMTName && p.meal_type === dinnerMTName)
+          if (prevDinner) {
+            planned.push({ date: dateISO, meal_type: mealType.name, recipe_id: prevDinner.recipe_id, recipe_name: prevDinner.recipe_name, calories: prevDinner.calories, protein: prevDinner.protein, fat: prevDinner.fat, carbs: prevDinner.carbs })
+            continue
+          }
+        }
+
+        const mealTypeLower = mealType.name.toLowerCase()
+        const eligible = candidates.filter(r => r.eligibleMealTypes.length === 0 || r.eligibleMealTypes.includes(mealTypeLower))
+        const withinGoals = eligible.filter(r => passesGoals(dateISO, r))
+        const pool = withinGoals.length > 0 ? withinGoals : eligible
+        if (pool.length === 0) continue
+
+        const picked = shuffle(pool)[0]
+        planned.push({ date: dateISO, meal_type: mealType.name, recipe_id: picked.id, recipe_name: picked.name, calories: picked.calories, protein: picked.protein, fat: picked.fat, carbs: picked.carbs })
+      }
+    }
+
+    if (planned.length === 0) {
+      showToast('All slots are already filled this week.', 'error')
+      setGeneratingPlan(false)
+      return
+    }
+
+    const { error: insertError } = await supabase.from('meal_plans').insert(
+      planned.map(p => ({ user_id: userId, recipe_id: p.recipe_id, meal_type: p.meal_type, date: p.date }))
+    )
+    if (insertError) {
+      showToast('Failed to save the generated plan.', 'error')
+      setGeneratingPlan(false)
+      return
+    }
+
+    await saveGoals(goals)
+    await loadData()
+    setShowGenerateModal(false)
+    showToast(`🎉 Added ${planned.length} meals to the plan!`, 'success')
+    setGeneratingPlan(false)
   }
 
   async function addRecipeToShoppingList(recipe: RecipeDetail) {
@@ -332,16 +526,28 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
           </button>
         </div>
 
-        {onAddWeekMealsToList && (
-          <div className="flex-1 flex justify-end">
+        <div className="flex-1 flex justify-end gap-2">
+          <button
+            onClick={handleClearWeek}
+            className="meal-clear-btn px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap"
+          >
+            🗑️ Clear Week
+          </button>
+          <button
+            onClick={openGenerateModal}
+            className="meal-generate-btn px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap"
+          >
+            🍽️ Generate Meal Plan
+          </button>
+          {onAddWeekMealsToList && (
             <button
               onClick={() => onAddWeekMealsToList(toLocalISO(weekDays[0]), toLocalISO(weekDays[6]))}
               className="px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/40 rounded-lg text-green-200 text-sm font-medium transition-all duration-200 whitespace-nowrap"
             >
-              🛒 Add Week’s Meals to Shopping List
+              🛒 Add Week's Meals to Shopping List
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Grid */}
@@ -409,15 +615,15 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
                   return (
                     <div
                       key={dateISO}
-                      className={`border-l border-white/10 min-h-[62px] flex items-center p-2 ${
+                      className={`border-l border-white/10 h-[62px] flex items-center p-2 ${
                         today ? 'bg-white/10' : ''
                       }`}
                     >
                       {plan ? (
-                        <div className="w-full flex items-start gap-1">
+                        <div className="w-full flex items-center gap-1">
                           <button
                             onClick={() => openRecipeDetail(plan.recipe_id)}
-                            className="flex-1 min-w-0 px-2 py-1.5 bg-emerald-500/25 hover:bg-emerald-500/35 border border-emerald-400/40 rounded-md text-emerald-100 text-xs font-medium text-left leading-snug transition-all duration-150"
+                            className="meal-recipe-pill flex-1 min-w-0 px-2 h-[42px] bg-emerald-500/25 hover:bg-emerald-500/35 border border-emerald-400/40 rounded-md text-emerald-100 text-xs font-medium text-left leading-snug transition-all duration-150 overflow-hidden flex items-center"
                             title={plan.recipe_name}
                           >
                             <span className="line-clamp-2">{plan.recipe_name}</span>
@@ -425,7 +631,7 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
                           <button
                             onClick={() => handleRemoveMeal(plan.id)}
                             disabled={isRemoving}
-                            className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500/40 border border-red-400/30 hover:border-red-400/60 text-red-300 hover:text-red-100 transition-all duration-150 mt-0.5"
+                            className="meal-remove-btn flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500/40 border border-red-400/30 hover:border-red-400/60 text-red-300 hover:text-red-100 transition-all duration-150 mt-0.5"
                             title="Remove from meal plan"
                           >
                             <span className="text-[10px] leading-none">{isRemoving ? '…' : '✕'}</span>
@@ -445,6 +651,58 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
                 })}
               </div>
             ))
+          )}
+
+          {/* Daily Macro Totals Row */}
+          {mealTypes.length > 0 && (
+            <div
+              className="grid border-t-2 border-white/20 bg-white/[0.07]"
+              style={{ gridTemplateColumns: '110px repeat(7, 1fr)' }}
+            >
+              <div className="px-3 py-3 flex items-center border-r border-white/10">
+                <span className="text-white/70 text-xs font-semibold uppercase tracking-wide">Nutrition Totals</span>
+              </div>
+              {weekDays.map((day) => {
+                const dateISO = toLocalISO(day)
+                const dayMeals = mealPlans.filter(p => p.date === dateISO)
+                const totals = dayMeals.reduce(
+                  (acc, p) => ({
+                    calories: acc.calories + (p.calories ?? 0),
+                    protein: acc.protein + (p.protein ?? 0),
+                    fat: acc.fat + (p.fat ?? 0),
+                    carbs: acc.carbs + (p.carbs ?? 0),
+                  }),
+                  { calories: 0, protein: 0, fat: 0, carbs: 0 }
+                )
+                const hasMacros = dayMeals.some(p => p.calories || p.protein || p.fat || p.carbs)
+                const today = isToday(day)
+                return (
+                  <div
+                    key={dateISO}
+                    className={`border-l border-white/10 px-2 py-2.5 flex items-center ${today ? 'bg-white/10' : ''}`}
+                  >
+                    {hasMacros ? (
+                      <div className="space-y-1 text-xs leading-tight w-full text-center">
+                        {totals.calories > 0 && (
+                          <div className="meal-totals-cal font-semibold">🔥 {totals.calories} cal</div>
+                        )}
+                        {totals.protein > 0 && (
+                          <div className="meal-totals-pro">💪 {totals.protein}g pro</div>
+                        )}
+                        {totals.fat > 0 && (
+                          <div className="meal-totals-fat">🥑 {totals.fat}g fat</div>
+                        )}
+                        {totals.carbs > 0 && (
+                          <div className="meal-totals-carb">🌾 {totals.carbs}g carb</div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-white/20 text-xs w-full text-center">—</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
       </div>
@@ -483,15 +741,18 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
                     {viewingRecipe.prep_time && <div><div className="text-white/60 text-sm">Prep Time</div><div className="text-white font-semibold">{viewingRecipe.prep_time}m</div></div>}
                     {viewingRecipe.cook_time && <div><div className="text-white/60 text-sm">Cook Time</div><div className="text-white font-semibold">{viewingRecipe.cook_time}m</div></div>}
                     {viewingRecipe.servings && <div><div className="text-white/60 text-sm">Servings</div><div className="text-white font-semibold">{viewingRecipe.servings}</div></div>}
-                    {viewingRecipe.calories && <div><div className="text-white/60 text-sm">Calories</div><div className="text-white font-semibold">{viewingRecipe.calories}</div></div>}
+                    {viewingRecipe.calories && <div><div className="text-white/60 text-sm">Calories<span className="text-white/40 text-xs ml-1">/serving</span></div><div className="text-white font-semibold">{viewingRecipe.calories}</div></div>}
                   </div>
                 )}
 
                 {(viewingRecipe.protein || viewingRecipe.fat || viewingRecipe.carbs) && (
-                  <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-white/5 rounded-lg">
-                    {viewingRecipe.protein && <div><div className="text-white/60 text-sm">Protein</div><div className="text-white font-semibold">{viewingRecipe.protein}g</div></div>}
-                    {viewingRecipe.fat && <div><div className="text-white/60 text-sm">Fat</div><div className="text-white font-semibold">{viewingRecipe.fat}g</div></div>}
-                    {viewingRecipe.carbs && <div><div className="text-white/60 text-sm">Carbs</div><div className="text-white font-semibold">{viewingRecipe.carbs}g</div></div>}
+                  <div className="mb-6">
+                    <div className="text-xs font-semibold text-white/50 uppercase tracking-wide mb-2">Macros per serving</div>
+                    <div className="grid grid-cols-3 gap-4 p-4 bg-white/5 rounded-lg">
+                      {viewingRecipe.protein && <div><div className="text-white/60 text-sm">Protein</div><div className="text-white font-semibold">{viewingRecipe.protein}g</div></div>}
+                      {viewingRecipe.fat && <div><div className="text-white/60 text-sm">Fat</div><div className="text-white font-semibold">{viewingRecipe.fat}g</div></div>}
+                      {viewingRecipe.carbs && <div><div className="text-white/60 text-sm">Carbs</div><div className="text-white font-semibold">{viewingRecipe.carbs}g</div></div>}
+                    </div>
                   </div>
                 )}
 
@@ -536,6 +797,97 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
                 </div>
               </>
             ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Generate Meal Plan Modal */}
+      {showGenerateModal && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowGenerateModal(false)}
+        >
+          <div
+            className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl max-w-md w-full p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-5">
+              <div>
+                <h2 className="text-xl font-bold text-white">🍽️ Generate Meal Plan</h2>
+                <p className="text-white/50 text-sm mt-1">Fill empty slots with recipes matching your goals</p>
+              </div>
+              <button onClick={() => setShowGenerateModal(false)} className="text-white/50 hover:text-white text-2xl leading-none flex-shrink-0">✕</button>
+            </div>
+
+            {/* Nutrition Goals */}
+            <div className="mb-5">
+              <div className="text-xs font-semibold text-white/50 uppercase tracking-wide mb-3">Daily Nutrition Goals</div>
+              <div className="space-y-3">
+                {([ ['calories', 'Calories', 'kcal'], ['protein', 'Protein', 'g'], ['fat', 'Fat', 'g'], ['carbs', 'Carbs', 'g'] ] as const).map(([macro, label, unit]) => (
+                  <div key={macro} className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={goals[macro].enabled}
+                      onChange={e => updateGoal(macro, 'enabled', e.target.checked)}
+                      className="w-4 h-4 rounded cursor-pointer accent-purple-400 flex-shrink-0"
+                    />
+                    <span className={`text-sm w-16 flex-shrink-0 ${goals[macro].enabled ? 'text-white' : 'text-white/40'}`}>{label}</span>
+                    <button
+                      onClick={() => updateGoal(macro, 'direction', goals[macro].direction === '≤' ? '≥' : '≤')}
+                      disabled={!goals[macro].enabled}
+                      className={`meal-direction-btn w-9 h-8 rounded border text-sm font-bold flex-shrink-0 transition-all ${goals[macro].enabled ? 'border-purple-400/60 hover:bg-purple-500/20' : 'border-white/10 text-white/20 cursor-not-allowed'}`}
+                    >
+                      {goals[macro].direction}
+                    </button>
+                    <input
+                      type="number"
+                      min={0}
+                      value={goals[macro].value}
+                      onChange={e => updateGoal(macro, 'value', Math.max(0, Number(e.target.value)))}
+                      disabled={!goals[macro].enabled}
+                      className={`flex-1 min-w-0 px-3 py-1.5 rounded-lg text-sm border bg-white/5 transition-all ${goals[macro].enabled ? 'border-white/20 text-white' : 'border-white/10 text-white/30 cursor-not-allowed'}`}
+                    />
+                    <span className={`text-sm flex-shrink-0 ${goals[macro].enabled ? 'text-white/60' : 'text-white/20'}`}>{unit}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-white/30 text-xs mt-2">
+                ≤ = daily maximum &nbsp;·&nbsp; ≥ = daily minimum target
+              </p>
+            </div>
+
+            {/* Allow Leftovers */}
+            <div className="mb-6 p-3 bg-white/5 rounded-lg border border-white/10">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={goals.allowLeftovers}
+                  onChange={e => setGoals(prev => ({ ...prev, allowLeftovers: e.target.checked }))}
+                  className="w-4 h-4 mt-0.5 rounded cursor-pointer accent-purple-400 flex-shrink-0"
+                />
+                <div>
+                  <div className="text-white text-sm font-medium">Allow Leftovers</div>
+                  <div className="text-white/50 text-xs mt-0.5">Yesterday&apos;s dinner automatically fills today&apos;s lunch slot</div>
+                </div>
+              </label>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowGenerateModal(false)}
+                className="flex-1 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm font-medium transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGeneratePlan}
+                disabled={generatingPlan}
+                className="meal-generate-btn flex-1 px-4 py-2.5 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
+              >
+                {generatingPlan ? 'Generating…' : '🎲 Generate'}
+              </button>
+            </div>
           </div>
         </div>
       )}

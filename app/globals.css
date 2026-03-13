@@ -143,6 +143,94 @@ html[data-theme="pastel"] select option {
   color: #1e1133 !important;
 }
 
+/* Pastel: green shopping-list buttons use text-green-100/200 which is near-invisible on light backgrounds */
+html[data-theme="pastel"] .text-green-100,
+html[data-theme="pastel"] .text-green-200 {
+  color: #166534 !important; /* green-800 — readable on pastel */
+}
+html[data-theme="pastel"] .bg-green-500\/20,
+html[data-theme="pastel"] .bg-green-500\/30 {
+  background-color: rgba(134, 239, 172, 0.35) !important; /* softer solid pastel green */
+}
+html[data-theme="pastel"] .hover\:bg-green-500\/30:hover,
+html[data-theme="pastel"] .hover\:bg-green-500\/40:hover {
+  background-color: rgba(134, 239, 172, 0.55) !important;
+}
+html[data-theme="pastel"] .border-green-500\/40,
+html[data-theme="pastel"] .border-green-500\/50 {
+  border-color: rgba(74, 222, 128, 0.7) !important;
+}
+
+/* Pastel: emerald meal-plan recipe pills — text-emerald-100 is near-white on light bg */
+.meal-recipe-pill {
+  color: #d1fae5; /* emerald-100 — default (dark theme) */
+}
+html[data-theme="pastel"] .meal-recipe-pill {
+  color: #065f46 !important; /* emerald-800 — dark text on pastel */
+  background-color: rgba(110, 231, 183, 0.45) !important;
+  border-color: rgba(52, 211, 153, 0.8) !important;
+}
+
+/* Pastel: red remove (✕) button */
+.meal-remove-btn {
+  color: #fca5a5; /* red-300 — default (dark theme) */
+}
+html[data-theme="pastel"] .meal-remove-btn {
+  color: #b91c1c !important; /* red-700 */
+  background-color: rgba(252, 165, 165, 0.45) !important;
+  border-color: rgba(248, 113, 113, 0.75) !important;
+}
+html[data-theme="pastel"] .meal-remove-btn:hover {
+  color: #991b1b !important; /* red-800 */
+  background-color: rgba(252, 165, 165, 0.65) !important;
+}
+
+/* Macro totals row colors — defaults for dark theme */
+.meal-totals-cal { color: #fcd34d; } /* amber-300 */
+.meal-totals-pro { color: #93c5fd; } /* blue-300 */
+.meal-totals-fat { color: #fde68a; } /* yellow-200 */
+.meal-totals-carb { color: #86efac; } /* green-300 */
+
+/* Pastel overrides — darker so they're readable on light background */
+html[data-theme="pastel"] .meal-totals-cal { color: #92400e !important; } /* amber-800 */
+html[data-theme="pastel"] .meal-totals-pro { color: #1e40af !important; } /* blue-800 */
+html[data-theme="pastel"] .meal-totals-fat { color: #78350f !important; } /* yellow-900 */
+html[data-theme="pastel"] .meal-totals-carb { color: #166534 !important; } /* green-800 */
+
+/* Pastel: clear week button */
+.meal-clear-btn {
+  color: #fca5a5; /* red-300 — dark theme */
+}
+html[data-theme="pastel"] .meal-clear-btn {
+  color: #991b1b !important; /* red-800 */
+  background-color: rgba(252, 165, 165, 0.35) !important;
+  border-color: rgba(248, 113, 113, 0.7) !important;
+}
+html[data-theme="pastel"] .meal-clear-btn:hover {
+  background-color: rgba(252, 165, 165, 0.55) !important;
+}
+
+/* Pastel: direction toggle (≤/≥) button in generate meal plan modal */
+.meal-direction-btn {
+  color: #e9d5ff; /* purple-200 — dark theme */
+}
+html[data-theme="pastel"] .meal-direction-btn {
+  color: #581c87 !important; /* purple-900 */
+}
+
+/* Pastel: generate meal plan button */
+.meal-generate-btn {
+  color: #e9d5ff; /* purple-200 — default dark theme */
+}
+html[data-theme="pastel"] .meal-generate-btn {
+  color: #581c87 !important; /* purple-900 — dark on light pastel bg */
+  background-color: rgba(192, 132, 252, 0.3) !important;
+  border-color: rgba(168, 85, 247, 0.7) !important;
+}
+html[data-theme="pastel"] .meal-generate-btn:hover {
+  background-color: rgba(192, 132, 252, 0.5) !important;
+}
+
 /* Pastel: drop-shadow on today indicator is invisible — remove */
 html[data-theme="pastel"] .drop-shadow-lg { filter: none !important; }
 
