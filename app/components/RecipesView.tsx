@@ -5,6 +5,16 @@ import { supabase } from '@/lib/supabase'
 import AddRecipeModal from './AddRecipeModal'
 import MealPlanWeekView from './MealPlanWeekView'
 
+const COLOR_META: Record<string, { r: number; g: number; b: number; label: string; order: number }> = {
+  blue:   { r: 59,  g: 130, b: 246, label: 'Meal Type', order: 1 },
+  purple: { r: 168, g: 85,  b: 247, label: 'Course',    order: 2 },
+  orange: { r: 249, g: 115, b: 22,  label: 'Attribute', order: 3 },
+  green:  { r: 34,  g: 197, b: 94,  label: 'Dietary',   order: 4 },
+  yellow: { r: 234, g: 179, b: 8,   label: 'Other',     order: 5 },
+  pink:   { r: 236, g: 72,  b: 153, label: 'Other',     order: 6 },
+}
+const DEFAULT_COLOR_META = { r: 99, g: 102, b: 241, label: 'Other', order: 99 }
+
 type Ingredient = {
   id: number
   name: string
@@ -104,7 +114,7 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
       const { data, error } = await supabase
         .from('recipe_categories')
         .select('*')
-        .order('name')
+        .order('id')
 
       if (error) throw error
       setCategories(data || [])
@@ -615,57 +625,76 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
         </div>
 
         {subView === 'recipes' && (<>
-      {/* Category Filters */}
-      {categories.length > 0 && (
-        <div className="flex gap-2 flex-wrap items-center">
-          <span className="text-sm text-white/60">Filter:</span>
-          <button
-            onClick={() => setSelectedCategoryFilter(null)}
-            className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
-              selectedCategoryFilter === null
-                ? 'bg-white/30 text-white border-2 border-white/40'
-                : 'bg-white/10 text-white/70 border border-white/20 hover:bg-white/20'
-            }`}
-          >
-            All
-          </button>
-          {categories.map((category) => {
-            const isSelected = selectedCategoryFilter === category.id
-            const getCategoryStyle = (color: string, selected: boolean) => {
-              const colors: Record<string, { bg: string; border: string; bgHover?: string }> = {
-                yellow: { bg: selected ? 'rgba(234, 179, 8, 0.4)' : 'rgba(234, 179, 8, 0.2)', border: selected ? 'rgba(250, 204, 21, 0.6)' : 'rgba(234, 179, 8, 0.3)', bgHover: 'rgba(234, 179, 8, 0.3)' },
-                blue: { bg: selected ? 'rgba(59, 130, 246, 0.4)' : 'rgba(59, 130, 246, 0.2)', border: selected ? 'rgba(96, 165, 250, 0.6)' : 'rgba(59, 130, 246, 0.3)', bgHover: 'rgba(59, 130, 246, 0.3)' },
-                purple: { bg: selected ? 'rgba(168, 85, 247, 0.4)' : 'rgba(168, 85, 247, 0.2)', border: selected ? 'rgba(192, 132, 252, 0.6)' : 'rgba(168, 85, 247, 0.3)', bgHover: 'rgba(168, 85, 247, 0.3)' },
-                pink: { bg: selected ? 'rgba(236, 72, 153, 0.4)' : 'rgba(236, 72, 153, 0.2)', border: selected ? 'rgba(244, 114, 182, 0.6)' : 'rgba(236, 72, 153, 0.3)', bgHover: 'rgba(236, 72, 153, 0.3)' },
-                green: { bg: selected ? 'rgba(34, 197, 94, 0.4)' : 'rgba(34, 197, 94, 0.2)', border: selected ? 'rgba(74, 222, 128, 0.6)' : 'rgba(34, 197, 94, 0.3)', bgHover: 'rgba(34, 197, 94, 0.3)' },
-                orange: { bg: selected ? 'rgba(249, 115, 22, 0.4)' : 'rgba(249, 115, 22, 0.2)', border: selected ? 'rgba(251, 146, 60, 0.6)' : 'rgba(249, 115, 22, 0.3)', bgHover: 'rgba(249, 115, 22, 0.3)' },
-              }
-              return colors[color] || colors.blue
-            }
-            const style = getCategoryStyle(category.color, isSelected)
-            return (
-              <button
-                key={category.id}
-                onClick={() =>
-                  setSelectedCategoryFilter(
-                    selectedCategoryFilter === category.id ? null : category.id
-                  )
-                }
-                style={{
-                  backgroundColor: style.bg,
-                  borderColor: style.border,
-                  borderWidth: isSelected ? '2px' : '1px',
-                }}
-                onMouseEnter={(e) => !isSelected && (e.currentTarget.style.backgroundColor = style.bgHover!)}
-                onMouseLeave={(e) => !isSelected && (e.currentTarget.style.backgroundColor = style.bg)}
-                className="px-3 py-1 rounded-full text-sm font-medium transition-all text-white"
-              >
-                {category.name}
-              </button>
-            )
-          })}
-        </div>
-      )}
+      {/* Category Filters — compact single wrapping row, grouped by color */}
+      {categories.length > 0 && (() => {
+        const grouped = new Map<string, typeof categories>()
+        categories.forEach(cat => {
+          const key = cat.color || '__unknown'
+          if (!grouped.has(key)) grouped.set(key, [])
+          grouped.get(key)!.push(cat)
+        })
+        const sortedGroups = [...grouped.entries()].sort(([a], [b]) =>
+          (COLOR_META[a]?.order ?? DEFAULT_COLOR_META.order) - (COLOR_META[b]?.order ?? DEFAULT_COLOR_META.order)
+        )
+        return (
+          <div className="flex gap-1.5 flex-wrap items-center">
+            <button
+              onClick={() => setSelectedCategoryFilter(null)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                selectedCategoryFilter === null ? 'filter-all-active' : 'filter-all-inactive'
+              }`}
+            >
+              All
+            </button>
+            {sortedGroups.map(([colorKey, cats], groupIdx) => {
+              const meta = COLOR_META[colorKey] ?? DEFAULT_COLOR_META
+              const { r, g, b } = meta
+              return (
+                <>
+                  {groupIdx > 0 && <span key={`sep-${colorKey}`} className="text-white/20 text-xs select-none px-0.5">·</span>}
+                  {cats.map(category => {
+                    const isSelected = selectedCategoryFilter === category.id
+                    return (
+                      <button
+                        key={category.id}
+                        onClick={() => setSelectedCategoryFilter(isSelected ? null : category.id)}
+                        style={isSelected ? {
+                          backgroundColor: `rgba(${r},${g},${b},0.40)`,
+                          borderColor: `rgba(${r},${g},${b},0.75)`,
+                          borderWidth: '2px',
+                          color: 'white',
+                        } : {
+                          backgroundColor: `rgba(${r},${g},${b},0.12)`,
+                          borderColor: `rgba(${r},${g},${b},0.30)`,
+                          borderWidth: '1px',
+                          color: `rgba(${r},${g},${b},0.85)`,
+                        }}
+                        onMouseEnter={e => {
+                          if (!isSelected) {
+                            e.currentTarget.style.backgroundColor = `rgba(${r},${g},${b},0.22)`
+                            e.currentTarget.style.borderColor = `rgba(${r},${g},${b},0.50)`
+                            e.currentTarget.style.color = 'white'
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          if (!isSelected) {
+                            e.currentTarget.style.backgroundColor = `rgba(${r},${g},${b},0.12)`
+                            e.currentTarget.style.borderColor = `rgba(${r},${g},${b},0.30)`
+                            e.currentTarget.style.color = `rgba(${r},${g},${b},0.85)`
+                          }
+                        }}
+                        className="px-3 py-1 rounded-full text-xs font-medium transition-colors border"
+                      >
+                        {category.name}
+                      </button>
+                    )
+                  })}
+                </>
+              )
+            })}
+          </div>
+        )
+      })()}
 
       {/* Header with Search and Add Button */}
       <div className="flex gap-4 items-center">
@@ -675,7 +704,7 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
             placeholder="Search recipes, ingredients, instructions..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-white/20"
+            className="recipe-input w-full px-4 py-2 bg-black/20 border border-white/25 rounded-lg text-white focus:outline-none focus:border-white/45 focus:ring-1 focus:ring-white/20"
           />
         </div>
         <button
@@ -734,20 +763,16 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
               {recipe.categories && recipe.categories.length > 0 && (
                 <div className="flex gap-1 flex-wrap mb-3">
                   {recipe.categories.map((category) => {
-                    const colors: Record<string, { bg: string; border: string }> = {
-                      yellow: { bg: 'rgba(234, 179, 8, 0.3)', border: 'rgba(234, 179, 8, 0.4)' },
-                      blue: { bg: 'rgba(59, 130, 246, 0.3)', border: 'rgba(59, 130, 246, 0.4)' },
-                      purple: { bg: 'rgba(168, 85, 247, 0.3)', border: 'rgba(168, 85, 247, 0.4)' },
-                      pink: { bg: 'rgba(236, 72, 153, 0.3)', border: 'rgba(236, 72, 153, 0.4)' },
-                      green: { bg: 'rgba(34, 197, 94, 0.3)', border: 'rgba(34, 197, 94, 0.4)' },
-                      orange: { bg: 'rgba(249, 115, 22, 0.3)', border: 'rgba(249, 115, 22, 0.4)' },
-                    }
-                    const style = colors[category.color] || colors.blue
+                    const { r, g, b } = COLOR_META[category.color] ?? DEFAULT_COLOR_META
                     return (
                       <span
                         key={category.id}
-                        style={{ backgroundColor: style.bg, borderColor: style.border }}
-                        className="px-2 py-0.5 rounded-full text-xs font-medium text-white border"
+                        style={{
+                          backgroundColor: `rgba(${r},${g},${b},0.25)`,
+                          borderColor: `rgba(${r},${g},${b},0.50)`,
+                          color: `rgba(${r},${g},${b},1)`,
+                        }}
+                        className="px-2 py-0.5 rounded-full text-xs font-medium border"
                       >
                         {category.name}
                       </span>
@@ -830,7 +855,7 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg max-w-2xl max-h-[90vh] overflow-y-auto w-full p-6">
             {/* Header */}
-            <div className="flex justify-between items-start mb-6">
+            <div className="flex justify-between items-start mb-3">
               <h2 className="text-2xl font-bold text-white">{selectedRecipe.name}</h2>
               <button
                 onClick={() => setIsDetailModalOpen(false)}
@@ -839,6 +864,28 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
                 ✕
               </button>
             </div>
+
+            {/* Category badges */}
+            {selectedRecipe.categories && selectedRecipe.categories.length > 0 && (
+              <div className="flex gap-1.5 flex-wrap mb-5">
+                {selectedRecipe.categories.map((category) => {
+                  const { r, g, b } = COLOR_META[category.color] ?? DEFAULT_COLOR_META
+                  return (
+                    <span
+                      key={category.id}
+                      style={{
+                        backgroundColor: `rgba(${r},${g},${b},0.25)`,
+                        borderColor: `rgba(${r},${g},${b},0.50)`,
+                        color: `rgba(${r},${g},${b},1)`,
+                      }}
+                      className="px-2.5 py-0.5 rounded-full text-xs font-medium border"
+                    >
+                      {category.name}
+                    </span>
+                  )
+                })}
+              </div>
+            )}
 
             {/* Description */}
             {selectedRecipe.description && (

@@ -137,6 +137,49 @@ html[data-theme="pastel"] select {
   border-color: rgba(170, 150, 200, 0.55) !important;
 }
 
+/* Semantic input class — placeholder visible in both themes */
+/* Dark/glass: light placeholder on dark bg */
+.recipe-input::placeholder { color: rgba(255,255,255,0.38); opacity: 1; }
+/* Pastel: dark placeholder on near-white bg — solid color, clearly lighter than typed text */
+html[data-theme="pastel"] .recipe-input::placeholder {
+  color: #9580b8 !important;
+  opacity: 1 !important;
+}
+
+/* Semantic filter-all button states */
+.filter-all-active {
+  background-color: rgba(255,255,255,0.22);
+  color: white;
+  border: 2px solid rgba(255,255,255,0.70);
+  font-weight: 700;
+}
+.filter-all-inactive {
+  background-color: transparent;
+  color: rgba(255,255,255,0.70);
+  border: 1px dashed rgba(255,255,255,0.50);
+}
+.filter-all-inactive:hover {
+  background-color: rgba(255,255,255,0.12);
+  color: white;
+  border-style: solid;
+}
+html[data-theme="pastel"] .filter-all-active {
+  background-color: rgba(60,40,90,0.12) !important;
+  color: #1e1133 !important;
+  border: 2px solid rgba(80,55,120,0.65) !important;
+  font-weight: 700 !important;
+}
+html[data-theme="pastel"] .filter-all-inactive {
+  background-color: transparent !important;
+  color: #503878 !important;
+  border: 1px dashed rgba(120,90,170,0.55) !important;
+}
+html[data-theme="pastel"] .filter-all-inactive:hover {
+  background-color: rgba(80,55,120,0.08) !important;
+  color: #2d1f52 !important;
+  border-style: solid !important;
+}
+
 /* Pastel: select dropdown options need explicit colors since they render outside the shadow DOM */
 html[data-theme="pastel"] select option {
   background-color: rgba(245, 240, 255, 0.98) !important;

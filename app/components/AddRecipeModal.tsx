@@ -382,7 +382,7 @@ export default function AddRecipeModal({
                 value={importUrl}
                 onChange={(e) => setImportUrl(e.target.value)}
                 placeholder="Paste recipe URL (AllRecipes, NYTimes, Food Network...)"
-                className="flex-1 px-4 py-2 border border-white/30 rounded-lg text-white placeholder-white/60 bg-white/10"
+                className="flex-1 px-4 py-2 border border-white/30 rounded-lg text-white recipe-input bg-black/25"
               />
               <button
                 type="button"
@@ -409,7 +409,7 @@ export default function AddRecipeModal({
               onChange={(e) => setName(e.target.value)}
               required
               placeholder="e.g., Chocolate Chip Cookies"
-              className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+              className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
             />
           </div>
 
@@ -423,7 +423,7 @@ export default function AddRecipeModal({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="A brief description of the recipe..."
               rows={3}
-              className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40 resize-none"
+              className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40 resize-none"
             />
           </div>
 
@@ -488,7 +488,7 @@ export default function AddRecipeModal({
                 onChange={(e) => setPrepTime(e.target.value === '' ? '' : Number(e.target.value))}
                 min="0"
                 placeholder="15"
-                className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+                className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
               />
             </div>
             <div>
@@ -501,7 +501,7 @@ export default function AddRecipeModal({
                 onChange={(e) => setCookTime(e.target.value === '' ? '' : Number(e.target.value))}
                 min="0"
                 placeholder="30"
-                className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+                className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
               />
             </div>
             <div>
@@ -514,7 +514,7 @@ export default function AddRecipeModal({
                 onChange={(e) => setServings(e.target.value === '' ? '' : Number(e.target.value))}
                 min="1"
                 placeholder="4"
-                className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+                className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
               />
             </div>
             <div>
@@ -527,7 +527,7 @@ export default function AddRecipeModal({
                 onChange={(e) => setCalories(e.target.value === '' ? '' : Number(e.target.value))}
                 min="0"
                 placeholder="250"
-                className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+                className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
               />
             </div>
           </div>
@@ -549,7 +549,7 @@ export default function AddRecipeModal({
                   min="0"
                   step="0.1"
                   placeholder="10"
-                  className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+                  className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
                 />
               </div>
               <div>
@@ -563,7 +563,7 @@ export default function AddRecipeModal({
                   min="0"
                   step="0.1"
                   placeholder="8"
-                  className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+                  className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
                 />
               </div>
               <div>
@@ -577,7 +577,7 @@ export default function AddRecipeModal({
                   min="0"
                   step="0.1"
                   placeholder="25"
-                  className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+                  className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
                 />
               </div>
             </div>
@@ -595,7 +595,7 @@ export default function AddRecipeModal({
               min="1"
               max="10"
               placeholder="8"
-              className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+              className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
             />
           </div>
 
@@ -628,7 +628,7 @@ export default function AddRecipeModal({
                         updateIngredient(index, 'amount', val)
                       }}
                       placeholder="Amt"
-                      className="w-16 px-3 py-2 border border-white/30 rounded-lg focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40 text-sm"
+                      className="w-16 px-3 py-2 border border-white/30 rounded-lg focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40 text-sm"
                     />
 
                     {/* Measurement */}
@@ -655,7 +655,7 @@ export default function AddRecipeModal({
                         }}
                         onFocus={() => setEditingIngredientIndex(index)}
                         placeholder="Search or type..."
-                        className="w-full px-3 py-2 border border-white/30 rounded-lg focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40 text-sm"
+                        className="w-full px-3 py-2 border border-white/30 rounded-lg focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40 text-sm"
                       />
 
                       {/* Dropdown suggestions - only show when editing this ingredient */}
@@ -716,7 +716,7 @@ export default function AddRecipeModal({
               required
               rows={10}
               placeholder="1. Preheat oven to 350°F&#10;2. Mix dry ingredients&#10;3. Add wet ingredients&#10;4. Bake for 10-12 minutes"
-              className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+              className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
             />
           </div>
 
