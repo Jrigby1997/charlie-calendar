@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import AddRecipeModal from './AddRecipeModal'
 import MealPlanWeekView from './MealPlanWeekView'
@@ -650,8 +650,8 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
               const meta = COLOR_META[colorKey] ?? DEFAULT_COLOR_META
               const { r, g, b } = meta
               return (
-                <>
-                  {groupIdx > 0 && <span key={`sep-${colorKey}`} className="text-white/20 text-xs select-none px-0.5">·</span>}
+                <React.Fragment key={colorKey}>
+                  {groupIdx > 0 && <span className="text-white/20 text-xs select-none px-0.5">·</span>}
                   {cats.map(category => {
                     const isSelected = selectedCategoryFilter === category.id
                     return (
@@ -689,7 +689,7 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
                       </button>
                     )
                   })}
-                </>
+                </React.Fragment>
               )
             })}
           </div>
