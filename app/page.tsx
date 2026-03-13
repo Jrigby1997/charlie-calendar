@@ -13,6 +13,7 @@ import AddEventModal from './components/AddEventModal'
 import MealPlanModal from './components/MealPlanModal'
 import SettingsModal from './components/SettingsModal'
 import ExternalEventDetailModal from './components/ExternalEventDetailModal'
+import EditGoogleEventModal from './components/EditGoogleEventModal'
 import NavTab from './components/ui/NavTab'
 
 type Event = {
@@ -39,7 +40,18 @@ type Event = {
   baseEventId?: number // For virtual instances of recurring/multi-day events
   isExternal?: boolean // True for events synced from external providers (Google, etc.)
   externalProvider?: string // 'google' | 'outlook' | 'apple'
+  externalEventId?: string // Provider-side event ID (e.g. Google Calendar event ID)
+  externalCalendarId?: string // Provider-side calendar ID
+  externalIntegrationId?: number // Which user_integrations row owns this event
+  isPending?: boolean // True while a newly-created external event is waiting to sync back
   custom_color?: string | null
+}
+
+type GoogleCalendarOption = {
+  integrationId: number
+  calendarId: string
+  calendarName: string
+  googleEmail: string | null
 }
 
 type FamilyMember = {
@@ -83,16 +95,33 @@ export default function Home() {
     family_member_ids: number[]
     calendar_name: string
     google_email: string | null
+    integration_id: number | null
   }>>(new Map())
   const [googleConnected, setGoogleConnected] = useState(false)
   const [isSyncingGoogle, setIsSyncingGoogle] = useState(false)
   const [linkedTaskEventIds, setLinkedTaskEventIds] = useState<Set<number>>(new Set())
+  const [connectedGoogleCalendars, setConnectedGoogleCalendars] = useState<GoogleCalendarOption[]>([])
+  // Events created on Google but not yet synced back; shown as dimmed placeholders
+  const [pendingExternalEvents, setPendingExternalEvents] = useState<Event[]>([])
+
+  // Edit Google Event modal
+  const [editGoogleEvent, setEditGoogleEvent] = useState<{
+    event: Event
+    externalEventId: string
+    externalCalendarId: string
+    integrationId: number
+    calendarName: string
+    googleEmail: string | null
+  } | null>(null)
 
   // External event detail modal
   const [externalEventDetail, setExternalEventDetail] = useState<{
     event: Event
     calendarName: string
     googleEmail: string | null
+    externalEventId: string | null
+    externalCalendarId: string | null
+    integrationId: number | null
   } | null>(null)
 
   // Apply theme to <html> element whenever settings load/change
@@ -383,11 +412,23 @@ export default function Home() {
           })(),
           calendar_name: c.calendar_name as string,
           google_email: integrationEmailMap.get(c.integration_id) ?? null,
+          integration_id: c.integration_id as number | null,
         },
       ])
     )
     setExternalCalendarConfigs(configMap)
     setGoogleConnected((calendars?.length ?? 0) > 0)
+
+    // Build the list of editable Google calendars for the AddEventModal destination picker
+    const calendarOptions: GoogleCalendarOption[] = (calendars || [])
+      .filter(c => c.integration_id != null)
+      .map(c => ({
+        integrationId: c.integration_id as number,
+        calendarId: c.external_calendar_id as string,
+        calendarName: c.calendar_name as string,
+        googleEmail: integrationEmailMap.get(c.integration_id) ?? null,
+      }))
+    setConnectedGoogleCalendars(calendarOptions)
 
     if (calendars && calendars.length > 0) {
       const calIds = calendars.map(c => c.external_calendar_id)
@@ -741,7 +782,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
   }
 
   function handleEventClick(event: Event) {
-    // External events open a read-only detail popup
+    // External events open a detail popup (read or edit)
     if (event.isExternal) {
       const rawEv = externalRawEvents.find(e => -(e.id as number) === event.id)
       const cal = rawEv ? externalCalendarConfigs.get(rawEv.external_calendar_id) : undefined
@@ -749,6 +790,9 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
         event,
         calendarName: cal?.calendar_name ?? 'Google Calendar',
         googleEmail: cal?.google_email ?? null,
+        externalEventId: rawEv?.external_event_id ?? null,
+        externalCalendarId: rawEv?.external_calendar_id ?? null,
+        integrationId: cal?.integration_id ?? null,
       })
       return
     }
@@ -765,6 +809,178 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
       setEditingEvent(event)
       setEditingInstanceDate('') // Not an instance
       setIsModalOpen(true)
+    }
+  }
+
+  async function handleCreateGoogleEvent(
+    fields: { title: string; date: string; endDate: string; startTime: string; endTime: string; description: string; isRecurring?: boolean; recurrencePattern?: string; recurrenceInterval?: number; recurrenceEndDate?: string; recurrenceDays?: string[] },
+    target: { integrationId: number; calendarId: string }
+  ) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { showToast('Not authenticated', 'error'); return }
+
+    // Add a placeholder immediately so the UI feels responsive
+    const tempId = -(Date.now())
+    const placeholder: Event = {
+      id: tempId,
+      title: fields.title,
+      date: fields.date,
+      end_date: fields.endDate || fields.date,
+      start_time: fields.startTime || null,
+      end_time: fields.endTime || null,
+      description: fields.description,
+      is_recurring: false,
+      recurrence_pattern: null,
+      recurrence_interval: 1,
+      recurrence_end_date: null,
+      recurrence_days: null,
+      created_at: new Date().toISOString(),
+      event_family_members: [],
+      isExternal: true,
+      externalProvider: 'google',
+      isPending: true,
+    }
+    setPendingExternalEvents(prev => [...prev, placeholder])
+    showToast('Adding event to Google Calendar…', 'success')
+
+    try {
+      // Build RRULE string if this is a recurring event
+      let rrule: string | undefined
+      if (fields.isRecurring && fields.recurrencePattern) {
+        const freqMap: Record<string, string> = { daily: 'DAILY', weekly: 'WEEKLY', monthly: 'MONTHLY', yearly: 'YEARLY' }
+        const dayMap: Record<string, string> = { sunday: 'SU', monday: 'MO', tuesday: 'TU', wednesday: 'WE', thursday: 'TH', friday: 'FR', saturday: 'SA' }
+        rrule = `FREQ=${freqMap[fields.recurrencePattern]};INTERVAL=${Math.max(1, fields.recurrenceInterval ?? 1)}`
+        if (fields.recurrencePattern === 'weekly' && (fields.recurrenceDays?.length ?? 0) > 0) {
+          const byday = (fields.recurrenceDays ?? []).map(d => dayMap[d.toLowerCase()]).filter(Boolean).join(',')
+          if (byday) rrule += `;BYDAY=${byday}`
+        }
+        if (fields.recurrenceEndDate) rrule += `;UNTIL=${fields.recurrenceEndDate.replace(/-/g, '')}T235959Z`
+        console.log('[Google Calendar] RRULE:', rrule)
+      }
+
+      const res = await fetch('/api/google-calendar/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          integrationId: target.integrationId,
+          calendarId: target.calendarId,
+          event: { ...fields, rrule },
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? 'Unknown error') }
+      await syncGoogleCalendar()
+      showToast('Event added to Google Calendar!', 'success')
+    } catch (err: any) {
+      showToast(`Failed to add event: ${err.message}`, 'error')
+    } finally {
+      setPendingExternalEvents(prev => prev.filter(e => e.id !== tempId))
+    }
+  }
+
+  async function handleDeleteExternalEvent(externalEventId: string, calendarId: string, integrationId: number) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { showToast('Not authenticated', 'error'); throw new Error('No session') }
+    try {
+      const res = await fetch(
+        `/api/google-calendar/events/${encodeURIComponent(externalEventId)}?integrationId=${integrationId}&calendarId=${encodeURIComponent(calendarId)}`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}` } }
+      )
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? 'Unknown error') }
+      // Optimistically remove from local state
+      setExternalRawEvents(prev => prev.filter(e => e.external_event_id !== externalEventId))
+      setExternalEventDetail(null)
+      showToast('Event deleted from Google Calendar', 'success')
+    } catch (err: any) {
+      showToast(`Failed to delete: ${err.message}`, 'error')
+      throw err
+    }
+  }
+
+  function handleEditGoogleEvent(externalEventId: string, calendarId: string, integrationId: number) {
+    const rawEv = externalRawEvents.find(e => e.external_event_id === externalEventId)
+    const cal = externalCalendarConfigs.get(calendarId)
+    if (!rawEv) return
+    setEditGoogleEvent({
+      event: {
+        id: -(rawEv.id as number),
+        title: rawEv.title,
+        date: rawEv.start_date ?? rawEv.date,
+        end_date: rawEv.end_date ?? rawEv.start_date ?? rawEv.date,
+        start_time: rawEv.start_time ?? null,
+        end_time: rawEv.end_time ?? null,
+        description: rawEv.description ?? '',
+        is_recurring: false,
+        recurrence_pattern: null,
+        recurrence_interval: 1,
+        recurrence_end_date: null,
+        recurrence_days: null,
+        created_at: rawEv.created_at ?? new Date().toISOString(),
+        event_family_members: [],
+        isExternal: true,
+        externalProvider: 'google',
+      },
+      externalEventId,
+      externalCalendarId: calendarId,
+      integrationId,
+      calendarName: cal?.calendar_name ?? 'Google Calendar',
+      googleEmail: cal?.google_email ?? null,
+    })
+    setExternalEventDetail(null)
+  }
+
+  async function handleSaveGoogleEventEdit(
+    externalEventId: string,
+    calendarId: string,
+    integrationId: number,
+    fields: { title: string; date: string; endDate: string; startTime: string; endTime: string; description: string }
+  ) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { showToast('Not authenticated', 'error'); throw new Error('No session') }
+    try {
+      const res = await fetch(`/api/google-calendar/events/${encodeURIComponent(externalEventId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          integrationId,
+          calendarId,
+          event: fields,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? 'Unknown error') }
+
+      // Optimistically swap stale entry for a pending placeholder
+      setExternalRawEvents(prev => prev.filter(e => e.external_event_id !== externalEventId))
+      const tempId = -(Date.now())
+      const placeholder: Event = {
+        id: tempId,
+        title: fields.title,
+        date: fields.date,
+        end_date: fields.endDate || fields.date,
+        start_time: fields.startTime || null,
+        end_time: fields.endTime || null,
+        description: fields.description,
+        is_recurring: false,
+        recurrence_pattern: null,
+        recurrence_interval: 1,
+        recurrence_end_date: null,
+        recurrence_days: null,
+        created_at: new Date().toISOString(),
+        event_family_members: [],
+        isExternal: true,
+        externalProvider: 'google',
+        isPending: true,
+      }
+      setPendingExternalEvents(prev => [...prev, placeholder])
+      setEditGoogleEvent(null)
+      showToast('Event updated — syncing…', 'success')
+      await syncGoogleCalendar()
+      showToast('Event updated in Google Calendar!', 'success')
+      setPendingExternalEvents(prev => prev.filter(e => e.id !== tempId))
+    } catch (err: any) {
+      showToast(`Failed to update: ${err.message}`, 'error')
+      throw err
     }
   }
 
@@ -995,10 +1211,11 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
       event_family_members: members.map(m => ({ family_members: { id: m.id, name: m.name, color: m.color } })),
       isExternal: true,
       externalProvider: ev.provider || 'google',
+      custom_color: ev.color_hex ?? null,
     }
   })
 
-  const filteredEvents = getFilteredEvents([...expandedEvents, ...externalEvents])
+  const filteredEvents = getFilteredEvents([...expandedEvents, ...externalEvents, ...pendingExternalEvents])
 
   // Compute meal plans count by date
   const mealPlansCount: Record<string, number> = mealPlans.reduce((acc, plan) => {
@@ -1287,6 +1504,8 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
           initialStartTime={newEventTime}
           onShowToast={showToast}
           eventColorMode={eventColorMode}
+          connectedGoogleCalendars={connectedGoogleCalendars}
+          onAddGoogleEvent={handleCreateGoogleEvent}
         />
 
         {/* Meal Plan Modal */}
@@ -1311,6 +1530,25 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
               .map(efm => familyMembers.find(m => m.id === efm.family_members.id))
               .filter((m): m is FamilyMember => m !== undefined)
           }
+          externalEventId={externalEventDetail?.externalEventId ?? null}
+          externalCalendarId={externalEventDetail?.externalCalendarId ?? null}
+          integrationId={externalEventDetail?.integrationId ?? null}
+          onEdit={handleEditGoogleEvent}
+          onDelete={handleDeleteExternalEvent}
+        />
+
+        {/* Edit Google Event Modal */}
+        <EditGoogleEventModal
+          isOpen={editGoogleEvent !== null}
+          onClose={() => setEditGoogleEvent(null)}
+          event={editGoogleEvent?.event ?? null}
+          externalEventId={editGoogleEvent?.externalEventId ?? null}
+          externalCalendarId={editGoogleEvent?.externalCalendarId ?? null}
+          integrationId={editGoogleEvent?.integrationId ?? null}
+          calendarName={editGoogleEvent?.calendarName ?? ''}
+          googleEmail={editGoogleEvent?.googleEmail ?? null}
+          onSave={handleSaveGoogleEventEdit}
+          onShowToast={showToast}
         />
 
         {/* Settings Modal */}

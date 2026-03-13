@@ -1,14 +1,7 @@
 import { google } from 'googleapis'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-
-function getOAuthClient() {
-  return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID!,
-    process.env.GOOGLE_CLIENT_SECRET!,
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/google-auth/callback`
-  )
-}
+import { getGoogleOAuthClient } from '@/lib/googleAuth'
 
 // GET /api/google-auth/callback?code=...&state=...
 // Google redirects here after user grants permission.
@@ -42,7 +35,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Exchange authorization code for tokens
-    const oauth2Client = getOAuthClient()
+    const oauth2Client = getGoogleOAuthClient()
     const { tokens } = await oauth2Client.getToken(code)
 
     if (!tokens.access_token) {

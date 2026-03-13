@@ -32,6 +32,7 @@ type Event = {
   baseEventId?: number
   isExternal?: boolean // True for events synced from Google Calendar etc.
   externalProvider?: string // 'google' | 'outlook' | 'apple'
+  isPending?: boolean // True while waiting to sync back from provider
   custom_color?: string | null
 }
 
@@ -630,7 +631,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                                 color: 'white',
                                 textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
                               }}
-                              title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : ''}\n${members.map(m => m.name).join(', ')}${event.isExternal ? '\n(Google Calendar — read only)' : ''}`}
+                              title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : ''}\n${members.map(m => m.name).join(', ')}${event.isExternal ? (event.isPending ? '\n(Syncing…)' : '\n(Google Calendar)') : ''}`}
                             >
                               {multiDayRange && (
                                 <div className="text-[9px] opacity-90 truncate">{multiDayRange}</div>
@@ -770,7 +771,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                                 e.stopPropagation()
                                 handleEventInteraction(event)
                               }}
-                              className={`absolute px-2 py-1.5 text-xs ${event.isExternal ? 'cursor-pointer' : 'cursor-move'} hover:scale-[1.08] transition-all duration-200 overflow-hidden ${colorTheme === 'pastel' ? 'rounded border' : 'rounded-xl text-white border-2 border-white/20'}`}
+                              className={`absolute px-2 py-1.5 text-xs ${event.isExternal ? 'cursor-pointer' : 'cursor-move'} hover:scale-[1.08] transition-all duration-200 overflow-hidden ${event.isPending ? 'opacity-60' : ''} ${colorTheme === 'pastel' ? 'rounded border' : 'rounded-xl text-white border-2 border-white/20'}`}
                               style={{
                                 ...(pastelStyle ?? {
                                   background: glassyColor,
@@ -784,11 +785,14 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                                 width: `${position.width}%`,
                                 zIndex: position.column + 1
                               }}
-                              title={`${event.title}${timeRange ? ` at ${timeRange}` : ''}\n${members.map(m => m.name).join(', ')}${event.isExternal ? '\n(Google Calendar — read only)' : ''}`}
+                              title={`${event.title}${timeRange ? ` at ${timeRange}` : ''}\n${members.map(m => m.name).join(', ')}${event.isExternal ? (event.isPending ? '\n(Syncing…)' : '\n(Google Calendar)') : ''}`}
                             >
                               <div className="font-medium flex items-center gap-1 min-w-0">
                                 {event.baseEventId && <span className="text-[10px] flex-shrink-0" title="Recurring or multi-day event">↻</span>}
-                                {event.isExternal && <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>}
+                                {event.isExternal && (event.isPending
+                                  ? <span className="text-[10px] flex-shrink-0" title="Syncing with Google Calendar">⏳</span>
+                                  : <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>
+                                )}
                                 {linkedTaskEventIds?.has(event.id) && <span className="text-[10px] flex-shrink-0" title="Has linked task">📋</span>}
                                 <span className="truncate">{event.title}</span>
                               </div>
@@ -892,13 +896,16 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                               color: 'white',
                               textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
                             }}
-                            title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : ''}\n${members.map(m => m.name).join(', ')}${event.isExternal ? '\n(Google Calendar — read only)' : ''}`}
+                            title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : ''}\n${members.map(m => m.name).join(', ')}${event.isExternal ? (event.isPending ? '\n(Syncing…)' : '\n(Google Calendar)') : ''}`}
                           >
                             {multiDayRange && (
                               <div className="text-[10px] opacity-90 mb-1">{multiDayRange}</div>
                             )}
                             <div className="font-semibold flex items-center gap-0.5 min-w-0">
-                              {event.isExternal && <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>}
+                              {event.isExternal && (event.isPending
+                                ? <span className="text-[10px] flex-shrink-0" title="Syncing with Google Calendar">⏳</span>
+                                : <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>
+                              )}
                               {linkedTaskEventIds?.has(event.id) && <span className="text-[10px] flex-shrink-0" title="Has linked task">📋</span>}
                               <span className="truncate">{event.title}</span>
                             </div>
@@ -1032,7 +1039,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                             e.stopPropagation()
                             handleEventInteraction(event)
                           }}
-                          className={`absolute px-2 py-1.5 text-xs ${event.isExternal ? 'cursor-default' : 'cursor-move'} hover:scale-[1.08] transition-all duration-200 overflow-hidden ${colorTheme === 'pastel' ? 'rounded border' : 'rounded-xl text-white border-2 border-white/20'}`}
+                          className={`absolute px-2 py-1.5 text-xs ${event.isExternal ? 'cursor-default' : 'cursor-move'} hover:scale-[1.08] transition-all duration-200 overflow-hidden ${event.isPending ? 'opacity-60' : ''} ${colorTheme === 'pastel' ? 'rounded border' : 'rounded-xl text-white border-2 border-white/20'}`}
                           style={{
                             ...(pastelStyle ?? {
                               background: glassyColor,
@@ -1046,11 +1053,14 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                             width: `${position.width}%`,
                             zIndex: position.column + 1
                           }}
-                          title={`${event.title}${timeRange ? ` at ${timeRange}` : ''}\n${members.map(m => m.name).join(', ')}${event.isExternal ? '\n(Google Calendar — read only)' : ''}`}
+                          title={`${event.title}${timeRange ? ` at ${timeRange}` : ''}\n${members.map(m => m.name).join(', ')}${event.isExternal ? (event.isPending ? '\n(Syncing…)' : '\n(Google Calendar)') : ''}`}
                         >
                           <div className="font-semibold flex items-center gap-1 min-w-0">
                             {event.baseEventId && <span className="text-sm flex-shrink-0" title="Recurring or multi-day event">↻</span>}
-                            {event.isExternal && <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>}
+                            {event.isExternal && (event.isPending
+                              ? <span className="text-[10px] flex-shrink-0" title="Syncing with Google Calendar">⏳</span>
+                              : <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>
+                            )}
                             {linkedTaskEventIds?.has(event.id) && <span className="text-xs flex-shrink-0" title="Has linked task">📋</span>}
                             <span className="truncate">{event.title}</span>
                           </div>
@@ -1159,14 +1169,17 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                         color: 'white',
                         textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
                       }}
-                      title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : timeRange ? ` at ${timeRange}` : ''}${event.isExternal ? '\n(Google Calendar — read only)' : ''}`}
+                      title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : timeRange ? ` at ${timeRange}` : ''}${event.isExternal ? (event.isPending ? '\n(Syncing…)' : '\n(Google Calendar)') : ''}`}
                     >
                       {multiDayRange && (
                         <div className="text-[10px] opacity-90 truncate mb-0.5">{multiDayRange}</div>
                       )}
                       <div className="font-medium flex items-center gap-1 min-w-0">
                         {event.baseEventId && <span className="flex-shrink-0" title="Recurring or multi-day event">↻</span>}
-                        {event.isExternal && <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>}
+                        {event.isExternal && (event.isPending
+                          ? <span className="text-[10px] flex-shrink-0" title="Syncing with Google Calendar">⏳</span>
+                          : <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>
+                        )}
                         {linkedTaskEventIds?.has(event.id) && <span className="flex-shrink-0" title="Has linked task">📋</span>}
                         <span className="truncate">{event.title}</span>
                         {!multiDayRange && timeRange && <span className="opacity-75 ml-0.5 flex-shrink-0">{timeRange}</span>}

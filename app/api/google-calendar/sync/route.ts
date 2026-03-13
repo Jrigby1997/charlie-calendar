@@ -1,13 +1,22 @@
 import { google, calendar_v3 } from 'googleapis'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getGoogleOAuthClient, getValidAccessToken } from '@/lib/googleAuth'
 
-function getOAuthClient() {
-  return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID!,
-    process.env.GOOGLE_CLIENT_SECRET!,
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/google-auth/callback`
-  )
+// Google Calendar event colorId → hex. These are the official palette values shown in the UI.
+// https://developers.google.com/calendar/api/v3/reference/colors/get
+const GOOGLE_EVENT_COLORS: Record<string, string> = {
+  '1':  '#7986cb', // Lavender
+  '2':  '#33b679', // Sage
+  '3':  '#8e24aa', // Grape
+  '4':  '#e67c73', // Flamingo
+  '5':  '#f6bf26', // Banana
+  '6':  '#f5511d', // Tangerine
+  '7':  '#039be5', // Peacock
+  '8':  '#616161', // Graphite
+  '9':  '#3f51b5', // Blueberry
+  '10': '#0b8043', // Basil
+  '11': '#d50000', // Tomato
 }
 
 // Converts a Google Calendar event datetime to { date, time } in app format.
@@ -21,57 +30,13 @@ function parseGoogleDateTime(dt: { date?: string | null; dateTime?: string | nul
     return { date: dt.date, time: null }
   }
   if (dt.dateTime) {
-    // Parse the RFC 3339 string directly (e.g. "2026-03-06T14:00:00-07:00").
-    // Do NOT use new Date() here — that converts to UTC and loses the local date/time
-    // when the server (Vercel) runs in a different timezone than the user.
+    // Parse the RFC 3339 string directly — do NOT use new Date() as it converts to UTC
+    // and loses the local date/time when the server runs in a different timezone.
     const [datePart, timePart] = dt.dateTime.split('T')
     const time = timePart ? timePart.substring(0, 5) : null // "HH:MM"
     return { date: datePart, time }
   }
   return { date: new Date().toISOString().split('T')[0], time: null }
-}
-
-// Ensures the access token is fresh for a specific integration row; refreshes if expired.
-async function getValidAccessTokenForIntegration(integrationId: number): Promise<string | null> {
-  const { data: integration, error } = await supabaseAdmin
-    .from('user_integrations')
-    .select('access_token, refresh_token, token_expires_at')
-    .eq('id', integrationId)
-    .single()
-
-  if (error || !integration) return null
-
-  const isExpired =
-    integration.token_expires_at &&
-    new Date(integration.token_expires_at).getTime() < Date.now() + 60_000
-
-  if (!isExpired) return integration.access_token
-
-  if (!integration.refresh_token) {
-    console.error(`Integration ${integrationId}: no refresh token, user must reconnect.`)
-    return null
-  }
-
-  try {
-    const oauth2Client = getOAuthClient()
-    oauth2Client.setCredentials({ refresh_token: integration.refresh_token })
-    const { credentials } = await oauth2Client.refreshAccessToken()
-
-    await supabaseAdmin
-      .from('user_integrations')
-      .update({
-        access_token: credentials.access_token!,
-        token_expires_at: credentials.expiry_date
-          ? new Date(credentials.expiry_date).toISOString()
-          : null,
-      })
-      .eq('id', integrationId)
-
-    return credentials.access_token!
-  } catch (err) {
-    console.error(`Token refresh failed for integration ${integrationId}:`, err)
-    return null
-  }
 }
 
 // POST /api/google-calendar/sync
@@ -126,7 +91,7 @@ export async function POST(request: NextRequest) {
     const syncedCalendars: string[] = []
 
     for (const integration of integrations) {
-      const accessToken = await getValidAccessTokenForIntegration(integration.id)
+      const accessToken = await getValidAccessToken(integration.id)
       if (!accessToken) {
         console.warn(`Skipping integration ${integration.id} (${integration.google_email}): could not get valid token`)
         continue
@@ -144,12 +109,21 @@ export async function POST(request: NextRequest) {
 
       if (!calendars?.length) continue
 
-      const oauth2Client = getOAuthClient()
+      const oauth2Client = getGoogleOAuthClient()
       oauth2Client.setCredentials({ access_token: accessToken })
       const calendarApi = google.calendar({ version: 'v3', auth: oauth2Client })
 
       for (const cal of calendars) {
         try {
+          // Fetch this calendar's background color (used as fallback when individual
+          // events have no per-event colorId override)
+          let calendarColor: string | null = null
+          try {
+            const calListEntry = await calendarApi.calendarList.get({ calendarId: cal.external_calendar_id })
+            calendarColor = calListEntry.data.backgroundColor ?? null
+          } catch {
+            // Non-fatal — color defaults to null
+          }
           const allEvents: calendar_v3.Schema$Event[] = []
           let pageToken: string | undefined = undefined
 
@@ -199,6 +173,10 @@ export async function POST(request: NextRequest) {
                 description: ev.description ?? '',
                 is_all_day: start.time === null,
                 provider: 'google',
+                // Resolve color: event override → calendar color → null
+                color_hex: ev.colorId
+                  ? (GOOGLE_EVENT_COLORS[ev.colorId] ?? calendarColor)
+                  : calendarColor,
               }
             })
 

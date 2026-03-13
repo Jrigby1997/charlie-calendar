@@ -82,9 +82,21 @@ type AddEventModalProps = {
   initialStartTime?: string
   onShowToast?: (message: string, tone: 'success' | 'error') => void
   eventColorMode?: string
+  /** Connected Google accounts + calendars. When provided, a destination picker is shown on new events. */
+  connectedGoogleCalendars?: Array<{
+    integrationId: number
+    calendarId: string
+    calendarName: string
+    googleEmail: string | null
+  }>
+  /** Called instead of onAddEvent when the user selects a Google Calendar as the destination. */
+  onAddGoogleEvent?: (
+    fields: { title: string; date: string; endDate: string; startTime: string; endTime: string; description: string; isRecurring: boolean; recurrencePattern: string; recurrenceInterval: number; recurrenceEndDate: string; recurrenceDays: string[] },
+    target: { integrationId: number; calendarId: string }
+  ) => Promise<void>
 }
 
-export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEvent, onUpdateEvent, onDeleteEvent, editingEvent, instanceDate, initialDate, initialStartTime, onShowToast, eventColorMode }: AddEventModalProps) {
+export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEvent, onUpdateEvent, onDeleteEvent, editingEvent, instanceDate, initialDate, initialStartTime, onShowToast, eventColorMode, connectedGoogleCalendars, onAddGoogleEvent }: AddEventModalProps) {
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -100,6 +112,8 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
   const [showUpdateOptions, setShowUpdateOptions] = useState(false)
   const [showDeleteOptions, setShowDeleteOptions] = useState(false)
   const [customColor, setCustomColor] = useState('#9CA3AF')
+  // Google Calendar destination: 'local' = save to Supabase (default); '{integId}:{calId}' = send to Google
+  const [googleCalendarTarget, setGoogleCalendarTarget] = useState('local')
 
   // Linked-task state
   const [createLinkedTask, setCreateLinkedTask] = useState(false)
@@ -171,6 +185,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
       setCustomColor('#9CA3AF')
       setCreateLinkedTask(false)
       setLinkedTaskRewards(DEFAULT_LINKED_REWARDS)
+      setGoogleCalendarTarget('local')
     }
   }, [editingEvent, initialDate, initialStartTime, isOpen])
 
@@ -222,7 +237,19 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
         onClose()
       }
     } else {
-      onAddEvent(title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays, customColor, createLinkedTask, linkedTaskRewards.filter(r => r.enabled).map(({ currency_type, amount }) => ({ currency_type, amount })))
+      // New event — check if routing to Google Calendar
+      const isGoogleTarget = googleCalendarTarget !== 'local' && onAddGoogleEvent
+      if (isGoogleTarget) {
+        const [integIdStr, ...calIdParts] = googleCalendarTarget.split(':')
+        const integrationId = Number(integIdStr)
+        const calendarId = calIdParts.join(':')
+        onAddGoogleEvent(
+          { title, date, endDate, startTime, endTime, description, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays },
+          { integrationId, calendarId }
+        ).catch(() => {/* onAddGoogleEvent shows its own toast */})
+      } else {
+        onAddEvent(title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays, customColor, createLinkedTask, linkedTaskRewards.filter(r => r.enabled).map(({ currency_type, amount }) => ({ currency_type, amount })))
+      }
       onClose()
     }
   }
@@ -278,11 +305,38 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
-              className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+              className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/50 bg-white/20 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
               placeholder="Birthday party, Doctor appointment, etc."
             />
           </div>
 
+          {/* Calendar destination — shown only when creating and Google calendars are connected */}
+          {!editingEvent && connectedGoogleCalendars && connectedGoogleCalendars.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-white/90 mb-1">Calendar</label>
+              <select
+                value={googleCalendarTarget}
+                onChange={(e) => setGoogleCalendarTarget(e.target.value)}
+                className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white bg-white/20 backdrop-blur-sm transition-all duration-200 hover:border-white/40"
+              >
+                <option value="local" className="bg-gray-800">📱 Local only</option>
+                {connectedGoogleCalendars.map(cal => {
+                  const key = `${cal.integrationId}:${cal.calendarId}`
+                  return (
+                    <option key={key} value={key} className="bg-gray-800">
+                      G · {cal.calendarName}{cal.googleEmail ? ` (${cal.googleEmail.split('@')[0]})` : ''}
+                    </option>
+                  )
+                })}
+              </select>
+              {googleCalendarTarget !== 'local' && (
+                <p className="text-white/40 text-xs mt-1.5">Event will be created in Google Calendar and synced back automatically.</p>
+              )}
+            </div>
+          )}
+
+          {/* Family Members — local events only */}
+          {googleCalendarTarget === 'local' && (
           <div>
             <label className="block text-sm font-medium text-white/90 mb-2">
               Family Members
@@ -318,6 +372,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
               )}
             </div>
           </div>
+          )}
 
           {/* Custom Event Color */}
           {eventColorMode === 'custom' && (
@@ -434,8 +489,8 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
             />
           </div>
 
-          {/* Also add as a task — only shown when creating a new event */}
-          {!editingEvent && (
+          {/* Also add as a task — only shown when creating a new local event */}
+          {!editingEvent && googleCalendarTarget === 'local' && (
             <div className="border-t border-white/20 pt-4">
               <div className="flex items-center mb-3">
                 <input
@@ -550,7 +605,18 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
                 type="checkbox"
                 id="isRecurring"
                 checked={isRecurring}
-                onChange={(e) => setIsRecurring(e.target.checked)}
+                onChange={(e) => {
+                  const checked = e.target.checked
+                  setIsRecurring(checked)
+                  // Reset recurrence fields to defaults whenever the user enables recurrence
+                  // so stale values from previous interactions don't carry over
+                  if (checked) {
+                    setRecurrencePattern('weekly')
+                    setRecurrenceInterval(1)
+                    setRecurrenceEndDate('')
+                    setRecurrenceDays([])
+                  }
+                }}
                 className="w-4 h-4 text-white border-white/30 rounded focus:ring-white/50 bg-white/10"
               />
               <label htmlFor="isRecurring" className="ml-2 text-sm font-medium text-white/90">

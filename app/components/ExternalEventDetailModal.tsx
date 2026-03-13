@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+
 type FamilyMember = {
   id: number
   name: string
@@ -22,6 +24,20 @@ type ExternalEventDetailProps = {
   calendarName: string
   googleEmail: string | null
   assignedMembers: FamilyMember[]
+  /** Google-side identifiers. When provided, Edit + Delete buttons are shown. */
+  externalEventId?: string | null
+  externalCalendarId?: string | null
+  integrationId?: number | null
+  onEdit?: (
+    externalEventId: string,
+    calendarId: string,
+    integrationId: number
+  ) => void
+  onDelete?: (
+    externalEventId: string,
+    calendarId: string,
+    integrationId: number
+  ) => Promise<void>
 }
 
 function formatDisplayDate(dateStr: string): string {
@@ -59,8 +75,36 @@ export default function ExternalEventDetailModal({
   calendarName,
   googleEmail,
   assignedMembers,
+  externalEventId,
+  externalCalendarId,
+  integrationId,
+  onEdit,
+  onDelete,
 }: ExternalEventDetailProps) {
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
   if (!isOpen || !event) return null
+
+  const canWrite = !!(externalEventId && externalCalendarId && integrationId != null && (onEdit || onDelete))
+
+  async function handleDelete() {
+    if (!externalEventId || !externalCalendarId || integrationId == null || !onDelete) return
+    setIsDeleting(true)
+    try {
+      await onDelete(externalEventId, externalCalendarId, integrationId)
+      onClose()
+    } finally {
+      setIsDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
+
+  function handleEditClick() {
+    if (!externalEventId || !externalCalendarId || integrationId == null || !onEdit) return
+    onEdit(externalEventId, externalCalendarId, integrationId)
+    onClose()
+  }
 
   const hasTimeRange = event.start_time && event.end_time
   const isMultiDay = event.end_date && event.end_date !== event.date
@@ -154,22 +198,73 @@ export default function ExternalEventDetailModal({
             </div>
           )}
 
-          {/* Read-only notice */}
-          <div className="pt-2 border-t border-white/10">
-            <p className="text-white/40 text-xs text-center">
-              This event is synced from Google Calendar and is read-only.
-            </p>
-          </div>
+          {/* Delete confirmation inline */}
+          {confirmDelete && (
+            <div className="pt-2 border-t border-red-500/20 bg-red-500/10 rounded-xl p-3 space-y-2">
+              <p className="text-red-200 text-sm text-center font-medium">Delete this event from Google Calendar?</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="px-6 bg-white/10 backdrop-blur-lg hover:bg-white/20 text-white font-semibold py-3 rounded-xl transition-all duration-200 border border-white/20 hover:scale-105"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="flex-1 bg-red-500/30 backdrop-blur-lg hover:bg-red-500/40 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 border border-red-300/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isDeleting ? 'Deleting…' : 'Yes, Delete'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Managed-via note */}
+          {!confirmDelete && (
+            <div className="pt-2 border-t border-white/10">
+              <p className="text-white/30 text-xs text-center">
+                Managed via Google Calendar{canWrite ? ' · edits sync back automatically' : ''}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         <div className="border-t border-white/20 px-6 py-4">
-          <button
-            onClick={onClose}
-            className="w-full px-6 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-lg border border-white/30 rounded-xl text-white font-medium transition-all duration-200 hover:scale-105"
-          >
-            Close
-          </button>
+          {canWrite && !confirmDelete ? (
+            <div className="flex gap-3">
+              {onDelete && (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="bg-red-500/30 backdrop-blur-lg hover:bg-red-500/40 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 border border-red-300/30"
+                >
+                  Delete
+                </button>
+              )}
+              {onEdit && (
+                <button
+                  onClick={handleEditClick}
+                  className="flex-1 bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 border border-white/30"
+                >
+                  Edit Event
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="px-6 bg-white/10 backdrop-blur-lg hover:bg-white/20 text-white font-semibold py-3 rounded-xl transition-all duration-200 border border-white/20 hover:scale-105"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : !confirmDelete ? (
+            <button
+              onClick={onClose}
+              className="w-full bg-white/20 backdrop-blur-lg hover:bg-white/30 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 border border-white/30"
+            >
+              Close
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

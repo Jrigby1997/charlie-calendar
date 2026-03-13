@@ -1,14 +1,6 @@
-import { google } from 'googleapis'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-
-function getOAuthClient() {
-  return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID!,
-    process.env.GOOGLE_CLIENT_SECRET!,
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/google-auth/callback`
-  )
-}
+import { getGoogleOAuthClient } from '@/lib/googleAuth'
 
 // GET /api/google-auth?token=<supabase-access-token>
 // Validates the user's Supabase session, embeds their user_id in the OAuth state,
@@ -27,7 +19,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
   }
 
-  const oauth2Client = getOAuthClient()
+  const oauth2Client = getGoogleOAuthClient()
 
   // Encode user_id in state so we can identify them on callback
   const state = Buffer.from(JSON.stringify({ userId: user.id })).toString('base64url')
@@ -35,7 +27,7 @@ export async function GET(request: NextRequest) {
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',   // Required to receive a refresh_token
     scope: [
-      'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/calendar', // Full read+write access
       'https://www.googleapis.com/auth/userinfo.email',
     ],
     prompt: 'consent',        // Always show consent so we get refresh_token on reconnect
