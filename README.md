@@ -11,25 +11,73 @@
 | 7 | **Rotating Tasks** | ✅ Done — Ordered roster per task; rotates on completion or every N days; "🔄 your turn" badge; non-current members' circles disabled |
 | 8 | **Flexible Recurrence** | ✅ Done — Tasks repeat every X days, X weeks, or X months with configurable interval; `isDueOnDate()` filtering shows tasks only on their correct days |
 | 9 | **Calendar-Linked Tasks** | ✅ Done — When creating a calendar event, check "Also add as a task" to have it appear in both the Calendar view (as an event) and the Task view (as a one-off task for that specific date). Linked events show a 📋 badge. Ideal for dated to-dos like "Get oil change", "File taxes", or "Medical checkup" — one entry, two places |
-| 10 | **Sleep Mode** | 🌙 Sleep button in sidebar; full-screen photo slideshow from admin-uploaded images (selectable in Settings); tap/click anywhere to wake; manual-only |
-| 11 | **Calorie Totals** | Daily calorie sum across all meal slots in the Meal Plan week grid, using per-recipe macro data |
+| 10 | ✅ **Sleep Mode** | Sleep button in sidebar; full-screen photo slideshow from admin-uploaded images (selectable in Settings); tap/click anywhere to wake; manual-only |
+| 11 | ✅ **Calorie / Macro Totals** | Daily totals row in Meal Plan week grid showing 🔥 cal / 💪 pro / 🥑 fat / 🌾 carb, centred per column; macro data joined from recipes table |
 | 12 | **Mobile Optimization** | Responsive layouts, touch-friendly targets, swipe navigation, bottom nav bar on mobile |
 | 13 | **Space Theme** | Colorful galaxy background (purples/pinks/blues, nebula-style); kid-friendly; glowing card borders; star field parallax |
 | 14 | **Seasonal Auto-Theme** | Auto-detects date range: Halloween (Oct 15–Nov 1), Christmas (Dec 1–25), Easter (Mar–Apr), Fall (Sep–Oct), Spring (Apr–May); unique CSS + decorative assets per season |
-| 15 | ✅ **Generate Meal Plan** | "Generate Meal Plan" button fills empty weekly slots with recipes matching per-day nutrition goals (calories/protein/fat/carbs, each with ≤/≥ direction); respects recipe category tags so tagged recipes only appear in matching meal-type slots; Allow Leftovers copies yesterday's dinner into today's lunch; goals persist across sessions via app_settings |
+| 15 | ✅ **Generate Meal Plan** | "Generate Meal Plan" button fills empty weekly slots with recipes matching per-day nutrition goals (calories/protein/fat/carbs, each with ≤/≥ direction); ≤ goals are strictly enforced with proportional budget reservation per meal type (Breakfast 20%, Lunch 30%, Dinner 40%, Snack 10%, Dessert 0% — optional, fills only if surplus allows); ≥ goals sort candidates by deficit contribution; Fisher-Yates shuffle ensures genuine randomness; week-level and day-level dedup prevent recipe repeats; Allow Leftovers copies yesterday's dinner into today's lunch; goals persist via app_settings; 5 fixed standard meal types (no custom types) |
 | 16 | **AI Scheduler** | Conversational scheduler suggests optimal event times based on existing calendar load, family member preferences, and recurring patterns — formula-driven with natural language output |
 | 17 | **Google Calendar Write** | Create, edit, and delete events directly on connected Google Calendars from within the app (currently read-only sync) |
 | 18 | **Apple Calendar Read** | Sync and display events from Apple Calendar / iCloud Calendar (CalDAV) in all calendar views |
 | 19 | **Apple Calendar Write** | Create, edit, and delete events on connected Apple/iCloud Calendars from within the app |
 | 20 | **Outlook Calendar Read** | Sync and display events from Microsoft Outlook / Office 365 Calendar (Microsoft Graph API) in all calendar views |
 | 21 | **Outlook Calendar Write** | Create, edit, and delete events on connected Outlook/Office 365 Calendars from within the app |
-| 22 | **Create Components** | Create Components/ style guide to help the software be more uniform |
+| 22 | ✅ **Style Guide** | `STYLE_GUIDE.md` documents colour tokens, button variants, modal anatomy, form inputs, pastel override pattern, semantic class naming, and rules for new components. Component library refactor planned after feature set stabilises. |
 | 23 | **Admin Password** | Create an admin password functionality that you can apply to parts of the software so only the admin(s) can edit/add to certain sections |
 | 24 | **Life360 Mockup** | Add tracking software, maybe add it to notify you tied to events (suzie arrived to soccer) |
 
 ---
 
 ## 📝 Latest Updates (March 12, 2026)
+
+### Phase 12: Generate Meal Plan Refinements
+
+**Standard Meal Types:**
+- ✅ Removed "Add Custom Meal Type" UI from `MealPlanModal` — meal types are now fixed
+- ✅ 5 standard types: Breakfast, Lunch, Dinner, Snack, Dessert (in that order)
+- ✅ `seedDefaultMealTypes` upgraded to `upsert` with `ignoreDuplicates: true` — existing users silently gain Snack without disrupting their data
+- ✅ Both `MealPlanModal` and `MealPlanWeekView` now always upsert on load rather than only when the table is empty
+
+**Strict Goal Enforcement + Budget-Aware Distribution:**
+- ✅ `≤` goals are now strictly enforced — slots that can't be filled without a violation are left empty, never filled with a violating recipe (removed fallback pool)
+- ✅ Proportional budget reservation prevents early meals from consuming the whole day's budget:
+  - Breakfast → 20%, Lunch → 30%, Dinner → 40%, Snack → 10%, Dessert → 0%
+  - `getEffectiveCap()` computes per-slot cap = `goal − already used − Σ(weight × goal for each unfilled later slot)`
+  - Breakfast with a 1800 cal goal and Lunch/Dinner/Snack unfilled is limited to ~360 cal
+- ✅ Dessert weight is 0 — no budget is reserved for it, so it only fills if surplus calorie room exists after all other slots are placed (optional by design)
+- ✅ `unfilledCount` tracks slots left empty due to goal constraints; toast message explains partial fills
+
+**Algorithm Bug Fixes:**
+- ✅ Same-day recipe dedup — `getDayUsedIds()` builds a per-day Set; candidates with `dayUsed.has(r.id)` are excluded
+- ✅ Same-week recipe dedup — `weekUsedIds` Set initialized from existing `mealPlans`; each picked recipe added immediately; leftovers exempt
+- ✅ `≥` direction now works — `sortForMinGoals()` ranks candidates by how much they close the deficit for each lagging macro
+- ✅ Fisher-Yates shuffle replaces biased `sort(() => Math.random() - 0.5)` — uniform permutations, genuinely different plans on each run
+- ✅ `sortForMinGoals` pre-shuffles before stable-sorting so equal-scored recipes break ties randomly
+
+**Modified Files:**
+- `app/components/MealPlanWeekView.tsx` — `seedDefaultMealTypes` (upsert), `SLOT_WEIGHTS`, `getSlotWeight`, `getEffectiveCap`, `passesMaxGoals` (budget-aware, strict), loop uses `mtIdx`, Fisher-Yates shuffle, `sortForMinGoals` pre-shuffle
+- `app/components/MealPlanModal.tsx` — removed `newMealType` state, `handleAddMealType`, "Add Custom Meal Type" UI block; `seedDefaultMealTypes` updated to upsert 5 standard types
+
+---
+
+## 📝 Previous Updates (March 12, 2026)
+
+### Style Guide (Task 22)
+
+- ✅ `STYLE_GUIDE.md` created — comprehensive reference covering:
+  - The two themes (glass / pastel) and their selectors
+  - 5 semantic colour variants: primary (purple), success (green), danger (red), info (emerald), warning (amber)
+  - Copy-paste button class strings for all variants and sizes
+  - Modal anatomy — backdrop, container, header, body, footer, max-width scale, z-index stack
+  - Card and panel patterns
+  - Typography scale (heading → caption)
+  - Form input classes (text, select, textarea, checkbox, number)
+  - Toast/notification pattern
+  - Spacing & layout tokens
+  - Skeleton/loading state classes
+  - **Pastel override pattern** — semantic class naming convention (`feature-element-modifier`) + `globals.css` template with colour reference table
+  - 6 hard rules for new components
 
 ### Phase 11: Generate Meal Plan (Task 15)
 

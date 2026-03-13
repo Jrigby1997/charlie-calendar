@@ -170,18 +170,9 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
         .lte('date', endISO)
     ])
 
-    // Seed default meal types if none exist
-    if (!typesResult.error && (!typesResult.data || typesResult.data.length === 0)) {
-      await seedDefaultMealTypes()
-      const reloaded = await supabase
-        .from('meal_types')
-        .select('id, name, sort_order')
-        .eq('user_id', userId)
-        .order('sort_order', { ascending: true })
-      setMealTypes(reloaded.data || [])
-    } else {
-      setMealTypes(typesResult.data || [])
-    }
+    // Always ensure all 5 standard types exist (adds any missing ones silently)
+    await seedDefaultMealTypes()
+    setMealTypes(typesResult.data || [])
 
     if (!plansResult.error) {
       const entries: MealPlanEntry[] = (plansResult.data || []).map((item: any) => ({
@@ -207,11 +198,12 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
       { name: 'Breakfast', sort_order: 1 },
       { name: 'Lunch', sort_order: 2 },
       { name: 'Dinner', sort_order: 3 },
-      { name: 'Dessert', sort_order: 4 }
+      { name: 'Snack', sort_order: 4 },
+      { name: 'Dessert', sort_order: 5 },
     ]
     await supabase
       .from('meal_types')
-      .insert(defaults.map(d => ({ ...d, user_id: userId })))
+      .upsert(defaults.map(d => ({ ...d, user_id: userId })), { onConflict: 'user_id,name', ignoreDuplicates: true })
   }
 
   useEffect(() => {
@@ -325,6 +317,17 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
     type PlannedMeal = { date: string; meal_type: string; recipe_id: number; recipe_name: string; calories: number | null; protein: number | null; fat: number | null; carbs: number | null }
     const planned: PlannedMeal[] = []
 
+    // Week-level dedup: start with recipes already placed this week
+    const weekUsedIds = new Set<number>(mealPlans.map(p => p.recipe_id))
+
+    // Per-day dedup: includes both existing + newly planned entries for that day
+    function getDayUsedIds(dateISO: string): Set<number> {
+      const ids = new Set<number>()
+      mealPlans.filter(p => p.date === dateISO).forEach(p => ids.add(p.recipe_id))
+      planned.filter(p => p.date === dateISO).forEach(p => ids.add(p.recipe_id))
+      return ids
+    }
+
     function isSlotFilled(dateISO: string, mealTypeName: string) {
       return mealPlans.some(p => p.date === dateISO && p.meal_type === mealTypeName) ||
              planned.some(p => p.date === dateISO && p.meal_type === mealTypeName)
@@ -340,26 +343,97 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
       }
     }
 
-    function passesGoals(dateISO: string, r: RecipeCandidate) {
+    // Proportional meal-type weights — share of the daily budget each slot should use.
+    // Dessert weight is 0: it's optional and gets no reserved budget, fills only if surplus allows.
+    const SLOT_WEIGHTS: Record<string, number> = {
+      breakfast: 0.20, brunch: 0.25, lunch: 0.30,
+      dinner: 0.40, snack: 0.10, dessert: 0,
+    }
+    function getSlotWeight(name: string): number {
+      return SLOT_WEIGHTS[name.toLowerCase()] ?? 0.15
+    }
+
+    // For a ≤ goal, compute how much budget this slot can use after reserving
+    // proportional shares for all still-unfilled later slots today
+    function getEffectiveCap(macro: 'calories' | 'protein' | 'fat' | 'carbs', dateISO: string, mealTypeIdx: number): number {
+      const goal = goals[macro]
+      if (!goal.enabled || goal.direction !== '≤') return Infinity
       const t = getDayTotals(dateISO)
-      if (goals.calories.enabled && goals.calories.direction === '≤' && (t.calories + (r.calories ?? 0)) > goals.calories.value) return false
-      if (goals.protein.enabled && goals.protein.direction === '≤' && (t.protein + (r.protein ?? 0)) > goals.protein.value) return false
-      if (goals.fat.enabled && goals.fat.direction === '≤' && (t.fat + (r.fat ?? 0)) > goals.fat.value) return false
-      if (goals.carbs.enabled && goals.carbs.direction === '≤' && (t.carbs + (r.carbs ?? 0)) > goals.carbs.value) return false
+      let reserved = 0
+      for (let i = mealTypeIdx + 1; i < mealTypes.length; i++) {
+        if (!isSlotFilled(dateISO, mealTypes[i].name)) {
+          reserved += goal.value * getSlotWeight(mealTypes[i].name)
+        }
+      }
+      return goal.value - t[macro] - reserved
+    }
+
+    // Strict ≤ enforcement with proportional budget reservation — no fallback
+    function passesMaxGoals(dateISO: string, r: RecipeCandidate, mealTypeIdx: number) {
+      if ((r.calories ?? 0) > getEffectiveCap('calories', dateISO, mealTypeIdx)) return false
+      if ((r.protein ?? 0) > getEffectiveCap('protein', dateISO, mealTypeIdx)) return false
+      if ((r.fat ?? 0) > getEffectiveCap('fat', dateISO, mealTypeIdx)) return false
+      if ((r.carbs ?? 0) > getEffectiveCap('carbs', dateISO, mealTypeIdx)) return false
       return true
     }
 
-    function shuffle<T>(arr: T[]): T[] { return [...arr].sort(() => Math.random() - 0.5) }
+    // For ≥ goals: sort pool so recipes contributing most to lagging macros come first
+    // Shuffle first so equal-scored recipes break ties randomly
+    function sortForMinGoals(pool: RecipeCandidate[], dateISO: string): RecipeCandidate[] {
+      const t = getDayTotals(dateISO)
+      return shuffle(pool).sort((a, b) => {
+        let scoreA = 0, scoreB = 0
+        if (goals.calories.enabled && goals.calories.direction === '≥') {
+          const deficit = Math.max(0, goals.calories.value - t.calories)
+          scoreA += Math.min(a.calories ?? 0, deficit)
+          scoreB += Math.min(b.calories ?? 0, deficit)
+        }
+        if (goals.protein.enabled && goals.protein.direction === '≥') {
+          const deficit = Math.max(0, goals.protein.value - t.protein)
+          scoreA += Math.min(a.protein ?? 0, deficit)
+          scoreB += Math.min(b.protein ?? 0, deficit)
+        }
+        if (goals.fat.enabled && goals.fat.direction === '≥') {
+          const deficit = Math.max(0, goals.fat.value - t.fat)
+          scoreA += Math.min(a.fat ?? 0, deficit)
+          scoreB += Math.min(b.fat ?? 0, deficit)
+        }
+        if (goals.carbs.enabled && goals.carbs.direction === '≥') {
+          const deficit = Math.max(0, goals.carbs.value - t.carbs)
+          scoreA += Math.min(a.carbs ?? 0, deficit)
+          scoreB += Math.min(b.carbs ?? 0, deficit)
+        }
+        return scoreB - scoreA
+      })
+    }
+
+    function shuffle<T>(arr: T[]): T[] {
+      const a = [...arr]
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]]
+      }
+      return a
+    }
+
+    const hasMinGoal = (['calories', 'protein', 'fat', 'carbs'] as const).some(
+      m => goals[m].enabled && goals[m].direction === '≥'
+    )
 
     const dinnerMTName = mealTypes.find(mt => mt.name.toLowerCase() === 'dinner')?.name
     const lunchMTName = mealTypes.find(mt => mt.name.toLowerCase() === 'lunch')?.name
 
+    let totalEmpty = 0
+    let unfilledCount = 0
+
     for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
       const dateISO = toLocalISO(weekDays[dayIdx])
-      for (const mealType of mealTypes) {
+      for (let mtIdx = 0; mtIdx < mealTypes.length; mtIdx++) {
+        const mealType = mealTypes[mtIdx]
         if (isSlotFilled(dateISO, mealType.name)) continue
+        totalEmpty++
 
-        // Leftovers: yesterday's dinner fills today's lunch
+        // Leftovers: yesterday's dinner fills today's lunch (exempt from week-dedup)
         if (goals.allowLeftovers && lunchMTName && mealType.name === lunchMTName && dayIdx > 0) {
           const prevISO = toLocalISO(weekDays[dayIdx - 1])
           const prevDinner =
@@ -372,18 +446,33 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
         }
 
         const mealTypeLower = mealType.name.toLowerCase()
-        const eligible = candidates.filter(r => r.eligibleMealTypes.length === 0 || r.eligibleMealTypes.includes(mealTypeLower))
-        const withinGoals = eligible.filter(r => passesGoals(dateISO, r))
-        const pool = withinGoals.length > 0 ? withinGoals : eligible
-        if (pool.length === 0) continue
+        const dayUsed = getDayUsedIds(dateISO)
 
-        const picked = shuffle(pool)[0]
+        // Filter: meal-type tag match + no same-day repeat + no same-week repeat
+        const eligible = candidates.filter(r =>
+          (r.eligibleMealTypes.length === 0 || r.eligibleMealTypes.includes(mealTypeLower)) &&
+          !dayUsed.has(r.id) &&
+          !weekUsedIds.has(r.id)
+        )
+
+        const withinGoals = eligible.filter(r => passesMaxGoals(dateISO, r, mtIdx))
+        if (withinGoals.length === 0) { unfilledCount++; continue }
+
+        const ordered = hasMinGoal ? sortForMinGoals(withinGoals, dateISO) : shuffle(withinGoals)
+        const picked = ordered[0]
+
         planned.push({ date: dateISO, meal_type: mealType.name, recipe_id: picked.id, recipe_name: picked.name, calories: picked.calories, protein: picked.protein, fat: picked.fat, carbs: picked.carbs })
+        weekUsedIds.add(picked.id)
       }
     }
 
     if (planned.length === 0) {
-      showToast('All slots are already filled this week.', 'error')
+      showToast(
+        totalEmpty === 0
+          ? 'All slots are already filled this week.'
+          : 'No recipes matched your goals — try relaxing the constraints.',
+        'error'
+      )
       setGeneratingPlan(false)
       return
     }
@@ -400,7 +489,12 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
     await saveGoals(goals)
     await loadData()
     setShowGenerateModal(false)
-    showToast(`🎉 Added ${planned.length} meals to the plan!`, 'success')
+
+    if (unfilledCount > 0) {
+      showToast(`Added ${planned.length} meal${planned.length > 1 ? 's' : ''}. ${unfilledCount} slot${unfilledCount > 1 ? 's' : ''} couldn't be filled — add more recipes or relax your goals.`, 'success')
+    } else {
+      showToast(`🎉 Added ${planned.length} meal${planned.length > 1 ? 's' : ''} to the plan!`, 'success')
+    }
     setGeneratingPlan(false)
   }
 

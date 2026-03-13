@@ -56,7 +56,6 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, userId, o
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([])
   const [mealTypes, setMealTypes] = useState<MealType[]>([])
   const [recipes, setRecipes] = useState<Recipe[]>([])
-  const [newMealType, setNewMealType] = useState('')
   const [selectedRecipes, setSelectedRecipes] = useState<Record<string, number | null>>({})
   const [loading, setLoading] = useState(false)
   const [viewingRecipeId, setViewingRecipeId] = useState<number | null>(null)
@@ -118,6 +117,9 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, userId, o
   }
 
   async function loadMealTypes() {
+    // Always ensure all 5 standard types exist (adds any missing ones)
+    await seedDefaultMealTypes()
+
     const { data, error } = await supabase
       .from('meal_types')
       .select('id, name, sort_order')
@@ -129,13 +131,6 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, userId, o
       return
     }
 
-    // If no meal types exist, seed default ones
-    if (!data || data.length === 0) {
-      await seedDefaultMealTypes()
-      await loadMealTypes() // Reload after seeding
-      return
-    }
-
     setMealTypes(data || [])
   }
 
@@ -144,16 +139,13 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, userId, o
       { name: 'Breakfast', sort_order: 1 },
       { name: 'Lunch', sort_order: 2 },
       { name: 'Dinner', sort_order: 3 },
-      { name: 'Dessert', sort_order: 4 }
+      { name: 'Snack', sort_order: 4 },
+      { name: 'Dessert', sort_order: 5 },
     ]
-
-    const { error } = await supabase
+    // Upsert: inserts missing types, skips existing ones
+    await supabase
       .from('meal_types')
-      .insert(defaults.map(d => ({ ...d, user_id: userId })))
-
-    if (error) {
-      console.error('Error seeding meal types:', error)
-    }
+      .upsert(defaults.map(d => ({ ...d, user_id: userId })), { onConflict: 'user_id,name', ignoreDuplicates: true })
   }
 
   async function loadRecipes() {
@@ -219,33 +211,6 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, userId, o
     setSelectedRecipes(prev => ({ ...prev, [mealType]: null }))
     await loadMealPlans()
     onRefresh()
-  }
-
-  async function handleAddMealType() {
-    if (!newMealType.trim()) return
-
-    const maxSortOrder = mealTypes.reduce((max, mt) => Math.max(max, mt.sort_order), 0)
-
-    const { error } = await supabase
-      .from('meal_types')
-      .insert({
-        user_id: userId,
-        name: newMealType.trim(),
-        sort_order: maxSortOrder + 1
-      })
-
-    if (error) {
-      console.error('Error adding meal type:', error)
-      if (error.code === '23505') {
-        onShowToast?.('This meal type already exists', 'error')
-      } else {
-        onShowToast?.('Failed to add meal type', 'error')
-      }
-      return
-    }
-
-    setNewMealType('')
-    await loadMealTypes()
   }
 
   async function handleViewRecipe(recipeId: number) {
@@ -381,29 +346,6 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, userId, o
                   </div>
                 )
               })}
-
-              {/* Add Custom Meal Type */}
-              <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-                <label className="block text-white font-semibold mb-3">
-                  Add Custom Meal Type
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newMealType}
-                    onChange={(e) => setNewMealType(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddMealType()}
-                    placeholder="e.g., Snack, Brunch..."
-                    className="flex-1 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/50 focus:ring-2 focus:ring-white/20"
-                  />
-                  <button
-                    onClick={handleAddMealType}
-                    className="px-6 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-lg border border-white/30 rounded-xl text-white font-medium transition-all duration-200 hover:scale-105"
-                  >
-                    Add
-                  </button>
-                </div>
-              </div>
 
               {recipes.length === 0 && (
                 <div className="text-center py-8 text-white/60">
