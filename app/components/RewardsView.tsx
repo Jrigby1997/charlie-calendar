@@ -81,6 +81,7 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
   const [confirmRedeem, setConfirmRedeem] = useState<{ rewardId: number; memberId: number } | null>(null)
   const [redemptionHistory, setRedemptionHistory] = useState<RedemptionHistory[]>([])
   const [subView, setSubView] = useState<'rewards' | 'history'>('rewards')
+  const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null)
 
   // Load data
   useEffect(() => {
@@ -463,6 +464,34 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
               title="Add Reward"
             />
           </div>
+          {/* Mobile member picker */}
+          {familyMembers.length > 0 && (
+            <div className="md:hidden basis-full flex items-center gap-2 pt-1">
+              {familyMembers.map((m) => {
+                const isSelected = (selectedMemberId ?? familyMembers[0]?.id) === m.id
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setSelectedMemberId(m.id)}
+                    className={`flex-shrink-0 rounded-full transition-all duration-200 ${
+                      isSelected ? 'ring-2 ring-white scale-110' : 'opacity-50'
+                    }`}
+                  >
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden shadow-md"
+                      style={{ backgroundColor: m.color }}
+                    >
+                      {m.avatar_url ? (
+                        <img src={`/avatars/${m.avatar_url}`} alt={m.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-white text-xs font-bold">{m.name.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Columns */}
@@ -483,7 +512,9 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
                   return (
                     <div
                       key={member.id}
-                      className="flex-1 min-w-[220px] max-w-[360px] flex flex-col border-r border-white/10 last:border-r-0"
+                      className={`flex flex-col border-r border-white/10 last:border-r-0 md:flex-1 md:min-w-[220px] md:max-w-[360px] ${
+                        (selectedMemberId ?? familyMembers[0]?.id) === member.id ? 'flex-1' : 'hidden md:flex'
+                      }`}
                     >
                       {/* Member header */}
                       <div className="px-4 pt-4 pb-3 flex-shrink-0">
@@ -574,7 +605,9 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
                   return (
                     <div
                       key={member.id}
-                      className="flex-1 min-w-[220px] max-w-[360px] flex flex-col border-r border-white/10 last:border-r-0"
+                      className={`flex flex-col border-r border-white/10 last:border-r-0 md:flex-1 md:min-w-[220px] md:max-w-[360px] ${
+                        (selectedMemberId ?? familyMembers[0]?.id) === member.id ? 'flex-1' : 'hidden md:flex'
+                      }`}
                     >
                       {/* Member Column Header */}
                       <div className="px-4 pt-4 pb-3 flex-shrink-0">

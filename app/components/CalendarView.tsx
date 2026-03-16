@@ -516,7 +516,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
       <div className="md:hidden px-3 pt-3 pb-1 flex flex-col gap-2">
         {/* Row 1: ← title → */}
         <div className="flex items-center gap-1">
-          <GlassButton onClick={previousMonth} size="lg" className="flex-shrink-0 px-3">
+          <GlassButton onClick={previousMonth} size="sm" className="flex-shrink-0">
             ←
           </GlassButton>
           <div className="flex-1 text-center min-w-0">
@@ -529,12 +529,12 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                 : `${monthNames[month]} ${year}`}
             </h2>
           </div>
-          <GlassButton onClick={nextMonth} size="lg" className="flex-shrink-0 px-3">
+          <GlassButton onClick={nextMonth} size="sm" className="flex-shrink-0">
             →
           </GlassButton>
         </div>
-        {/* Row 2: toggle | today | ml-auto: avatars + sync + add */}
-        <div className="flex items-center gap-2">
+        {/* Row 2: toggle | today | ml-auto: sync + add */}
+        <div className="flex items-center gap-1.5">
           <PillToggle
             items={[
               { value: 'day',   label: 'Day' },
@@ -542,29 +542,30 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
             ]}
             value={view === 'week' ? 'day' : view}
             onChange={setView}
-            size="lg"
+            size="sm"
           />
-          <GlassButton onClick={goToToday} size="lg" className="backdrop-blur-lg">
+          <GlassButton onClick={goToToday} size="sm">
             Today
           </GlassButton>
-          <div className="flex items-center gap-1.5 ml-auto">
-            <AvatarFilterGroup
-              members={familyMembers}
-              visibleMembers={visibleMembers}
-              onToggle={onToggleMember}
-              showUnassigned={showUnassigned}
-              onToggleUnassigned={onToggleUnassigned}
-            />
+          <div className="flex items-center gap-1 ml-auto">
             {isGoogleConnected && (
-              <GlassButton onClick={async () => { if (onSyncGoogleCalendar) await onSyncGoogleCalendar() }} disabled={isSyncingGoogle} size="lg" title="Sync">
+              <GlassButton onClick={async () => { if (onSyncGoogleCalendar) await onSyncGoogleCalendar() }} disabled={isSyncingGoogle} size="sm" title="Sync">
                 <span className={isSyncingGoogle ? 'animate-spin' : ''}>🔄</span>
               </GlassButton>
             )}
-            <GlassButton onClick={onAddEventClick} size="lg" className="backdrop-blur-lg font-bold">
+            <GlassButton onClick={onAddEventClick} size="sm" className="font-bold">
               +
             </GlassButton>
           </div>
         </div>
+        {/* Row 3: avatar filter strip — flex-wrap so it never overflows */}
+        <AvatarFilterGroup
+          members={familyMembers}
+          visibleMembers={visibleMembers}
+          onToggle={onToggleMember}
+          showUnassigned={showUnassigned}
+          onToggleUnassigned={onToggleUnassigned}
+        />
       </div>
 
       {/* ── Desktop Header ── */}

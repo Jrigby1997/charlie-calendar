@@ -181,6 +181,7 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<any>(null)
   const [viewDate, setViewDate]       = useState(new Date())
+  const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null)
   const today       = toLocalISO(new Date())
   const viewDateISO = toLocalISO(viewDate)
   const viewDateISORef = useRef(viewDateISO)
@@ -854,36 +855,55 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
     <>
       <SectionCard className="h-full flex flex-col">
         {/* Header */}
-        <div className="px-6 pt-6 pb-4 flex flex-col gap-3 flex-shrink-0">
-          {/* Top row: title left | date center | + right */}
-          <div className="grid grid-cols-3 items-center">
-            <div>
-              {sectionTitle && <h2 className="text-lg md:text-2xl font-bold text-white drop-shadow-lg truncate">{sectionTitle}</h2>}
+        <div className="px-4 md:px-6 pt-4 md:pt-6 pb-3 flex flex-col gap-2 flex-shrink-0">
+          {/* Row 1: ← title/date → | + button */}
+          <div className="flex items-center gap-1">
+            <GlassButton size="sm" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() - 1))} className="flex-shrink-0 px-3">←</GlassButton>
+            <div className="flex-1 text-center min-w-0">
+              {sectionTitle && <p className="text-[10px] font-semibold text-white/60 uppercase tracking-wide truncate">{sectionTitle}</p>}
+              <h2 className="text-base md:text-2xl font-bold text-white drop-shadow-lg leading-tight">{viewDateFormatted}</h2>
             </div>
-            <div className="text-center">
-              <h2 className="text-lg md:text-2xl font-bold text-white drop-shadow-lg">{viewDateFormatted}</h2>
-            </div>
-            <div className="flex justify-end">
-              <IconButton
-                onClick={() => {
-                  setEditingTask(null)
-                  setIsModalOpen(true)
-                }}
-                title="Add Task"
-              />
-            </div>
+            <GlassButton size="sm" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() + 1))} className="flex-shrink-0 px-3">→</GlassButton>
+            <IconButton
+              onClick={() => {
+                setEditingTask(null)
+                setIsModalOpen(true)
+              }}
+              title="Add Task"
+            />
           </div>
-
-          {/* Nav buttons row */}
-          <div className="flex items-center justify-center gap-2">
-            <GlassButton size="sm" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() - 1))}>
-              <span className="sm:hidden">←</span><span className="hidden sm:inline">← Prev</span>
-            </GlassButton>
+          {/* Row 2: Today button */}
+          <div className="flex justify-center">
             <GlassButton size="sm" onClick={() => setViewDate(new Date())}>Today</GlassButton>
-            <GlassButton size="sm" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() + 1))}>
-              <span className="sm:hidden">→</span><span className="hidden sm:inline">Next →</span>
-            </GlassButton>
           </div>
+          {/* Row 3: member picker (mobile only) */}
+          {familyMembers.length > 0 && (
+            <div className="md:hidden flex items-center gap-2">
+              {familyMembers.map((m) => {
+                const isSelected = (selectedMemberId ?? familyMembers[0]?.id) === m.id
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setSelectedMemberId(m.id)}
+                    className={`flex-shrink-0 rounded-full transition-all duration-200 ${
+                      isSelected ? 'ring-2 ring-white scale-110' : 'opacity-50'
+                    }`}
+                  >
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden shadow-md"
+                      style={{ backgroundColor: m.color }}
+                    >
+                      {m.avatar_url ? (
+                        <img src={`/avatars/${m.avatar_url}`} alt={m.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-white text-xs font-bold">{m.name.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Columns Container */}
@@ -925,7 +945,9 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
                 return (
                   <div
                     key={member.id}
-                    className="flex-1 min-w-[220px] max-w-[360px] flex flex-col border-r border-white/10 last:border-r-0"
+                    className={`flex flex-col border-r border-white/10 last:border-r-0 md:flex-1 md:min-w-[220px] md:max-w-[360px] ${
+                      (selectedMemberId ?? familyMembers[0]?.id) === member.id ? 'flex-1' : 'hidden md:flex'
+                    }`}
                   >
                     {/* Member Column Header */}
                     <div className="px-4 pt-4 pb-3 flex-shrink-0">

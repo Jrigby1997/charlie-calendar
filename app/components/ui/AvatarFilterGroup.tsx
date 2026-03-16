@@ -28,7 +28,7 @@ export default function AvatarFilterGroup({
   onToggleUnassigned,
 }: AvatarFilterGroupProps) {
   return (
-    <div className="flex items-center gap-2 avatar-background">
+    <div className="flex flex-wrap items-center gap-1.5 avatar-background">
       {members.map((member) => {
         const isVisible = visibleMembers.has(member.id)
         return (

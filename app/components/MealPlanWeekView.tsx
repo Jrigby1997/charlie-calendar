@@ -595,28 +595,39 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
   }
 
   return (
-    <div className="space-y-4">
-      {/* Navigation: label left | Prev/Today/Next center | Add-week button right */}
-      <div className="flex items-center justify-between gap-4 mb-2">
-        <h2 className="text-4xl font-bold text-white drop-shadow-lg flex-1">{getWeekRangeLabel()}</h2>
+    <div className="space-y-3">
+      {/* ── Mobile Header ── */}
+      <div className="md:hidden flex flex-col gap-2">
+        {/* Row 1: ← title → */}
+        <div className="flex items-center gap-1">
+          <GlassButton size="sm" onClick={goToPrevWeek} className="flex-shrink-0 px-3">←</GlassButton>
+          <h2 className="flex-1 text-center text-base font-bold text-white drop-shadow-lg leading-tight">{getWeekRangeLabel()}</h2>
+          <GlassButton size="sm" onClick={goToNextWeek} className="flex-shrink-0 px-3">→</GlassButton>
+        </div>
+        {/* Row 2: today + actions */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <GlassButton size="sm" onClick={goToCurrentWeek}>Today</GlassButton>
+          <GlassButton variant="red" size="sm" className="meal-clear-btn" onClick={handleClearWeek}>🗑️ Clear</GlassButton>
+          <GlassButton size="sm" className="meal-generate-btn" onClick={openGenerateModal}>🍽️ Generate</GlassButton>
+          {onAddWeekMealsToList && (
+            <GlassButton variant="green" size="sm" onClick={() => onAddWeekMealsToList(toLocalISO(weekDays[0]), toLocalISO(weekDays[6]))}>🛒 Add to List</GlassButton>
+          )}
+        </div>
+      </div>
 
+      {/* ── Desktop Header ── */}
+      <div className="hidden md:flex items-center justify-between gap-4 mb-2">
+        <h2 className="text-4xl font-bold text-white drop-shadow-lg flex-1">{getWeekRangeLabel()}</h2>
         <div className="flex items-center gap-2">
           <GlassButton size="sm" onClick={goToPrevWeek}>← Prev</GlassButton>
           <GlassButton size="sm" onClick={goToCurrentWeek}>Today</GlassButton>
           <GlassButton size="sm" onClick={goToNextWeek}>Next →</GlassButton>
         </div>
-
         <div className="flex-1 flex justify-end gap-2">
-          <GlassButton variant="red" size="md" className="meal-clear-btn whitespace-nowrap" onClick={handleClearWeek}>
-            🗑️ Clear Week
-          </GlassButton>
-          <GlassButton size="md" className="meal-generate-btn whitespace-nowrap" onClick={openGenerateModal}>
-            🍽️ Generate Meal Plan
-          </GlassButton>
+          <GlassButton variant="red" size="md" className="meal-clear-btn whitespace-nowrap" onClick={handleClearWeek}>🗑️ Clear Week</GlassButton>
+          <GlassButton size="md" className="meal-generate-btn whitespace-nowrap" onClick={openGenerateModal}>🍽️ Generate Meal Plan</GlassButton>
           {onAddWeekMealsToList && (
-            <GlassButton variant="green" size="md" className="whitespace-nowrap" onClick={() => onAddWeekMealsToList(toLocalISO(weekDays[0]), toLocalISO(weekDays[6]))}>
-              🛒 Add Week's Meals to Shopping List
-            </GlassButton>
+            <GlassButton variant="green" size="md" className="whitespace-nowrap" onClick={() => onAddWeekMealsToList(toLocalISO(weekDays[0]), toLocalISO(weekDays[6]))}>🛒 Add Week's Meals to Shopping List</GlassButton>
           )}
         </div>
       </div>
