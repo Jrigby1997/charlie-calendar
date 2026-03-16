@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -16,6 +16,23 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Charlie Calendar",
   description: "Family calendar with beautiful glassmorphism design",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Charlie Calendar",
+  },
+  icons: {
+    apple: "/icons/icon-192.svg",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#667eea",
+  width: "device-width",
+  initialScale: 1,
+  minimumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

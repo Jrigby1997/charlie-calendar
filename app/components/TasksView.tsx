@@ -858,10 +858,10 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
           {/* Top row: title left | date center | + right */}
           <div className="grid grid-cols-3 items-center">
             <div>
-              {sectionTitle && <h2 className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle}</h2>}
+              {sectionTitle && <h2 className="text-lg md:text-2xl font-bold text-white drop-shadow-lg truncate">{sectionTitle}</h2>}
             </div>
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-white drop-shadow-lg">{viewDateFormatted}</h2>
+              <h2 className="text-lg md:text-2xl font-bold text-white drop-shadow-lg">{viewDateFormatted}</h2>
             </div>
             <div className="flex justify-end">
               <IconButton
@@ -876,9 +876,13 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
 
           {/* Nav buttons row */}
           <div className="flex items-center justify-center gap-2">
-            <GlassButton size="sm" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() - 1))}>← Prev</GlassButton>
+            <GlassButton size="sm" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() - 1))}>
+              <span className="sm:hidden">←</span><span className="hidden sm:inline">← Prev</span>
+            </GlassButton>
             <GlassButton size="sm" onClick={() => setViewDate(new Date())}>Today</GlassButton>
-            <GlassButton size="sm" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() + 1))}>Next →</GlassButton>
+            <GlassButton size="sm" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() + 1))}>
+              <span className="sm:hidden">→</span><span className="hidden sm:inline">Next →</span>
+            </GlassButton>
           </div>
         </div>
 

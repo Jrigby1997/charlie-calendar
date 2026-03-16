@@ -15,6 +15,7 @@ import SettingsModal from './components/SettingsModal'
 import ExternalEventDetailModal from './components/ExternalEventDetailModal'
 import EditGoogleEventModal from './components/EditGoogleEventModal'
 import NavTab from './components/ui/NavTab'
+import BottomNav from './components/BottomNav'
 
 type Event = {
   id: number
@@ -1405,8 +1406,8 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
   return (
     <div className={`h-screen overflow-hidden flex flex-row bg-black ${getThemeGradient()}`}>
       <div className="flex-1 flex min-h-0 gap-4">
-        {/* Left Sidebar - Navigation - Minimal */}
-        <div className="w-20 flex-shrink-0 flex flex-col gap-3 overflow-y-auto py-4">
+        {/* Left Sidebar - Navigation - Minimal (hidden on mobile, shown on md+) */}
+        <div className="hidden md:flex w-20 flex-shrink-0 flex-col gap-3 overflow-y-auto py-4">
           {/* View Toggle - Vertical, Minimal */}
           <div className="flex flex-col gap-2">
             <NavTab icon="📅" label="Calendar"      active={currentView === 'calendar'}      onClick={() => setCurrentView('calendar')} />
@@ -1424,7 +1425,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden pb-14 md:pb-0">
             {currentView === 'calendar' ? (
               <div className="h-full p-4">
               <CalendarView
@@ -1574,6 +1575,13 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
             </div>
           </div>
         )}
+
+        {/* Mobile bottom navigation (hidden on md+) */}
+        <BottomNav
+          currentView={currentView}
+          setCurrentView={setCurrentView}
+          onSettingsClick={() => setIsSettingsOpen(true)}
+        />
     </div>
   )
 }

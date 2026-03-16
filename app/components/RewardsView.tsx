@@ -442,9 +442,9 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
     <>
       <SectionCard className="h-full flex flex-col">
         {/* Header */}
-        <div className="px-6 pt-6 pb-4 flex items-center justify-between flex-shrink-0">
-          <h2 className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle || '🏆 Rewards'}</h2>
-          <div className="flex items-center gap-3">
+        <div className="px-4 md:px-6 pt-4 md:pt-6 pb-4 flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
+          <h2 className="text-xl md:text-2xl font-bold text-white drop-shadow-lg">{sectionTitle || '🏆 Rewards'}</h2>
+          <div className="flex items-center gap-2 md:gap-3">
             {/* Subview toggle */}
             <PillToggle
               items={[

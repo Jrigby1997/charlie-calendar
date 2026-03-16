@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea"/>
+      <stop offset="100%" style="stop-color:#764ba2"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
+  <!-- Calendar body -->
+  <rect x="80" y="148" width="352" height="296" rx="32" fill="white" opacity="0.95"/>
+  <!-- Calendar header bar -->
+  <rect x="80" y="148" width="352" height="100" rx="32" fill="white" opacity="0.3"/>
+  <rect x="80" y="220" width="352" height="28" fill="white" opacity="0.3"/>
+  <!-- Rings -->
+  <rect x="162" y="96" width="38" height="82" rx="19" fill="white" opacity="0.9"/>
+  <rect x="312" y="96" width="38" height="82" rx="19" fill="white" opacity="0.9"/>
+  <!-- Calendar grid dots 2x3 -->
+  <circle cx="182" cy="314" r="18" fill="#667eea"/>
+  <circle cx="256" cy="314" r="18" fill="#667eea" opacity="0.7"/>
+  <circle cx="330" cy="314" r="18" fill="#667eea" opacity="0.7"/>
+  <circle cx="182" cy="382" r="18" fill="#667eea" opacity="0.7"/>
+  <circle cx="256" cy="382" r="18" fill="#764ba2"/>
+  <circle cx="330" cy="382" r="18" fill="#667eea" opacity="0.7"/>
+</svg>

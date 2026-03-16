@@ -74,6 +74,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
   const [view, setView] = useState<'day' | 'week' | 'month'>('week')
   const [currentTime, setCurrentTime] = useState(new Date())
   const [draggedEventId, setDraggedEventId] = useState<number | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
   const dragOffsetY = useRef<number>(0)
 
   function handleEventInteraction(event: Event) {
@@ -86,6 +87,19 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
       setCurrentTime(new Date())
     }, 60000) // Update every minute
     return () => clearInterval(interval)
+  }, [])
+
+  // Detect mobile and auto-switch week view to day view on small screens
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+      if (mobile && view === 'week') setView('day')
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Helper function to get avatar display for family member icons
@@ -498,18 +512,73 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
 
   return (
     <SectionCard className="h-full flex flex-col">
-      {/* Calendar Header */}
-      <div className="px-6 pt-6 flex items-start justify-between mb-4">
-        <div>
-          {sectionTitle && (
-            <p className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle}</p>
-          )}
-          <h2 className="text-4xl font-bold text-white drop-shadow-lg">
-            {view === 'day' ? `${dayOfWeekName}, ${dayTitle}` : view === 'week' ? weekTitle : `${monthNames[month]} ${year}`}
-          </h2>
+      {/* ── Mobile Header ── */}
+      <div className="md:hidden px-3 pt-3 pb-1 flex flex-col gap-2">
+        {/* Row 1: ← title → */}
+        <div className="flex items-center gap-1">
+          <GlassButton onClick={previousMonth} size="lg" className="flex-shrink-0 px-3">
+            ←
+          </GlassButton>
+          <div className="flex-1 text-center min-w-0">
+            {sectionTitle && (
+              <p className="text-[10px] font-semibold text-white/60 uppercase tracking-wide truncate">{sectionTitle}</p>
+            )}
+            <h2 className="text-base font-bold text-white drop-shadow-lg leading-tight">
+              {view === 'day'
+                ? `${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][currentDate.getDay()]}, ${monthNames[month].slice(0,3)} ${dayOfMonth}`
+                : `${monthNames[month]} ${year}`}
+            </h2>
+          </div>
+          <GlassButton onClick={nextMonth} size="lg" className="flex-shrink-0 px-3">
+            →
+          </GlassButton>
         </div>
-        {/* Right side controls */}
-        <div className="flex flex-col items-end gap-3">
+        {/* Row 2: toggle | today | ml-auto: avatars + sync + add */}
+        <div className="flex items-center gap-2">
+          <PillToggle
+            items={[
+              { value: 'day',   label: 'Day' },
+              { value: 'month', label: 'Month' },
+            ]}
+            value={view === 'week' ? 'day' : view}
+            onChange={setView}
+            size="lg"
+          />
+          <GlassButton onClick={goToToday} size="lg" className="backdrop-blur-lg">
+            Today
+          </GlassButton>
+          <div className="flex items-center gap-1.5 ml-auto">
+            <AvatarFilterGroup
+              members={familyMembers}
+              visibleMembers={visibleMembers}
+              onToggle={onToggleMember}
+              showUnassigned={showUnassigned}
+              onToggleUnassigned={onToggleUnassigned}
+            />
+            {isGoogleConnected && (
+              <GlassButton onClick={async () => { if (onSyncGoogleCalendar) await onSyncGoogleCalendar() }} disabled={isSyncingGoogle} size="lg" title="Sync">
+                <span className={isSyncingGoogle ? 'animate-spin' : ''}>🔄</span>
+              </GlassButton>
+            )}
+            <GlassButton onClick={onAddEventClick} size="lg" className="backdrop-blur-lg font-bold">
+              +
+            </GlassButton>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Desktop Header ── */}
+      <div className="hidden md:flex flex-col px-6 pt-6 gap-3 mb-4">
+        {/* Title + avatars row */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            {sectionTitle && (
+              <p className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle}</p>
+            )}
+            <h2 className="text-4xl font-bold text-white drop-shadow-lg">
+              {view === 'day' ? `${dayOfWeekName}, ${dayTitle}` : view === 'week' ? weekTitle : `${monthNames[month]} ${year}`}
+            </h2>
+          </div>
           <AvatarFilterGroup
             members={familyMembers}
             visibleMembers={visibleMembers}
@@ -517,52 +586,36 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
             showUnassigned={showUnassigned}
             onToggleUnassigned={onToggleUnassigned}
           />
-          {/* Calendar Controls */}
-          <div className="flex gap-3">
-            <GlassButton
-              onClick={onAddEventClick}
-              size="lg"
-              className="backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105"
-            >
-              <span className="text-xl">+</span> Add Event
+        </div>
+        {/* Controls row */}
+        <div className="flex items-center gap-3">
+          <GlassButton onClick={onAddEventClick} size="lg" className="backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105">
+            <span className="text-xl">+</span> Add Event
+          </GlassButton>
+          {isGoogleConnected && (
+            <GlassButton onClick={async () => { if (onSyncGoogleCalendar) await onSyncGoogleCalendar() }} disabled={isSyncingGoogle} size="lg" title="Sync Google Calendar" className="backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105">
+              <span className={isSyncingGoogle ? 'animate-spin' : ''}>🔄</span>
             </GlassButton>
-            {isGoogleConnected && (
-              <GlassButton
-                onClick={async () => {
-                  if (onSyncGoogleCalendar) await onSyncGoogleCalendar()
-                }}
-                disabled={isSyncingGoogle}
-                size="lg"
-                title="Sync Google Calendar"
-                className="backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105"
-              >
-                <span className={isSyncingGoogle ? 'animate-spin' : ''}>🔄</span>
-              </GlassButton>
-            )}
-            <PillToggle
-              items={[
-                { value: 'day',   label: 'Day' },
-                { value: 'week',  label: 'Week' },
-                { value: 'month', label: 'Month' },
-              ]}
-              value={view}
-              onChange={setView}
-              size="lg"
-            />
-            <GlassButton onClick={goToToday} size="lg" className="backdrop-blur-lg shadow-md hover:shadow-lg hover:scale-105">
-              Today
-            </GlassButton>
-            <GlassButton onClick={previousMonth} size="lg" className="backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105">
-              ←
-            </GlassButton>
-            <GlassButton onClick={nextMonth} size="lg" className="backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105">
-              →
-            </GlassButton>
+          )}
+          <PillToggle
+            items={[
+              { value: 'day',   label: 'Day' },
+              { value: 'week',  label: 'Week' },
+              { value: 'month', label: 'Month' },
+            ]}
+            value={view}
+            onChange={setView}
+            size="lg"
+          />
+          <div className="flex gap-1.5 ml-auto">
+            <GlassButton onClick={previousMonth} size="lg" className="backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105">←</GlassButton>
+            <GlassButton onClick={goToToday} size="lg" className="backdrop-blur-lg shadow-md hover:shadow-lg hover:scale-105">Today</GlassButton>
+            <GlassButton onClick={nextMonth} size="lg" className="backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105">→</GlassButton>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-6 pb-6">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-2 md:px-6 pb-4 md:pb-6">
       {/* Week View */}
       {view === 'week' && (
         <div className="flex-1 overflow-auto rounded-xl">
@@ -1099,17 +1152,18 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
 
       {/* Month View */}
       {view === 'month' && (
-        <div className="grid grid-cols-7 gap-3">
+        <div className="grid grid-cols-7 gap-0.5 md:gap-3">
         {/* Day headers */}
         {getOrderedDayNames().map(day => (
-          <div key={day} className="text-center font-semibold text-white/90 py-3 text-sm">
-            {day}
+          <div key={day} className="text-center font-semibold text-white/90 py-1.5 md:py-3 text-[10px] md:text-sm">
+            <span className="hidden md:inline">{day}</span>
+            <span className="md:hidden">{day.slice(0, 1)}</span>
           </div>
         ))}
 
         {/* Blank spaces before first day */}
         {blanks.map(i => (
-          <div key={`blank-${i}`} className="bg-white/5 rounded-xl min-h-24 border border-white/20" />
+          <div key={`blank-${i}`} className="bg-white/5 rounded md:rounded-xl min-h-10 md:min-h-24 border border-white/20" />
         ))}
 
         {/* Calendar days */}
@@ -1122,24 +1176,25 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
           return (
             <div
               key={day}
-              className={`border rounded-xl p-3 min-h-24 transition-all duration-200 shadow-lg hover:shadow-xl relative ${
+              className={`border rounded md:rounded-xl p-1 md:p-3 min-h-10 md:min-h-24 transition-all duration-200 shadow-lg hover:shadow-xl relative ${
                 isTodayDate
                   ? 'bg-white/20 backdrop-blur-lg border-yellow-300/50 shadow-yellow-500/20'
                   : 'bg-white/10 backdrop-blur-lg border-white/20 hover:border-white/40'
               }`}
             >
-              <div className="flex items-start justify-between mb-2">
-                <div className={`text-sm font-bold ${
+              <div className="flex items-start justify-between mb-0.5 md:mb-2">
+                <div className={`text-[10px] md:text-sm font-bold ${
                   isTodayDate ? 'text-yellow-300 drop-shadow-lg' : 'text-white/90'
                 }`}>
                   {day}
                 </div>
+                {/* Meal icon — only show on larger screens where there's room */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
                     onMealIconClick(dateStr)
                   }}
-                  className={`text-white text-xs px-1.5 py-0.5 rounded-full font-bold transition-all hover:scale-110 shadow-lg ${
+                  className={`hidden md:inline-flex text-white text-xs px-1.5 py-0.5 rounded-full font-bold transition-all hover:scale-110 shadow-lg ${
                     mealCount > 0
                       ? 'bg-orange-500/80 hover:bg-orange-500'
                       : 'bg-white/20 hover:bg-white/30 border border-white/40'
@@ -1149,7 +1204,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                   {mealCount > 0 ? `🍽️${mealCount}` : '🍽️'}
                 </button>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-0.5 md:space-y-1.5">
                 {dayEvents.map(event => {
                   const members = event.event_family_members.map(efm => efm.family_members)
                   const eventColor = eventColorMode === 'custom' ? (event.custom_color || '#9CA3AF') : getEventColor(members)
@@ -1162,7 +1217,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                     <div
                       key={event.id}
                       onClick={() => handleEventInteraction(event)}
-                      className={`text-xs p-1.5 cursor-pointer hover:scale-105 transition-all duration-200 ${colorTheme === 'pastel' ? 'rounded border' : 'rounded-xl border-2 border-white/20'}`}
+                      className={`text-[9px] md:text-xs p-0.5 md:p-1.5 cursor-pointer hover:scale-105 transition-all duration-200 ${colorTheme === 'pastel' ? 'rounded border' : 'rounded md:rounded-xl border md:border-2 border-white/20'}`}
                       style={pastelStyle ?? {
                         background: glassyColor,
                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(255, 255, 255, 0.3) inset',
@@ -1171,18 +1226,11 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                       }}
                       title={`${event.title}${multiDayRange ? `\n${multiDayRange}` : timeRange ? ` at ${timeRange}` : ''}${event.isExternal ? (event.isPending ? '\n(Syncing…)' : '\n(Google Calendar)') : ''}`}
                     >
-                      {multiDayRange && (
-                        <div className="text-[10px] opacity-90 truncate mb-0.5">{multiDayRange}</div>
-                      )}
-                      <div className="font-medium flex items-center gap-1 min-w-0">
-                        {event.baseEventId && <span className="flex-shrink-0" title="Recurring or multi-day event">↻</span>}
-                        {event.isExternal && (event.isPending
-                          ? <span className="text-[10px] flex-shrink-0" title="Syncing with Google Calendar">⏳</span>
-                          : <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-[7px] font-bold flex-shrink-0" style={{background:'linear-gradient(135deg,#4285F4 25%,#EA4335 50%,#FBBC04 75%,#34A853 100%)',color:'white'}} title="Google Calendar">G</span>
-                        )}
-                        {linkedTaskEventIds?.has(event.id) && <span className="flex-shrink-0" title="Has linked task">📋</span>}
-                        <span className="truncate">{event.title}</span>
-                        {!multiDayRange && timeRange && <span className="opacity-75 ml-0.5 flex-shrink-0">{timeRange}</span>}
+                      {/* On mobile just show a color dot indicator — full title on md+ */}
+                      <div className="font-medium flex items-center gap-0.5 min-w-0 overflow-hidden">
+                        <span className="truncate hidden md:inline">{event.title}</span>
+                        {/* Mobile: colored dot with truncated title */}
+                        <span className="truncate md:hidden leading-tight">{event.title}</span>
                       </div>
                     </div>
                   )
