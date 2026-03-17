@@ -1236,10 +1236,17 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
 
   async function handleAddWeekMealsToList(startDate: string, endDate: string) {
     try {
-      // Filter meal plans for the week
-      const weekMealPlans = mealPlans.filter(plan =>
-        plan.date >= startDate && plan.date <= endDate
-      )
+      // Query the DB directly to get fresh data (local state may be stale after a clear)
+      const { data: freshPlans, error: plansError } = await supabase
+        .from('meal_plans')
+        .select('*')
+        .eq('user_id', user?.id)
+        .gte('date', startDate)
+        .lte('date', endDate)
+
+      if (plansError) throw plansError
+
+      const weekMealPlans = freshPlans || []
 
       if (weekMealPlans.length === 0) {
         showToast('No meals planned for this week.', 'error')
@@ -1247,7 +1254,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
       }
 
       // Get unique recipe IDs
-      const recipeIds = [...new Set(weekMealPlans.map(plan => plan.recipe_id))]
+      const recipeIds = [...new Set(weekMealPlans.map((plan: any) => plan.recipe_id))]
 
       // Load all recipes with their ingredients
       const { data: recipes, error: recipesError } = await supabase
@@ -1425,7 +1432,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 min-h-0 overflow-hidden pb-14 md:pb-0">
+        <div className="flex-1 min-h-0 overflow-hidden pb-14 md:pb-0 max-w-[100vw]">
             {currentView === 'calendar' ? (
               <div className="h-full p-4">
               <CalendarView

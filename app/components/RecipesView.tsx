@@ -591,10 +591,10 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
   return (
     <SectionCard className="h-full flex flex-col">
       {/* Header + controls */}
-      <div className="flex-shrink-0 space-y-3 px-6 pt-6 pb-4">
+      <div className="flex-shrink-0 space-y-3 px-4 md:px-6 pt-4 md:pt-6 pb-4">
         {/* Title + Toggle row */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle || '📖 Recipes'}</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg md:text-2xl font-bold text-white drop-shadow-lg truncate">{sectionTitle || '📖 Recipes'}</h2>
           <PillToggle
             items={[
               { value: 'recipes',  label: '🍳 Recipes' },
@@ -641,7 +641,7 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
 
       {/* Meal plan — fills remaining height, handles its own internal layout */}
       {subView === 'mealplan' && (
-        <div className="flex-1 min-h-0 px-6 pb-6">
+        <div className="flex-1 min-h-0 min-w-0 overflow-hidden px-3 md:px-6 pb-4 md:pb-6">
           <MealPlanWeekView
             userId={userId}
             weekStartDay={weekStartDay}
@@ -654,7 +654,7 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
 
       {/* Recipe grid — scrollable */}
       {subView === 'recipes' && (
-        <div className="flex-1 min-h-0 overflow-y-auto view-scroll px-6 pb-6 pr-1">
+        <div className="flex-1 min-h-0 overflow-y-auto view-scroll px-4 md:px-6 pb-6 pr-1">
           {filteredRecipes.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-white/60">

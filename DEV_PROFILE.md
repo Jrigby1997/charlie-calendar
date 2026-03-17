@@ -1,6 +1,6 @@
 # Developer Profile & Project Context
 
-**Last Updated:** March 9, 2026
+**Last Updated:** March 16, 2026
 **Developer:** jrigb
 **Project:** Skylight-style Calendar Application
 **Current Phase:** Multi-Currency Tasks + Sleep Mode + Calorie Counter planned | Production Live ✅ → https://charlie-calendar.vercel.app
@@ -61,8 +61,12 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
    - Displayed per-day column at the bottom of the Meal Plan week grid
    - No per-member breakdown, no goals — raw totals only
 
-7. **Mobile Optimization** *(lower priority)*
-   - Responsive layouts, touch targets, swipe nav, bottom nav bar
+7. **Mobile Optimization** ✅ *(done — see Phase 14 below)*
+   - PWA foundation: `@ducanh2912/next-pwa`, manifest.json, SVG icons, ViewPort meta tags
+   - BottomNav tab bar (fixed at bottom on mobile, hidden on desktop)
+   - Separate mobile/desktop headers for CalendarView, TasksView, RewardsView, MealPlanWeekView
+   - Single-member-at-a-time layout for Tasks and Rewards on mobile (avatar picker switcher)
+   - Avatar filter row wraps instead of overflowing; html/body overflow-x: hidden guard added
 
 8. **Space Theme** *(lower priority)*
    - Galaxy background, glowing borders, star field
@@ -71,7 +75,78 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
    - Halloween / Christmas / Easter / Fall / Spring auto-switching by date range
 
 ---
+## Recent Session Summary (March 16, 2026)
 
+**Duration:** ~1 session
+**Accomplishments:**
+
+### Phase 14: PWA Foundation + Mobile Optimization
+
+1. **PWA Infrastructure**
+   - Installed `@ducanh2912/next-pwa` + `workbox-window`
+   - Created `public/manifest.json` — name, icons, theme_color `#667eea`, display: standalone
+   - Created `public/icons/icon-192.svg` and `icon-512.svg` — purple gradient calendar placeholder icons
+   - Updated `app/layout.tsx` — `Viewport` export with `themeColor`, `viewportFit: "cover"`, `appleWebApp` meta, manifest link
+   - Updated `next.config.ts` — wrapped with `withPWA()`, NetworkFirst for `/api/` + Supabase routes, `turbopack: {}` to silence Turbopack/webpack conflict
+   - Added `public/sw.js`, `public/workbox-*.js` to `.gitignore`
+
+2. **BottomNav Component**
+   - New `app/components/BottomNav.tsx` — fixed bottom tab bar, `md:hidden`
+   - Tabs: Calendar / Recipes / Lists / Tasks / Rewards / Settings
+   - `pb-[env(safe-area-inset-bottom)]` for iPhone home indicator safe area
+   - Integrated into `app/page.tsx` — sidebar `hidden md:flex`, content `pb-14 md:pb-0`
+
+3. **CalendarView Mobile Header**
+   - Completely separate mobile/desktop header JSX blocks
+   - Mobile Row 1: `← [Month Year / Day date] →` (compact, `size="sm"`)
+   - Mobile Row 2: `[Day|Month] Today Sync +` (all `size="sm"`, fits 375px)
+   - Mobile Row 3: `AvatarFilterGroup` with `flex-wrap` (wraps instead of overflowing)
+   - `isMobile` state + resize listener auto-switches week → day view on mobile
+   - Week view option hidden on mobile (7 columns can't fit 375px)
+
+4. **TasksView Mobile Header**
+   - Replaced `grid grid-cols-3` layout with `← [label / date] → [+]` flex row
+   - Member picker row (mobile only): avatar circles, tap to switch visible member column
+   - Desktop: all member columns still shown side-by-side (unchanged)
+
+5. **RewardsView Mobile Header**
+   - Mobile member picker row added below the Rewards/History toggle
+   - Single-member-at-a-time on mobile (`hidden md:flex` on non-selected columns)
+   - Desktop: all member columns unchanged
+
+6. **MealPlanWeekView Mobile Header**
+   - Row 1: `← [Mar 15–21, 2026] →`
+   - Row 2: Today / Clear / Generate / Add to List (flex-wrap)
+   - Desktop: original `text-4xl` heading + full button row (unchanged)
+   - Fixed overflow: `RecipesView` container padding reduced to `px-3 md:px-6` for mobile; header `px-4 md:px-6 pt-4 md:pt-6`; title `text-lg md:text-2xl`
+
+7. **Global Overflow Guard**
+   - Added `html, body { overflow-x: hidden }` to `globals.css`
+
+8. **Google OAuth Discussion**
+   - Requesting `auth/calendar` (full read+write) = Restricted scope → security audit required for public publish
+   - Resolution for family app: add test users in Google Cloud Console OAuth consent screen (up to 100, bypasses warning completely, no audit needed)
+
+**New Files:**
+- `public/manifest.json`
+- `public/icons/icon-192.svg`
+- `public/icons/icon-512.svg`
+- `app/components/BottomNav.tsx`
+
+**Modified Files:**
+- `next.config.ts` — withPWA wrapper + turbopack fix
+- `app/layout.tsx` — Viewport export, PWA meta tags
+- `app/page.tsx` — BottomNav integration, sidebar mobile hide, content padding
+- `app/globals.css` — overflow-x: hidden on html/body
+- `app/components/CalendarView.tsx` — full mobile header rewrite, isMobile state
+- `app/components/TasksView.tsx` — mobile header + single-member picker
+- `app/components/RewardsView.tsx` — mobile member picker
+- `app/components/MealPlanWeekView.tsx` — mobile header
+- `app/components/RecipesView.tsx` — mobile padding adjustments
+- `app/components/ui/AvatarFilterGroup.tsx` — flex-wrap on container
+- `.gitignore` — SW build output files
+
+---
 ## Recent Session Summary (March 6, 2026)
 
 **Duration:** ~1 session

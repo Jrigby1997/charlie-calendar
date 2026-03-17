@@ -93,6 +93,14 @@ function isToday(date: Date): boolean {
 
 export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, refreshKey, onAddWeekMealsToList }: MealPlanWeekViewProps) {
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date(), weekStartDay))
+  const [isMobile, setIsMobile] = useState(false)
+  const [mobileDayIndex, setMobileDayIndex] = useState<number>(() => {
+    // Start on today's day-of-week index within the current week (clamped 0–6)
+    const today = new Date()
+    const ws = getWeekStart(today, weekStartDay)
+    const diff = Math.round((today.getTime() - ws.getTime()) / 86400000)
+    return Math.min(Math.max(diff, 0), 6)
+  })
   const [mealTypes, setMealTypes] = useState<MealType[]>([])
   const [mealPlans, setMealPlans] = useState<MealPlanEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -102,6 +110,7 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
   const [addingToList, setAddingToList] = useState(false)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
   const [showGenerateModal, setShowGenerateModal] = useState(false)
+  const [generateTargetDate, setGenerateTargetDate] = useState<string | null>(null)
   const [generatingPlan, setGeneratingPlan] = useState(false)
   const [goals, setGoals] = useState<MealPlanGoals>({
     calories: { enabled: false, direction: '≤', value: 2000 },
@@ -110,6 +119,14 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
     carbs: { enabled: false, direction: '≤', value: 200 },
     allowLeftovers: false,
   })
+
+  // Mobile resize listener
+  useEffect(() => {
+    function check() { setIsMobile(window.innerWidth < 768) }
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   function showToast(message: string, tone: 'success' | 'error') {
     setToast({ message, tone })
@@ -133,7 +150,8 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
     }
   }
 
-  async function openGenerateModal() {
+  async function openGenerateModal(targetDateISO?: string) {
+    setGenerateTargetDate(targetDateISO ?? null)
     await loadGoals()
     setShowGenerateModal(true)
   }
@@ -278,7 +296,7 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
     )
   }
 
-  async function handleGeneratePlan() {
+  async function handleGeneratePlan(targetDateISO?: string) {
     setGeneratingPlan(true)
 
     // Fetch all recipes with category tags and macro data
@@ -427,16 +445,24 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
     let totalEmpty = 0
     let unfilledCount = 0
 
-    for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
-      const dateISO = toLocalISO(weekDays[dayIdx])
+    // On mobile «single-day» mode: only fill the target day, but weekUsedIds already
+    // includes the whole week so no recipe repeats carry over from other days.
+    const daysToFill = targetDateISO
+      ? weekDays.filter(d => toLocalISO(d) === targetDateISO)
+      : weekDays
+
+    for (let dayIdx = 0; dayIdx < daysToFill.length; dayIdx++) {
+      const dateISO = toLocalISO(daysToFill[dayIdx])
+      // When filling a single day, find its real index in the week for leftover logic
+      const realDayIdx = weekDays.findIndex(d => toLocalISO(d) === dateISO)
       for (let mtIdx = 0; mtIdx < mealTypes.length; mtIdx++) {
         const mealType = mealTypes[mtIdx]
         if (isSlotFilled(dateISO, mealType.name)) continue
         totalEmpty++
 
         // Leftovers: yesterday's dinner fills today's lunch (exempt from week-dedup)
-        if (goals.allowLeftovers && lunchMTName && mealType.name === lunchMTName && dayIdx > 0) {
-          const prevISO = toLocalISO(weekDays[dayIdx - 1])
+        if (goals.allowLeftovers && lunchMTName && mealType.name === lunchMTName && realDayIdx > 0) {
+          const prevISO = toLocalISO(weekDays[realDayIdx - 1])
           const prevDinner =
             mealPlans.find(p => p.date === prevISO && !!dinnerMTName && p.meal_type === dinnerMTName) ||
             planned.find(p => p.date === prevISO && !!dinnerMTName && p.meal_type === dinnerMTName)
@@ -552,6 +578,28 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
 
   function goToCurrentWeek() {
     setWeekStart(getWeekStart(new Date(), weekStartDay))
+    const today = new Date()
+    const ws = getWeekStart(today, weekStartDay)
+    const diff = Math.round((today.getTime() - ws.getTime()) / 86400000)
+    setMobileDayIndex(Math.min(Math.max(diff, 0), 6))
+  }
+
+  function mobilePrevDay() {
+    if (mobileDayIndex > 0) {
+      setMobileDayIndex(i => i - 1)
+    } else {
+      setWeekStart(prev => addDays(prev, -7))
+      setMobileDayIndex(6)
+    }
+  }
+
+  function mobileNextDay() {
+    if (mobileDayIndex < 6) {
+      setMobileDayIndex(i => i + 1)
+    } else {
+      setWeekStart(prev => addDays(prev, 7))
+      setMobileDayIndex(0)
+    }
   }
 
   function isSameWeekAsCurrent(): boolean {
@@ -595,27 +643,94 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
   }
 
   return (
-    <div className="space-y-3">
-      {/* ── Mobile Header ── */}
-      <div className="md:hidden flex flex-col gap-2">
-        {/* Row 1: ← title → */}
-        <div className="flex items-center gap-1">
-          <GlassButton size="sm" onClick={goToPrevWeek} className="flex-shrink-0 px-3">←</GlassButton>
-          <h2 className="flex-1 text-center text-base font-bold text-white drop-shadow-lg leading-tight">{getWeekRangeLabel()}</h2>
-          <GlassButton size="sm" onClick={goToNextWeek} className="flex-shrink-0 px-3">→</GlassButton>
-        </div>
-        {/* Row 2: today + actions */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <GlassButton size="sm" onClick={goToCurrentWeek}>Today</GlassButton>
-          <GlassButton variant="red" size="sm" className="meal-clear-btn" onClick={handleClearWeek}>🗑️ Clear</GlassButton>
-          <GlassButton size="sm" className="meal-generate-btn" onClick={openGenerateModal}>🍽️ Generate</GlassButton>
-          {onAddWeekMealsToList && (
-            <GlassButton variant="green" size="sm" onClick={() => onAddWeekMealsToList(toLocalISO(weekDays[0]), toLocalISO(weekDays[6]))}>🛒 Add to List</GlassButton>
-          )}
-        </div>
-      </div>
+    <div className="space-y-3 w-full">
 
-      {/* ── Desktop Header ── */}
+      {/* ══════════════ MOBILE: Day View ══════════════ */}
+      {isMobile && (() => {
+        const mobileDay = weekDays[mobileDayIndex]
+        const mobileDateISO = toLocalISO(mobileDay)
+        const dayLabel = `${DAY_ABBREVS[mobileDay.getDay()]}, ${MONTH_NAMES[mobileDay.getMonth()]} ${mobileDay.getDate()}`
+        const mobileTotals = mealPlans
+          .filter(p => p.date === mobileDateISO)
+          .reduce((acc, p) => ({
+            calories: acc.calories + (p.calories ?? 0),
+            protein: acc.protein + (p.protein ?? 0),
+            fat: acc.fat + (p.fat ?? 0),
+            carbs: acc.carbs + (p.carbs ?? 0),
+          }), { calories: 0, protein: 0, fat: 0, carbs: 0 })
+        const hasMobileMacros = mealPlans.filter(p => p.date === mobileDateISO).some(p => p.calories || p.protein || p.fat || p.carbs)
+        return (
+          <>
+            {/* Row 1: ← [Day, Date] → */}
+            <div className="flex items-center gap-1">
+              <GlassButton size="sm" className="flex-shrink-0" onClick={mobilePrevDay}>←</GlassButton>
+              <div className="flex-1 text-center min-w-0">
+                <p className="text-[10px] font-semibold text-white/50 uppercase tracking-wide">Meal Plan</p>
+                <h2 className={`text-base font-bold drop-shadow-lg leading-tight ${ isToday(mobileDay) ? 'text-yellow-300' : 'text-white' }`}>{dayLabel}</h2>
+              </div>
+              <GlassButton size="sm" className="flex-shrink-0" onClick={mobileNextDay}>→</GlassButton>
+            </div>
+            {/* Row 2: actions */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <GlassButton size="sm" onClick={goToCurrentWeek}>Today</GlassButton>
+              <GlassButton variant="red" size="sm" className="meal-clear-btn" onClick={handleClearWeek}>🗑️ Clear</GlassButton>
+              <GlassButton size="sm" className="meal-generate-btn" onClick={() => openGenerateModal(mobileDateISO)}>🍽️ Generate</GlassButton>
+              {onAddWeekMealsToList && (
+                <GlassButton variant="green" size="sm" onClick={() => onAddWeekMealsToList(toLocalISO(weekDays[0]), toLocalISO(weekDays[6]))}>🛒 Add Week</GlassButton>
+              )}
+            </div>
+            {/* Meal type rows for the selected day */}
+            <div className="rounded-xl border border-white/20 overflow-hidden">
+              {mealTypes.map((mealType, rowIdx) => {
+                const plan = getMealPlan(mobileDay, mealType.name)
+                const isRemoving = plan ? removingId === plan.id : false
+                return (
+                  <div key={mealType.id} className={`flex items-center gap-3 px-4 py-3 border-b border-white/10 last:border-b-0 min-w-0 overflow-hidden ${ rowIdx % 2 === 0 ? 'bg-white/[0.03]' : 'bg-transparent' }`}>
+                    <span className="text-white/70 text-sm font-medium w-20 flex-shrink-0">{mealType.name}</span>
+                    {plan ? (
+                      <div className="flex-1 flex items-center gap-2 min-w-0 overflow-hidden">
+                        <button
+                          onClick={() => openRecipeDetail(plan.recipe_id)}
+                          className="meal-recipe-pill flex-1 min-w-0 overflow-hidden px-3 py-2 bg-emerald-500/25 hover:bg-emerald-500/35 border border-emerald-400/40 rounded-lg text-emerald-100 text-sm font-medium text-left leading-snug transition-all duration-150"
+                          title={plan.recipe_name}
+                        >
+                          <span className="block truncate">{plan.recipe_name}</span>
+                        </button>
+                        <button
+                          onClick={() => handleRemoveMeal(plan.id)}
+                          disabled={isRemoving}
+                          className="meal-remove-btn flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500/40 border border-red-400/30 text-red-300 hover:text-red-100 transition-all"
+                        >
+                          <span className="text-xs">{isRemoving ? '…' : '✕'}</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onDayClick(mobileDateISO)}
+                        className="flex-1 text-white/30 hover:text-white/60 text-xl flex items-center justify-center h-9 transition-colors"
+                        title={`Add ${mealType.name}`}
+                      >+</button>
+                    )}
+                  </div>
+                )
+              })}
+              {/* Nutrition totals */}
+              {hasMobileMacros && (
+                <div className="px-4 py-3 bg-white/[0.07] border-t-2 border-white/20 flex flex-wrap gap-x-4 gap-y-1">
+                  <span className="text-white/50 text-xs font-semibold uppercase tracking-wide w-full">Nutrition</span>
+                  {mobileTotals.calories > 0 && <span className="meal-totals-cal text-xs font-semibold">🔥 {mobileTotals.calories} cal</span>}
+                  {mobileTotals.protein > 0 && <span className="meal-totals-pro text-xs">💪 {mobileTotals.protein}g pro</span>}
+                  {mobileTotals.fat > 0 && <span className="meal-totals-fat text-xs">🥑 {mobileTotals.fat}g fat</span>}
+                  {mobileTotals.carbs > 0 && <span className="meal-totals-carb text-xs">🌾 {mobileTotals.carbs}g carb</span>}
+                </div>
+              )}
+            </div>
+          </>
+        )
+      })()}
+
+      {/* ══════════════ DESKTOP: Week Grid ══════════════ */}
+      {!isMobile && (<>
       <div className="hidden md:flex items-center justify-between gap-4 mb-2">
         <h2 className="text-4xl font-bold text-white drop-shadow-lg flex-1">{getWeekRangeLabel()}</h2>
         <div className="flex items-center gap-2">
@@ -792,6 +907,7 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
       <div className="text-xs text-white/40 text-center">
         Click a recipe to view details · Click + to add a meal · Click ✕ to remove
       </div>
+      </>)}
 
       {/* Recipe Detail Modal */}
       {(viewingRecipe || loadingRecipe) && (
@@ -963,7 +1079,7 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
                 Cancel
               </button>
               <button
-                onClick={handleGeneratePlan}
+                onClick={() => handleGeneratePlan(generateTargetDate ?? undefined)}
                 disabled={generatingPlan}
                 className="meal-generate-btn flex-1 px-4 py-2.5 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
               >

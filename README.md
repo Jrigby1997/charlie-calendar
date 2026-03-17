@@ -13,7 +13,7 @@
 | 9 | **Calendar-Linked Tasks** | ✅ Done — When creating a calendar event, check "Also add as a task" to have it appear in both the Calendar view (as an event) and the Task view (as a one-off task for that specific date). Linked events show a 📋 badge. Ideal for dated to-dos like "Get oil change", "File taxes", or "Medical checkup" — one entry, two places |
 | 10 | ✅ **Sleep Mode** | Sleep button in sidebar; full-screen photo slideshow from admin-uploaded images (selectable in Settings); tap/click anywhere to wake; manual-only |
 | 11 | ✅ **Calorie / Macro Totals** | Daily totals row in Meal Plan week grid showing 🔥 cal / 💪 pro / 🥑 fat / 🌾 carb, centred per column; macro data joined from recipes table |
-| 12 | **Mobile Optimization** | Responsive layouts, touch-friendly targets, swipe navigation, bottom nav bar on mobile. **Note:** PWA (installable on home screen) is an easy add-on *after* the layout is responsive — not a substitute. Difficulty by component: Layout+sidebar→bottom nav (Easy), ShoppingList/Tasks/Rewards (Easy), RecipesView (Easy), CalendarView (Medium — force Day view on small screens), MealPlanWeekView (Hard — needs a completely different mobile layout). Total estimate: ~3–4 days full; ~1 day for layout + 4 of 6 views. |
+| 12 | ✅ **Mobile Optimization + PWA** | PWA foundation: `@ducanh2912/next-pwa`, `public/manifest.json`, SVG icons, ViewPort meta tags — app is installable on home screen. `BottomNav` fixed tab bar (mobile only). Separate compact/desktop header layouts for CalendarView, TasksView, RewardsView, MealPlanWeekView. Tasks + Rewards switch to single-member-at-a-time view on mobile with avatar picker. CalendarView auto-switches week→day on mobile. Avatar filter row wraps on narrow screens. Google OAuth: use Test Users in Cloud Console for family-scale apps (avoids restricted-scope security audit). |
 | 13 | **Space Theme** | Colorful galaxy background (purples/pinks/blues, nebula-style); kid-friendly; glowing card borders; star field parallax |
 | 14 | **Seasonal Auto-Theme** | Auto-detects date range: Halloween (Oct 15–Nov 1), Christmas (Dec 1–25), Easter (Mar–Apr), Fall (Sep–Oct), Spring (Apr–May); unique CSS + decorative assets per season |
 | 15 | ✅ **Generate Meal Plan** | "Generate Meal Plan" button fills empty weekly slots with recipes matching per-day nutrition goals (calories/protein/fat/carbs, each with ≤/≥ direction); ≤ goals are strictly enforced with proportional budget reservation per meal type (Breakfast 20%, Lunch 30%, Dinner 40%, Snack 10%, Dessert 0% — optional, fills only if surplus allows); ≥ goals sort candidates by deficit contribution; Fisher-Yates shuffle ensures genuine randomness; week-level and day-level dedup prevent recipe repeats; Allow Leftovers copies yesterday's dinner into today's lunch; goals persist via app_settings; 5 fixed standard meal types (no custom types) |
@@ -26,6 +26,52 @@
 | 22 | ✅ **Style Guide + Component Library** | `STYLE_GUIDE.md` documents colour tokens, button variants, modal anatomy, form inputs, pastel override pattern, semantic class naming, and rules for new components. `app/components/ui/` ships 9 shared primitives (`SectionCard`, `NavTab`, `PillToggle`, `GlassButton`, `IconButton`, `AvatarBadge`, `AvatarFilterGroup`, `CategoryChip`, `CategoryFilterBar`) — all inline button/card strings replaced across every view. |
 | 23 | **Admin Password** | Create an admin password functionality that you can apply to parts of the software so only the admin(s) can edit/add to certain sections |
 | 24 | **Life360 Mockup** | Add tracking software, maybe add it to notify you tied to events (suzie arrived to soccer) |
+
+---
+
+## 📝 Latest Updates (March 16, 2026)
+
+### Phase 14: PWA Foundation + Mobile Optimization (Task 12)
+
+**PWA:**
+- ✅ `@ducanh2912/next-pwa` installed; `next.config.ts` wrapped with `withPWA()` (NetworkFirst for API/Supabase, `turbopack: {}` conflict fix)
+- ✅ `public/manifest.json` — display: standalone, theme_color: #667eea
+- ✅ `public/icons/icon-192.svg` + `icon-512.svg` — purple gradient calendar placeholder icons
+- ✅ `app/layout.tsx` — `Viewport` export, apple-mobile-web-app meta, manifest link
+
+**BottomNav:**
+- ✅ `app/components/BottomNav.tsx` — fixed bottom tab bar with 6 tabs (Calendar, Recipes, Lists, Tasks, Rewards, Settings), `md:hidden`
+- ✅ Safe-area-inset padding for iPhone home indicator
+- ✅ `app/page.tsx` — sidebar `hidden md:flex`, main content `pb-14 md:pb-0`
+
+**CalendarView:**
+- ✅ Completely separate mobile/desktop header JSX blocks
+- ✅ `isMobile` state + resize listener auto-switches week→day on mobile
+- ✅ Mobile Row 2 controls all `size="sm"` to fit 375px
+- ✅ `AvatarFilterGroup` uses `flex-wrap` — avatar circles wrap to next line instead of overflowing
+
+**TasksView:**
+- ✅ `grid grid-cols-3` header replaced with `← [label/date] → [+]` compact flex row
+- ✅ Mobile member picker — avatar circles in header, tap to switch which member's column is visible
+- ✅ Desktop unchanged — all member columns shown side-by-side
+
+**RewardsView:**
+- ✅ Same mobile member picker pattern — single column at a time, avatar circles to switch
+- ✅ Desktop unchanged
+
+**MealPlanWeekView / RecipesView:**
+- ✅ MealPlanWeekView mobile header: `← [Week Range] →` + flex-wrap action buttons row
+- ✅ RecipesView container padding reduced to `px-3 md:px-6` on mobile; title `text-lg md:text-2xl`
+
+**Global:**
+- ✅ `html, body { overflow-x: hidden }` added to `globals.css`
+
+**Modified Files:**
+- `next.config.ts`, `app/layout.tsx`, `app/page.tsx`, `app/globals.css`
+- `app/components/BottomNav.tsx` — new
+- `app/components/CalendarView.tsx`, `TasksView.tsx`, `RewardsView.tsx`, `MealPlanWeekView.tsx`, `RecipesView.tsx`
+- `app/components/ui/AvatarFilterGroup.tsx`
+- `.gitignore`
 
 ---
 

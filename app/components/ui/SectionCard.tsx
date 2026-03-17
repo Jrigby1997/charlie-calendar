@@ -12,7 +12,7 @@ interface SectionCardProps {
 export default function SectionCard({ children, className = '' }: SectionCardProps) {
   return (
     <div
-      className={`bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)] ${className}`}
+      className={`bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.3)] max-w-[100vw] ${className}`}
     >
       {children}
     </div>
