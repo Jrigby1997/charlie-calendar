@@ -467,3 +467,161 @@ const meta = COLOR_META[category.color] ?? DEFAULT_COLOR_META;
 | `4` | Green | `green-*` |
 | `5` | Yellow | `yellow-*` |
 | `6` | Pink | `pink-*` |
+
+---
+
+## §16 Mobile Patterns
+
+### `useSwipe` hook
+
+Reusable touch-gesture hook for swipe navigation. Located at `lib/useSwipe.ts`.
+
+```ts
+import useSwipe from '@/lib/useSwipe';
+
+const swipeHandlers = useSwipe({
+  onSwipeLeft:  () => goToNext(),
+  onSwipeRight: () => goToPrev(),
+  threshold: 50,   // optional, default 50px — minimum horizontal distance
+});
+```
+
+Fires **only** when `|deltaX| > threshold` **AND** `|deltaX| > |deltaY|`. This prevents a slow vertical scroll from accidentally triggering a page change.
+
+Returns `{ onTouchStart, onTouchEnd }` — spread these directly on any HTML element or `SectionCard`.
+
+---
+
+### Attaching swipe to a section view
+
+`SectionCard` now accepts all `HTMLAttributes<HTMLDivElement>` via `...divProps` spread, so touch handlers can be attached without a wrapper div:
+
+```tsx
+// CalendarView.tsx
+const swipeHandlers = useSwipe({
+  onSwipeLeft:  () => { if (view !== 'week' || isMobile) nextMonth() },
+  onSwipeRight: () => { if (view !== 'week' || isMobile) prevMonth() },
+});
+
+return <SectionCard {...swipeHandlers}>…</SectionCard>;
+```
+
+> **Desktop week-view guard**: The week time-grid is already horizontally scrollable on some layouts. Always add `if (view !== 'week' || isMobile)` so swipe fires on desktop only when not in week view.
+
+If you need **different swipe targets for mobile and desktop** (like MealPlanWeekView), use two separate hook calls and spread on different inner elements instead of SectionCard:
+
+```tsx
+const mobileSwipe  = useSwipe({ onSwipeLeft: mobilePrevDay, onSwipeRight: mobileNextDay });
+const desktopSwipe = useSwipe({ onSwipeLeft: prevWeek, onSwipeRight: nextWeek });
+
+// mobile container:
+<div className="md:hidden …" {...mobileSwipe}>…</div>
+// desktop header:
+<div className="hidden md:flex …" {...desktopSwipe}>…</div>
+```
+
+---
+
+### `isMobile` state pattern
+
+Every view that changes its layout between mobile and 375px-class phones uses a resize listener:
+
+```ts
+const [isMobile, setIsMobile] = useState(false);
+useEffect(() => {
+  const check = () => setIsMobile(window.innerWidth < 768);
+  check();
+  window.addEventListener('resize', check);
+  return () => window.removeEventListener('resize', check);
+}, []);
+```
+
+The `md:` Tailwind breakpoint is 768px. Use `isMobile` only when CSS alone cannot express the difference (e.g. changing which data is shown, not just which element is visible).
+
+---
+
+### Mobile single-day view pattern
+
+Views that are week-grids on desktop become single-day scrollable views on mobile:
+
+| State | Purpose |
+|---|---|
+| `mobileDayIndex` (0–6) | Which day of the current week is shown |
+| `mobilePrevDay()` | Decrements index; wraps to previous week when it goes below 0 |
+| `mobileNextDay()` | Increments index; wraps to next week when it exceeds 6 |
+
+Header uses the same `← [Label] →` pattern as other navigation rows. Keep all buttons `size="sm"` to fit 375px:
+
+```tsx
+// ← [Tue Mar 17] → pattern
+<GlassButton size="sm" onClick={mobilePrevDay}>←</GlassButton>
+<span className="text-sm font-medium flex-1 text-center">{label}</span>
+<GlassButton size="sm" onClick={mobileNextDay}>→</GlassButton>
+```
+
+---
+
+### Month-day click → day view
+
+In CalendarView, each day cell in the month grid has a click handler that jumps directly to day view for that date:
+
+```tsx
+onClick={() => { setCurrentDate(new Date(year, month, day)); setView('day'); }}
+```
+
+Add `cursor-pointer hover:bg-white/10` to the cell to signal interactivity.
+
+---
+
+### `max-w-[100vw]` on SectionCard
+
+`SectionCard` already has `max-w-[100vw]` in its base classes. **Do not add it again on individual views** — it will have no effect and adds visual noise to the codebase.
+
+The main wrapping div in `page.tsx` also carries `max-w-[100vw]` as a belt-and-suspenders overflow guard.
+
+---
+
+### Touch target minimum sizes
+
+- Navigation buttons: minimum 44×44px (iOS HIG compliant). Use `size="sm"` GlassButton on mobile — its height is `h-8` (32px). For critical nav (prev/next arrows) consider `min-h-[44px]` if you need the extra tap area.
+- Checkbox / toggle: minimum 44×44px hit area via `p-2` wrapper if the visual is smaller.
+- Recipe pills and tile rows: naturally tall enough when content wraps. Add `py-2 min-h-[44px]` if they ever render as a single short line.
+
+---
+
+### Recipe pill overflow in grids
+
+When recipe name pills appear inside grid cells, prevent them from expanding the column or row:
+
+```tsx
+// Container
+<div className="min-w-0 overflow-hidden flex flex-col gap-1">
+  {/* Each pill */}
+  <span className="block truncate text-xs …">Recipe Name</span>
+</div>
+```
+
+Key properties: `min-w-0` on the container (flexbox children don't shrink below content by default), `overflow-hidden` to clip, `block truncate` on the text span.
+
+---
+
+### §16 Component Catalog additions (Phase 15)
+
+`IngredientsTab` component:
+
+| Component | Path | Key Props | Used in |
+|---|---|---|---|
+| `IngredientsTab` | `app/components/IngredientsTab.tsx` | `userId: string` | RecipesView (Ingredients tab) |
+
+**Merge UI pattern** inside IngredientsTab — compact action buttons (not GlassButton):
+
+```tsx
+// 28px circle ✓ button
+<button onClick={confirmMerge} className="w-7 h-7 rounded-full bg-green-500/30 hover:bg-green-500/50 text-green-300 flex items-center justify-center text-sm">✓</button>
+// 28px circle ✕ button
+<button onClick={cancelMerge} className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/60 flex items-center justify-center text-sm">✕</button>
+// Constrained merge target select
+<select className="min-w-0 flex-1 truncate …">…</select>
+```
+
+Always apply `min-w-0 flex-1 truncate` to a `<select>` inside a flex row — without `min-w-0` a long option text will push the action buttons off-screen.

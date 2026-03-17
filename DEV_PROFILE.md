@@ -1,6 +1,6 @@
 # Developer Profile & Project Context
 
-**Last Updated:** March 16, 2026
+**Last Updated:** March 17, 2026
 **Developer:** jrigb
 **Project:** Skylight-style Calendar Application
 **Current Phase:** Multi-Currency Tasks + Sleep Mode + Calorie Counter planned | Production Live ✅ → https://charlie-calendar.vercel.app
@@ -61,21 +61,79 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
    - Displayed per-day column at the bottom of the Meal Plan week grid
    - No per-member breakdown, no goals — raw totals only
 
-7. **Mobile Optimization** ✅ *(done — see Phase 14 below)*
+7. **Mobile Optimization** ✅ *(done — see Phase 14 & 15 below)*
    - PWA foundation: `@ducanh2912/next-pwa`, manifest.json, SVG icons, ViewPort meta tags
    - BottomNav tab bar (fixed at bottom on mobile, hidden on desktop)
    - Separate mobile/desktop headers for CalendarView, TasksView, RewardsView, MealPlanWeekView
    - Single-member-at-a-time layout for Tasks and Rewards on mobile (avatar picker switcher)
    - Avatar filter row wraps instead of overflowing; html/body overflow-x: hidden guard added
+   - MealPlanWeekView: full day-by-day view on mobile (`mobileDayIndex`, prev/next day, single-day Generate)
+   - `max-w-[100vw]` baked into SectionCard — no section can cause horizontal overflow
+   - Swipe navigation on all 3 views via `lib/useSwipe.ts` (Phase 15)
+   - Calendar month view: tap any day cell to jump to day view for that date (Phase 15)
 
-8. **Space Theme** *(lower priority)*
+8. **Ingredient Aliases** ✅ *(done — see Phase 15 below)*
+   - `aliases TEXT[]` column on `ingredients` table with GIN index
+   - Autocomplete + import matching checks aliases before creating new ingredient rows
+   - `IngredientsTab.tsx` — 3rd tab in Recipes section: list all ingredients, add/remove aliases, merge duplicates
+   - Merge flow: reroutes `recipe_ingredients` + `shopping_list` rows, copies name as alias, deletes duplicate
+
+9. **Space Theme** *(lower priority)*
    - Galaxy background, glowing borders, star field
 
-9. **Seasonal Auto-Theme** *(lower priority)*
-   - Halloween / Christmas / Easter / Fall / Spring auto-switching by date range
+10. **Seasonal Auto-Theme** *(lower priority)*
+    - Halloween / Christmas / Easter / Fall / Spring auto-switching by date range
 
 ---
-## Recent Session Summary (March 16, 2026)
+## Recent Session Summary (March 17, 2026)
+
+**Duration:** ~1 session
+**Accomplishments:**
+
+### Phase 15: Ingredient Aliases + Swipe Navigation + Mobile Polish
+
+1. **Overflow & State Fixes (Phase 14 follow-up)**
+   - Added `max-w-[100vw]` to `SectionCard` base styles — applies globally to every view
+   - Added `max-w-[100vw]` to main content wrapper in `page.tsx`
+   - Fixed `handleAddWeekMealsToList` stale state bug: now queries DB directly with date range filter (was reading React `mealPlans` state that could be stale after a clear)
+   - MealPlanWeekView recipe pills: `min-w-0 overflow-hidden` on container + `block truncate` on text spans — pills never expand column width
+   - Single-day Generate on mobile: `openGenerateModal(targetDateISO?)` + `handleGeneratePlan(targetDateISO?)` fills only the target day's empty slots; `weekUsedIds` still seeded from all week plans (no cross-day duplicates)
+
+2. **Swipe Navigation — `lib/useSwipe.ts`**
+   - New hook: `useSwipe({ onSwipeLeft, onSwipeRight, threshold? = 50 })` → `{ onTouchStart, onTouchEnd }`
+   - Guards: `|deltaX| > threshold` AND `|deltaX| > |deltaY|` (prevents scroll triggering swipe)
+   - `SectionCard` extended to accept `...HTMLAttributes<HTMLDivElement>` (`{...divProps}` spread on root div)
+   - **CalendarView**: swipe left/right = next/prev; guard: `if (view !== 'week' || isMobile)` avoids desktop week-grid conflict; month day cell `onClick` navigates to day view for that date
+   - **TasksView**: swipe left/right = next/previous day
+   - **MealPlanWeekView**: two separate hook calls — `mobileSwipe` on mobile container (mobilePrevDay/mobileNextDay), `desktopSwipe` on desktop header div (goToPrevWeek/goToNextWeek)
+
+3. **Ingredient Aliases**
+   - New migration: `supabase_migration_ingredient_aliases.sql` — `aliases TEXT[] NOT NULL DEFAULT '{}'` + GIN index on `ingredients`
+   - `AddRecipeModal`: `Ingredient` type gains `aliases?: string[]`; `loadIngredients` and `createNewIngredient` select `aliases`; `getFilteredIngredients` autocomplete checks aliases; `selectOrCreateIngredient` and `handleImportRecipe` both check `.some(a => a.toLowerCase() === nameLower)` before creating a new row
+   - New `IngredientsTab.tsx` (3rd tab in Recipes: `🥕 Ingredients`):
+     - Alphabetical ingredient list with alias chips (add / ✕ remove)
+     - Inline "Add alias" form per ingredient
+     - Merge flow: select target from dropdown → ✓ (green 28px circle) confirms, ✕ (neutral 28px circle) cancels
+     - Merge executes 4 Supabase calls: reroute `recipe_ingredients` → reroute `shopping_list` → append source name+aliases to target `aliases[]` → delete source
+     - Merge dropdown: `min-w-0 flex-1 truncate` prevents long names from overflowing the flex row
+   - `RecipesView` PillToggle: 3 items now (`🍳 Recipes | 📅 Meal Plan | 🥕 Ingredients`)
+
+**New Files:**
+- `supabase_migration_ingredient_aliases.sql`
+- `lib/useSwipe.ts`
+- `app/components/IngredientsTab.tsx`
+
+**Modified Files:**
+- `app/components/ui/SectionCard.tsx` — `max-w-[100vw]`, `HTMLAttributes<HTMLDivElement>` spread
+- `app/page.tsx` — `max-w-[100vw]` on main wrapper; `handleAddWeekMealsToList` DB-direct query
+- `app/components/AddRecipeModal.tsx` — aliases in type, all match paths check aliases
+- `app/components/RecipesView.tsx` — 3rd PillToggle item, IngredientsTab render
+- `app/components/CalendarView.tsx` — useSwipe, month day click
+- `app/components/TasksView.tsx` — useSwipe
+- `app/components/MealPlanWeekView.tsx` — useSwipe (two calls), pill truncation, single-day generate
+
+---
+## Previous Session Summary (March 16, 2026)
 
 **Duration:** ~1 session
 **Accomplishments:**

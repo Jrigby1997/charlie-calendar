@@ -26,10 +26,56 @@
 | 22 | ✅ **Style Guide + Component Library** | `STYLE_GUIDE.md` documents colour tokens, button variants, modal anatomy, form inputs, pastel override pattern, semantic class naming, and rules for new components. `app/components/ui/` ships 9 shared primitives (`SectionCard`, `NavTab`, `PillToggle`, `GlassButton`, `IconButton`, `AvatarBadge`, `AvatarFilterGroup`, `CategoryChip`, `CategoryFilterBar`) — all inline button/card strings replaced across every view. |
 | 23 | **Admin Password** | Create an admin password functionality that you can apply to parts of the software so only the admin(s) can edit/add to certain sections |
 | 24 | **Life360 Mockup** | Add tracking software, maybe add it to notify you tied to events (suzie arrived to soccer) |
+| 25 | ✅ **Ingredient Aliases + Swipe Navigation** | `aliases TEXT[]` column on ingredients table with GIN index. Autocomplete and recipe-import matching check aliases before creating new rows. `IngredientsTab` (3rd tab in Recipes section) — list all ingredients, add/remove aliases, merge duplicates with automatic rerouting of recipe_ingredients and shopping_list rows. `useSwipe` hook (lib/useSwipe.ts) attached to CalendarView, TasksView, and MealPlanWeekView for swipe-left/right navigation. CalendarView month day cells navigate to day view on tap. `SectionCard` extended to accept HTMLAttributes spread so swipe handlers attach without wrapper divs. |
+| 26 | ✅ **Admin PIN + Recurring Event Exceptions** | Optional 4-digit admin PIN stored as SHA-256 hash in app_settings (via Web Crypto API — no dependencies). When set, a PIN prompt appears before Settings can be opened; PIN can be changed or removed from within Settings. Recurring event exceptions RLS policies added so single-instance edits (edit this occurrence only / edit all / edit future) now work correctly; `custom_color` column added to event_exceptions. |
+| 27 | **Push Notifications** | Web push subscription + Supabase Edge Function or Vercel cron to send reminders before events and morning task digests. PWA is already installed — gap is just push subscription + server-side sender. |
+| 28 | **Shopping List Aisle/Category Organization** | Group shopping list items by category so the list matches how you walk through a store. Ingredient categories (with color metadata) map to aisles. Items auto-grouped on the list view. |
+| 29 | **Event Attachments / Notes** | Structured notes or checklist on individual events (e.g. "Soccer practice — bring shin guards, field is at Oak Park"). Stored in a new event_notes table or as JSONB on events. |
 
 ---
 
-## 📝 Latest Updates (March 16, 2026)
+## 📝 Latest Updates (March 17, 2026)
+
+### Phase 15: Ingredient Aliases + Swipe Navigation + Mobile Polish (Task 25)
+
+**Ingredient Aliases:**
+- ✅ `supabase_migration_ingredient_aliases.sql` — `ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS aliases TEXT[] NOT NULL DEFAULT '{}';` + `CREATE INDEX ... USING GIN (aliases);`
+- ✅ `AddRecipeModal`: `Ingredient` type gains `aliases?: string[]`; `loadIngredients` and `createNewIngredient` select `id, name, aliases`; `getFilteredIngredients` checks aliases in autocomplete; `selectOrCreateIngredient` and `handleImportRecipe` check aliases before calling `createNewIngredient` (prevents unwanted duplicates on import)
+- ✅ New `IngredientsTab.tsx` — 3rd tab in Recipes section (`🥕 Ingredients`): alphabetical ingredient list, alias chips (removable), "Add alias" inline form, merge flow (select target > ✓/✕ compact icon buttons)
+- ✅ Merge executes 4 sequential Supabase calls: reroute `recipe_ingredients` rows → reroute `shopping_list` rows → append source name + aliases to target's `aliases[]` → delete source ingredient
+- ✅ `RecipesView` PillToggle extended to 3 items: `🍳 Recipes | 📅 Meal Plan | 🥕 Ingredients`
+
+**Swipe Navigation:**
+- ✅ New `lib/useSwipe.ts` — `useSwipe({ onSwipeLeft, onSwipeRight, threshold? })` → `{ onTouchStart, onTouchEnd }`. Guards: `|deltaX| > threshold` AND `|deltaX| > |deltaY|` (no false positives on vertical scroll)
+- ✅ `SectionCard` extended: `interface SectionCardProps extends HTMLAttributes<HTMLDivElement>`; `{...divProps}` spread on root div — listeners attached with `<SectionCard {...swipeHandlers}>`
+- ✅ `CalendarView`: swipe left/right = next/prev; desktop week-view guard (`if (view !== 'week' || isMobile)`); month day cell click navigates to day view for that date (`cursor-pointer` added)
+- ✅ `TasksView`: swipe left/right = next/previous day
+- ✅ `MealPlanWeekView`: mobile swipe = `mobilePrevDay()` / `mobileNextDay()`; desktop header swipe = prev/next week (two separate `useSwipe` calls on two separate elements)
+
+**Mobile Overflow + State Fixes:**
+- ✅ `SectionCard` base classes include `max-w-[100vw]` — no view can cause horizontal overflow
+- ✅ Main content wrapper in `page.tsx` also carries `max-w-[100vw]`
+- ✅ `handleAddWeekMealsToList` now queries DB directly with date range filter instead of reading potentially-stale React `mealPlans` state (fixed: ingredients still appearing after clearing the week)
+- ✅ MealPlanWeekView recipe pills: `min-w-0 overflow-hidden` container + `block truncate` text — pills never expand column width
+- ✅ Single-day Generate on mobile: passes `mobileDateISO` through `openGenerateModal(targetDateISO?)` → `handleGeneratePlan(targetDateISO?)` fills only the selected day's slots; `weekUsedIds` still seeded from the full week (no cross-day recipe repeats)
+
+**New Files:**
+- `supabase_migration_ingredient_aliases.sql`
+- `lib/useSwipe.ts`
+- `app/components/IngredientsTab.tsx`
+
+**Modified Files:**
+- `app/components/ui/SectionCard.tsx` — `max-w-[100vw]`, `HTMLAttributes<HTMLDivElement>` spread
+- `app/page.tsx` — `max-w-[100vw]` on main wrapper; `handleAddWeekMealsToList` DB-direct query
+- `app/components/AddRecipeModal.tsx` — aliases in type, all match paths check aliases
+- `app/components/RecipesView.tsx` — 3rd PillToggle item, IngredientsTab render
+- `app/components/CalendarView.tsx` — useSwipe, month day click
+- `app/components/TasksView.tsx` — useSwipe
+- `app/components/MealPlanWeekView.tsx` — useSwipe (mobile + desktop), pill truncation, single-day generate
+
+---
+
+## 📝 Previous Updates (March 16, 2026)
 
 ### Phase 14: PWA Foundation + Mobile Optimization (Task 12)
 

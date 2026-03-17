@@ -4,6 +4,11 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import FamilyMembers from './FamilyMembers'
 
+async function sha256(text: string): Promise<string> {
+  const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+  return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
 type GoogleCalendar = {
   id: number
   external_calendar_id: string
@@ -37,6 +42,15 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
   const [dateFormat, setDateFormat] = useState('MM/DD/YYYY')
   const [weekStartDay, setWeekStartDay] = useState('Sunday')
   const [loading, setLoading] = useState(false)
+
+  // Admin PIN state
+  const [adminPinHash, setAdminPinHash] = useState<string | null>(null)
+  const [pinMode, setPinMode] = useState<'idle' | 'setting' | 'changing' | 'removing'>('idle')
+  const [pinCurrent, setPinCurrent] = useState('')
+  const [pinNew, setPinNew] = useState('')
+  const [pinConfirm, setPinConfirm] = useState('')
+  const [pinError, setPinError] = useState('')
+  const [pinSaving, setPinSaving] = useState(false)
 
   // Google Calendar integration state
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -220,9 +234,55 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
       setEventColorMode(data.event_color_mode || 'member')
       setDateFormat(data.date_format || 'MM/DD/YYYY')
       setWeekStartDay(data.week_start_day || 'Sunday')
+      setAdminPinHash(data.admin_pin_hash || null)
     }
 
     setLoading(false)
+  }
+
+  async function handleSavePin() {
+    setPinError('')
+    if (pinMode === 'setting' || pinMode === 'changing') {
+      if (!/^\d{4}$/.test(pinNew)) { setPinError('PIN must be exactly 4 digits'); return }
+      if (pinNew !== pinConfirm) { setPinError('PINs do not match'); return }
+      if (pinMode === 'changing') {
+        const currentHash = await sha256(pinCurrent)
+        if (currentHash !== adminPinHash) { setPinError('Current PIN is incorrect'); return }
+      }
+      setPinSaving(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setPinSaving(false); return }
+      const newHash = await sha256(pinNew)
+      const { error } = await supabase.from('app_settings').upsert(
+        { user_id: user.id, admin_pin_hash: newHash }, { onConflict: 'user_id' }
+      )
+      setPinSaving(false)
+      if (error) { setPinError('Failed to save PIN'); return }
+      setAdminPinHash(newHash)
+      cancelPinEdit()
+      onShowToast?.('Admin PIN saved', 'success')
+    }
+  }
+
+  async function handleRemovePin() {
+    setPinError('')
+    const currentHash = await sha256(pinCurrent)
+    if (currentHash !== adminPinHash) { setPinError('Current PIN is incorrect'); return }
+    setPinSaving(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setPinSaving(false); return }
+    const { error } = await supabase.from('app_settings').upsert(
+      { user_id: user.id, admin_pin_hash: null }, { onConflict: 'user_id' }
+    )
+    setPinSaving(false)
+    if (error) { setPinError('Failed to remove PIN'); return }
+    setAdminPinHash(null)
+    cancelPinEdit()
+    onShowToast?.('Admin PIN removed', 'success')
+  }
+
+  function cancelPinEdit() {
+    setPinMode('idle'); setPinCurrent(''); setPinNew(''); setPinConfirm(''); setPinError('')
   }
 
   async function handleSave() {
@@ -552,6 +612,124 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                   ))}
                 </div>
               )}
+
+              {/* Divider — Admin PIN */}
+              <div className="border-t border-white/20 pt-4">
+                <h4 className="text-white font-semibold mb-1">Admin PIN</h4>
+                <p className="text-white/60 text-sm mb-4">
+                  Restrict access to Settings with a 4-digit PIN. Optional — leave unset to keep Settings open to everyone.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {pinMode === 'idle' && !adminPinHash && (
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-white/60 text-sm">🔓 No PIN set — Settings are open to all</span>
+                    <button
+                      onClick={() => setPinMode('setting')}
+                      className="flex-shrink-0 px-4 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm font-medium transition-all duration-200"
+                    >
+                      Set PIN
+                    </button>
+                  </div>
+                )}
+                {pinMode === 'idle' && adminPinHash && (
+                  <div className="space-y-2">
+                    <p className="text-green-300 text-sm">🔒 PIN is active — Settings are locked</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setPinMode('changing')}
+                        className="px-4 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm font-medium transition-all duration-200"
+                      >
+                        Change PIN
+                      </button>
+                      <button
+                        onClick={() => setPinMode('removing')}
+                        className="px-4 py-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-white text-sm font-medium transition-all duration-200"
+                      >
+                        Remove PIN
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {(pinMode === 'setting' || pinMode === 'changing' || pinMode === 'removing') && (
+                  <div className="space-y-3 bg-white/5 rounded-xl p-4 border border-white/10">
+                    {(pinMode === 'changing' || pinMode === 'removing') && (
+                      <div>
+                        <label className="block text-white/70 text-sm mb-1">
+                          {pinMode === 'removing' ? 'Current PIN (to confirm removal)' : 'Current PIN'}
+                        </label>
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={4}
+                          value={pinCurrent}
+                          onChange={e => { setPinCurrent(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinError('') }}
+                          placeholder="••••"
+                          className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-center text-lg tracking-[0.5em] placeholder-white/30 focus:outline-none focus:border-white/50"
+                        />
+                      </div>
+                    )}
+                    {(pinMode === 'setting' || pinMode === 'changing') && (
+                      <>
+                        <div>
+                          <label className="block text-white/70 text-sm mb-1">New PIN (4 digits)</label>
+                          <input
+                            type="password"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={4}
+                            value={pinNew}
+                            onChange={e => { setPinNew(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinError('') }}
+                            placeholder="••••"
+                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-center text-lg tracking-[0.5em] placeholder-white/30 focus:outline-none focus:border-white/50"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-white/70 text-sm mb-1">Confirm New PIN</label>
+                          <input
+                            type="password"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={4}
+                            value={pinConfirm}
+                            onChange={e => { setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinError('') }}
+                            placeholder="••••"
+                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-center text-lg tracking-[0.5em] placeholder-white/30 focus:outline-none focus:border-white/50"
+                          />
+                        </div>
+                      </>
+                    )}
+                    {pinError && <p className="text-red-300 text-sm">{pinError}</p>}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={cancelPinEdit}
+                        className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm font-medium transition-all duration-200"
+                      >
+                        Cancel
+                      </button>
+                      {pinMode !== 'removing' ? (
+                        <button
+                          onClick={handleSavePin}
+                          disabled={pinSaving}
+                          className="px-4 py-2 bg-green-500/30 hover:bg-green-500/40 border border-green-500/40 rounded-lg text-white text-sm font-medium transition-all duration-200 disabled:opacity-50"
+                        >
+                          {pinSaving ? 'Saving…' : 'Save PIN'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleRemovePin}
+                          disabled={pinSaving}
+                          className="px-4 py-2 bg-red-500/30 hover:bg-red-500/40 border border-red-500/40 rounded-lg text-white text-sm font-medium transition-all duration-200 disabled:opacity-50"
+                        >
+                          {pinSaving ? 'Removing…' : 'Remove PIN'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Divider */}
               <div className="border-t border-white/20 pt-4">

@@ -12,6 +12,7 @@ import RewardsView from './components/RewardsView'
 import AddEventModal from './components/AddEventModal'
 import MealPlanModal from './components/MealPlanModal'
 import SettingsModal from './components/SettingsModal'
+import AdminPinModal from './components/AdminPinModal'
 import ExternalEventDetailModal from './components/ExternalEventDetailModal'
 import EditGoogleEventModal from './components/EditGoogleEventModal'
 import NavTab from './components/ui/NavTab'
@@ -83,6 +84,8 @@ export default function Home() {
   const [mealPlanRefreshKey, setMealPlanRefreshKey] = useState(0)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [adminPinHash, setAdminPinHash] = useState<string | null>(null)
+  const [showPinPrompt, setShowPinPrompt] = useState(false)
   const [calendarTitle, setCalendarTitle] = useState('Charlie Calendar')
   const [familySectionTitle, setFamilySectionTitle] = useState('Family Members')
   const [colorTheme, setColorTheme] = useState(() => {
@@ -326,6 +329,15 @@ export default function Home() {
       setEventColorMode(data.event_color_mode || 'member')
       setDateFormat(data.date_format || 'MM/DD/YYYY')
       setWeekStartDay(data.week_start_day || 'Sunday')
+      setAdminPinHash(data.admin_pin_hash || null)
+    }
+  }
+
+  function openSettings() {
+    if (adminPinHash) {
+      setShowPinPrompt(true)
+    } else {
+      setIsSettingsOpen(true)
     }
   }
 
@@ -1426,7 +1438,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
 
           {/* Settings and Sign Out Buttons */}
           <div className="flex flex-col gap-2 mt-auto">
-            <NavTab icon="⚙️" label="Settings" active={false} onClick={() => setIsSettingsOpen(true)} />
+            <NavTab icon="⚙️" label="Settings" active={false} onClick={openSettings} />
             <NavTab icon="🚪" label="Sign Out" active={false} onClick={handleSignOut} />
           </div>
         </div>
@@ -1568,6 +1580,16 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
           onExternalCalendarsChange={loadExternalData}
         />
 
+        {/* Admin PIN prompt — shown before opening Settings when a PIN is set */}
+        {adminPinHash && (
+          <AdminPinModal
+            isOpen={showPinPrompt}
+            storedHash={adminPinHash}
+            onSuccess={() => { setShowPinPrompt(false); setIsSettingsOpen(true) }}
+            onClose={() => setShowPinPrompt(false)}
+          />
+        )}
+
         {/* Toast Notification */}
         {toast && (
           <div className="fixed top-6 right-6 z-50">
@@ -1587,7 +1609,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
         <BottomNav
           currentView={currentView}
           setCurrentView={setCurrentView}
-          onSettingsClick={() => setIsSettingsOpen(true)}
+          onSettingsClick={openSettings}
         />
     </div>
   )
