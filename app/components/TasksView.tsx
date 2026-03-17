@@ -8,6 +8,7 @@ import confetti from 'canvas-confetti'
 import SectionCard from './ui/SectionCard'
 import IconButton from './ui/IconButton'
 import GlassButton from './ui/GlassButton'
+import { useSwipe } from '@/lib/useSwipe'
 
 type FamilyMember = {
   id: number
@@ -186,6 +187,11 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
   const viewDateISO = toLocalISO(viewDate)
   const viewDateISORef = useRef(viewDateISO)
   useEffect(() => { viewDateISORef.current = viewDateISO }, [viewDateISO])
+
+  const swipeHandlers = useSwipe({
+    onSwipeLeft:  () => setViewDate(d => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)),
+    onSwipeRight: () => setViewDate(d => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1)),
+  })
 
   // Load all task data
   useEffect(() => {
@@ -853,7 +859,7 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
 
   return (
     <>
-      <SectionCard className="h-full flex flex-col">
+      <SectionCard className="h-full flex flex-col" {...swipeHandlers}>
         {/* Header */}
         <div className="px-4 md:px-6 pt-4 md:pt-6 pb-3 flex flex-col gap-2 flex-shrink-0">
           {/* Row 1: ← title/date → | + button */}

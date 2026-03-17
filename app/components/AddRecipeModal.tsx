@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 type Ingredient = {
   id: number
   name: string
+  aliases?: string[]
 }
 
 type RecipeCategory = {
@@ -118,7 +119,7 @@ export default function AddRecipeModal({
     try {
       const { data, error } = await supabase
         .from('ingredients')
-        .select('id, name')
+        .select('id, name, aliases')
         .order('name', { ascending: true })
 
       if (error) throw error
@@ -196,9 +197,12 @@ export default function AddRecipeModal({
       if (recipeData.ingredients && recipeData.ingredients.length > 0) {
         const processedIngredients = await Promise.all(
           recipeData.ingredients.map(async (ing: any) => {
-            // Try to find existing ingredient
+            // Try to find existing ingredient (by name or alias)
+            const ingNameLower = ing.ingredient_name.toLowerCase()
             let ingredient = availableIngredients.find(
-              (i) => i.name.toLowerCase() === ing.ingredient_name.toLowerCase()
+              (i) =>
+                i.name.toLowerCase() === ingNameLower ||
+                (i.aliases ?? []).some((a) => a.toLowerCase() === ingNameLower)
             )
 
             // Create new ingredient if not found
@@ -237,7 +241,7 @@ export default function AddRecipeModal({
       const { data, error } = await supabase
         .from('ingredients')
         .insert([{ name, user_id: userId }])
-        .select('id, name')
+        .select('id, name, aliases')
         .single()
 
       if (error) throw error
@@ -276,8 +280,11 @@ export default function AddRecipeModal({
   }
 
   async function selectOrCreateIngredient(index: number, ingredientName: string) {
+    const nameLower = ingredientName.toLowerCase()
     const existing = availableIngredients.find(
-      (ing) => ing.name.toLowerCase() === ingredientName.toLowerCase()
+      (ing) =>
+        ing.name.toLowerCase() === nameLower ||
+        (ing.aliases ?? []).some((a) => a.toLowerCase() === nameLower)
     )
 
     if (existing) {
@@ -303,7 +310,10 @@ export default function AddRecipeModal({
   function getFilteredIngredients(): Ingredient[] {
     const searchTerm = ingredientSearchInput.toLowerCase()
     if (!searchTerm) return availableIngredients
-    return availableIngredients.filter((ing) => ing.name.toLowerCase().includes(searchTerm))
+    return availableIngredients.filter((ing) =>
+      ing.name.toLowerCase().includes(searchTerm) ||
+      (ing.aliases ?? []).some((a) => a.toLowerCase().includes(searchTerm))
+    )
   }
 
   const handleSubmit = (e: React.FormEvent) => {

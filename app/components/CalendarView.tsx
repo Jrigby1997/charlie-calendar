@@ -7,6 +7,7 @@ import SectionCard from './ui/SectionCard'
 import PillToggle from './ui/PillToggle'
 import AvatarFilterGroup from './ui/AvatarFilterGroup'
 import GlassButton from './ui/GlassButton'
+import { useSwipe } from '@/lib/useSwipe'
 
 type Event = {
   id: number
@@ -76,6 +77,11 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
   const [draggedEventId, setDraggedEventId] = useState<number | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const dragOffsetY = useRef<number>(0)
+
+  const swipeHandlers = useSwipe({
+    onSwipeLeft:  () => { if (view !== 'week' || isMobile) nextMonth() },
+    onSwipeRight: () => { if (view !== 'week' || isMobile) previousMonth() },
+  })
 
   function handleEventInteraction(event: Event) {
     onEventClick(event)
@@ -511,7 +517,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
   const dayOfWeekName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][currentDate.getDay()]
 
   return (
-    <SectionCard className="h-full flex flex-col">
+    <SectionCard className="h-full flex flex-col" {...swipeHandlers}>
       {/* ── Mobile Header ── */}
       <div className="md:hidden px-3 pt-3 pb-1 flex flex-col gap-2">
         {/* Row 1: ← title → */}
@@ -1177,7 +1183,8 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
           return (
             <div
               key={day}
-              className={`border rounded md:rounded-xl p-1 md:p-3 min-h-10 md:min-h-24 transition-all duration-200 shadow-lg hover:shadow-xl relative ${
+              onClick={() => { setCurrentDate(new Date(year, month, day)); setView('day') }}
+              className={`border rounded md:rounded-xl p-1 md:p-3 min-h-10 md:min-h-24 transition-all duration-200 shadow-lg hover:shadow-xl relative cursor-pointer ${
                 isTodayDate
                   ? 'bg-white/20 backdrop-blur-lg border-yellow-300/50 shadow-yellow-500/20'
                   : 'bg-white/10 backdrop-blur-lg border-white/20 hover:border-white/40'

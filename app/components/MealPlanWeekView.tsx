@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getWeekStart } from '@/lib/dateUtils'
 import GlassButton from './ui/GlassButton'
+import { useSwipe } from '@/lib/useSwipe'
 
 type MealType = {
   id: number
@@ -112,6 +113,15 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
   const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [generateTargetDate, setGenerateTargetDate] = useState<string | null>(null)
   const [generatingPlan, setGeneratingPlan] = useState(false)
+
+  const mobileSwipe = useSwipe({
+    onSwipeLeft:  mobilePrevDay,
+    onSwipeRight: mobileNextDay,
+  })
+  const desktopSwipe = useSwipe({
+    onSwipeLeft:  goToNextWeek,
+    onSwipeRight: goToPrevWeek,
+  })
   const [goals, setGoals] = useState<MealPlanGoals>({
     calories: { enabled: false, direction: '≤', value: 2000 },
     protein: { enabled: false, direction: '≥', value: 50 },
@@ -660,7 +670,7 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
           }), { calories: 0, protein: 0, fat: 0, carbs: 0 })
         const hasMobileMacros = mealPlans.filter(p => p.date === mobileDateISO).some(p => p.calories || p.protein || p.fat || p.carbs)
         return (
-          <>
+          <div {...mobileSwipe}>
             {/* Row 1: ← [Day, Date] → */}
             <div className="flex items-center gap-1">
               <GlassButton size="sm" className="flex-shrink-0" onClick={mobilePrevDay}>←</GlassButton>
@@ -725,13 +735,13 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
                 </div>
               )}
             </div>
-          </>
+          </div>
         )
       })()}
 
       {/* ══════════════ DESKTOP: Week Grid ══════════════ */}
       {!isMobile && (<>
-      <div className="hidden md:flex items-center justify-between gap-4 mb-2">
+      <div className="hidden md:flex items-center justify-between gap-4 mb-2" {...desktopSwipe}>
         <h2 className="text-4xl font-bold text-white drop-shadow-lg flex-1">{getWeekRangeLabel()}</h2>
         <div className="flex items-center gap-2">
           <GlassButton size="sm" onClick={goToPrevWeek}>← Prev</GlassButton>

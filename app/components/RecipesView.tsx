@@ -9,6 +9,7 @@ import PillToggle from './ui/PillToggle'
 import CategoryFilterBar from './ui/CategoryFilterBar'
 import CategoryChip from './ui/CategoryChip'
 import GlassButton from './ui/GlassButton'
+import IngredientsTab from './IngredientsTab'
 
 type Ingredient = {
   id: number
@@ -102,7 +103,7 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
-  const [subView, setSubView] = useState<'recipes' | 'mealplan'>('recipes')
+  const [subView, setSubView] = useState<'recipes' | 'mealplan' | 'ingredients'>('recipes')
 
   async function loadCategories() {
     try {
@@ -597,8 +598,9 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
           <h2 className="text-lg md:text-2xl font-bold text-white drop-shadow-lg truncate">{sectionTitle || '📖 Recipes'}</h2>
           <PillToggle
             items={[
-              { value: 'recipes',  label: '🍳 Recipes' },
-              { value: 'mealplan', label: '📅 Meal Plan' },
+              { value: 'recipes',     label: '🍳 Recipes' },
+              { value: 'mealplan',    label: '📅 Meal Plan' },
+              { value: 'ingredients', label: '🥕 Ingredients' },
             ]}
             value={subView}
             onChange={setSubView}
@@ -649,6 +651,13 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
             refreshKey={mealRefreshKey}
             onAddWeekMealsToList={onAddWeekMealsToList}
           />
+        </div>
+      )}
+
+      {/* Ingredients manager */}
+      {subView === 'ingredients' && (
+        <div className="flex-1 min-h-0 overflow-hidden px-4 md:px-6 pb-4 md:pb-6">
+          <IngredientsTab userId={userId} />
         </div>
       )}
 
