@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from './contexts/AuthContext'
@@ -17,6 +17,7 @@ import ExternalEventDetailModal from './components/ExternalEventDetailModal'
 import EditGoogleEventModal from './components/EditGoogleEventModal'
 import NavTab from './components/ui/NavTab'
 import BottomNav from './components/BottomNav'
+import { PRESET_INGREDIENTS } from '@/lib/presetIngredients'
 
 type Event = {
   id: number
@@ -83,6 +84,7 @@ export default function Home() {
   const [isMealModalOpen, setIsMealModalOpen] = useState(false)
   const [mealPlanRefreshKey, setMealPlanRefreshKey] = useState(0)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
+  const ingredientsSeedingDone = useRef(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [adminPinHash, setAdminPinHash] = useState<string | null>(null)
   const [showPinPrompt, setShowPinPrompt] = useState(false)
@@ -322,14 +324,20 @@ export default function Home() {
     if (error) {
       console.error('Error loading settings:', error)
       // Keep defaults if no settings found
-    } else if (data) {
-      setCalendarTitle(data.calendar_title)
-      setFamilySectionTitle(data.family_section_title)
-      setColorTheme(data.color_theme || 'glass')
-      setEventColorMode(data.event_color_mode || 'member')
-      setDateFormat(data.date_format || 'MM/DD/YYYY')
-      setWeekStartDay(data.week_start_day || 'Sunday')
-      setAdminPinHash(data.admin_pin_hash || null)
+    } else {
+      if (data) {
+        setCalendarTitle(data.calendar_title)
+        setFamilySectionTitle(data.family_section_title)
+        setColorTheme(data.color_theme || 'glass')
+        setEventColorMode(data.event_color_mode || 'member')
+        setDateFormat(data.date_format || 'MM/DD/YYYY')
+        setWeekStartDay(data.week_start_day || 'Sunday')
+        setAdminPinHash(data.admin_pin_hash || null)
+      }
+      if (!data?.ingredients_seeded && !ingredientsSeedingDone.current) {
+        ingredientsSeedingDone.current = true
+        seedPresetIngredients(user.id)
+      }
     }
   }
 
@@ -338,6 +346,27 @@ export default function Home() {
       setShowPinPrompt(true)
     } else {
       setIsSettingsOpen(true)
+    }
+  }
+
+  async function seedPresetIngredients(userId: string) {
+    try {
+      const { data: existing } = await supabase
+        .from('ingredients')
+        .select('name')
+        .eq('user_id', userId)
+      const existingNames = new Set((existing || []).map((i: any) => i.name.toLowerCase()))
+      const toInsert = PRESET_INGREDIENTS
+        .filter(p => !existingNames.has(p.name.toLowerCase()))
+        .map(p => ({ user_id: userId, name: p.name, aliases: p.aliases, aisle: p.aisle }))
+      if (toInsert.length > 0) {
+        await supabase.from('ingredients').insert(toInsert)
+      }
+      await supabase
+        .from('app_settings')
+        .upsert({ user_id: userId, ingredients_seeded: true }, { onConflict: 'user_id' })
+    } catch (err) {
+      console.error('Error seeding preset ingredients:', err)
     }
   }
 

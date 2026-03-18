@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import GlassButton from './ui/GlassButton'
 import { AISLE_OPTIONS } from '@/lib/aisleOptions'
+import { PRESET_INGREDIENTS } from '@/lib/presetIngredients'
 
 type Ingredient = {
   id: number
@@ -28,6 +29,7 @@ export default function IngredientsTab({ userId }: IngredientsTabProps) {
   const [merging, setMerging] = useState<number | null>(null)
   const [confirmMergeId, setConfirmMergeId] = useState<number | null>(null)
   const [aisleEditId, setAisleEditId] = useState<number | null>(null)
+  const [restoringDefaults, setRestoringDefaults] = useState(false)
 
   function showToast(message: string, tone: 'success' | 'error') {
     setToast({ message, tone })
@@ -50,6 +52,28 @@ export default function IngredientsTab({ userId }: IngredientsTabProps) {
   }
 
   useEffect(() => { loadIngredients() }, [userId])
+
+  async function restoreDefaults() {
+    setRestoringDefaults(true)
+    try {
+      const existingNames = new Set(ingredients.map(i => i.name.toLowerCase()))
+      const toInsert = PRESET_INGREDIENTS
+        .filter(p => !existingNames.has(p.name.toLowerCase()))
+        .map(p => ({ user_id: userId, name: p.name, aliases: p.aliases, aisle: p.aisle }))
+      if (toInsert.length === 0) {
+        showToast('All default ingredients are already present.', 'success')
+        return
+      }
+      const { error } = await supabase.from('ingredients').insert(toInsert)
+      if (error) throw error
+      showToast(`Restored ${toInsert.length} default ingredient${toInsert.length !== 1 ? 's' : ''}.`, 'success')
+      await loadIngredients()
+    } catch {
+      showToast('Failed to restore defaults.', 'error')
+    } finally {
+      setRestoringDefaults(false)
+    }
+  }
 
   async function addAlias(ingredient: Ingredient) {
     const alias = (addAliasInput[ingredient.id] ?? '').trim()
@@ -199,7 +223,16 @@ export default function IngredientsTab({ userId }: IngredientsTabProps) {
           onChange={e => setSearch(e.target.value)}
           className="recipe-input w-full px-4 py-2 bg-black/20 border border-white/25 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-white/45 focus:ring-1 focus:ring-white/20"
         />
-        <p className="text-white/40 text-xs mt-1.5 pl-1">{ingredients.length} ingredient{ingredients.length !== 1 ? 's' : ''} total</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-white/40 text-xs mt-1.5 pl-1">{ingredients.length} ingredient{ingredients.length !== 1 ? 's' : ''} total</p>
+          <button
+            onClick={restoreDefaults}
+            disabled={restoringDefaults}
+            className="text-xs text-white/40 hover:text-white/60 transition-colors disabled:opacity-40 mt-1"
+          >
+            {restoringDefaults ? 'Restoring…' : '↩ Restore defaults'}
+          </button>
+        </div>
       </div>
 
       {/* List */}
