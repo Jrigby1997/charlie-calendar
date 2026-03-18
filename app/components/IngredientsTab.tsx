@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import GlassButton from './ui/GlassButton'
+import { AISLE_OPTIONS } from '@/lib/aisleOptions'
 
 type Ingredient = {
   id: number
   name: string
   aliases: string[]
+  aisle: string | null
 }
 
 type IngredientsTabProps = {
@@ -25,6 +27,7 @@ export default function IngredientsTab({ userId }: IngredientsTabProps) {
   const [mergeTarget, setMergeTarget] = useState<Record<number, number | ''>>({})
   const [merging, setMerging] = useState<number | null>(null)
   const [confirmMergeId, setConfirmMergeId] = useState<number | null>(null)
+  const [aisleEditId, setAisleEditId] = useState<number | null>(null)
 
   function showToast(message: string, tone: 'success' | 'error') {
     setToast({ message, tone })
@@ -35,13 +38,13 @@ export default function IngredientsTab({ userId }: IngredientsTabProps) {
     setLoading(true)
     const { data, error } = await supabase
       .from('ingredients')
-      .select('id, name, aliases')
+      .select('id, name, aliases, aisle')
       .eq('user_id', userId)
       .order('name', { ascending: true })
     if (error) {
       console.error('Error loading ingredients:', error)
     } else {
-      setIngredients((data ?? []).map(i => ({ ...i, aliases: i.aliases ?? [] })))
+      setIngredients((data ?? []).map(i => ({ ...i, aliases: i.aliases ?? [], aisle: i.aisle ?? null })))
     }
     setLoading(false)
   }
@@ -71,6 +74,14 @@ export default function IngredientsTab({ userId }: IngredientsTabProps) {
         prev.map(i => i.id === ingredient.id ? { ...i, aliases: newAliases } : i)
       )
       showToast(`Added alias "${alias}" to ${ingredient.name}.`, 'success')
+    }
+  }
+
+  async function updateIngredientAisle(id: number, aisle: string | null) {
+    const { error } = await supabase.from('ingredients').update({ aisle }).eq('id', id).eq('user_id', userId)
+    if (!error) {
+      setIngredients(prev => prev.map(i => i.id === id ? { ...i, aisle } : i))
+      setAisleEditId(null)
     }
   }
 
@@ -258,6 +269,47 @@ export default function IngredientsTab({ userId }: IngredientsTabProps) {
                   + Add
                 </GlassButton>
               </form>
+
+              {/* Aisle */}
+              <div>
+                {aisleEditId === ingredient.id ? (
+                  <div className="bg-white/5 border border-white/15 rounded-xl p-2">
+                    <div className="grid grid-cols-2 gap-1">
+                      {AISLE_OPTIONS.map(opt => (
+                        <button
+                          key={opt.value}
+                          onClick={() => updateIngredientAisle(ingredient.id, opt.value)}
+                          className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                            ingredient.aisle === opt.value
+                              ? 'bg-purple-500/40 border border-purple-400/40 text-white'
+                              : 'bg-white/8 hover:bg-white/15 text-white/60 hover:text-white'
+                          }`}
+                        >
+                          <span>{opt.emoji}</span>
+                          <span className="truncate">{opt.value}</span>
+                        </button>
+                      ))}
+                      {ingredient.aisle && (
+                        <button
+                          onClick={() => updateIngredientAisle(ingredient.id, null)}
+                          className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs bg-white/5 hover:bg-white/12 text-white/40 hover:text-white/60 transition-all"
+                        >✕ None</button>
+                      )}
+                    </div>
+                    <button onClick={() => setAisleEditId(null)} className="mt-1.5 w-full text-center text-xs text-white/40 hover:text-white/60 transition-colors">Done</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAisleEditId(ingredient.id)}
+                    className="text-xs text-white/40 hover:text-white/60 transition-colors inline-flex items-center gap-1"
+                  >
+                    {ingredient.aisle
+                      ? <><span>{AISLE_OPTIONS.find(a => a.value === ingredient.aisle)?.emoji ?? '📦'}</span><span>{ingredient.aisle}</span></>
+                      : <span>+ aisle</span>
+                    }
+                  </button>
+                )}
+              </div>
 
               {/* Merge panel */}
               {isConfirmingMerge && (

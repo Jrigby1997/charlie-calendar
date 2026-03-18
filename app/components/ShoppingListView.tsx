@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import SectionCard from './ui/SectionCard'
 import GlassButton from './ui/GlassButton'
+import { AISLE_OPTIONS } from '@/lib/aisleOptions'
 
 type ShoppingListItem = {
   id: number
@@ -14,6 +15,7 @@ type ShoppingListItem = {
   recipe_counts?: Record<string, number> | null
   ingredients: {
     name: string
+    aisle: string | null
   }
 }
 
@@ -41,6 +43,7 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
   const [editingItemId, setEditingItemId] = useState<number | null>(null)
   const [editingAmount, setEditingAmount] = useState<number | ''>('')
   const [editingMeasurement, setEditingMeasurement] = useState('')
+  const [aisleEditId, setAisleEditId] = useState<number | null>(null)
 
   const MEASUREMENTS = [
     'oz', 'lb', 'g', 'kg',
@@ -78,7 +81,7 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
           measurement,
           recipe_id,
           recipe_counts,
-          ingredients (name)
+          ingredients (name, aisle)
         `)
         .order('ingredient_id')
 
@@ -87,7 +90,7 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
       // Transform data to match ShoppingListItem type
       // Handle both array and object responses from Supabase
       const transformedData: ShoppingListItem[] = (data || []).map((item: any) => {
-        let ingredientObj = { name: '' }
+        let ingredientObj: { name: string; aisle: string | null } = { name: '', aisle: null }
         if (Array.isArray(item.ingredients) && item.ingredients.length > 0) {
           ingredientObj = item.ingredients[0]
         } else if (item.ingredients && typeof item.ingredients === 'object' && !Array.isArray(item.ingredients)) {
@@ -141,17 +144,42 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
 
   function formatShoppingList() {
     const unchecked = groupedList.filter(g => !checkedItems.has(g.ingredient_id))
-
     let text = '🛒 Shopping List\n━━━━━━━━━━━━━━━━━━\n\n'
 
-    unchecked.forEach((group) => {
-      const amounts = group.parts.map((part) => `${part.amount} ${part.measurement}`).join(' + ')
-      text += `☐ ${amounts} ${group.name}\n`
-
-      const sources = formatSources(group.recipeCounts)
-      if (sources) text += `   (${sources})\n`
-      text += '\n'
-    })
+    const hasAisles = unchecked.some(g => g.aisle)
+    if (hasAisles) {
+      const aisleOrder = AISLE_OPTIONS.map(a => a.value)
+      const aisleGroups = unchecked.reduce<Record<string, typeof unchecked>>((acc, item) => {
+        const key = item.aisle || 'Other'
+        if (!acc[key]) acc[key] = []
+        acc[key].push(item)
+        return acc
+      }, {})
+      const sortedKeys = [
+        ...aisleOrder.filter(a => aisleGroups[a]),
+        ...Object.keys(aisleGroups).filter(k => k !== 'Other' && !(aisleOrder as string[]).includes(k)).sort(),
+        ...(aisleGroups['Other'] ? ['Other'] : []),
+      ]
+      sortedKeys.forEach(aisleKey => {
+        const aisleInfo = AISLE_OPTIONS.find(a => a.value === aisleKey)
+        text += `${aisleInfo?.emoji ?? '📦'} ${aisleKey}\n`
+        aisleGroups[aisleKey].forEach(group => {
+          const amounts = group.parts.map(p => `${p.amount} ${p.measurement}`).join(' + ')
+          text += `  ☐ ${amounts} ${group.name}\n`
+          const sources = formatSources(group.recipeCounts)
+          if (sources) text += `     (${sources})\n`
+        })
+        text += '\n'
+      })
+    } else {
+      unchecked.forEach((group) => {
+        const amounts = group.parts.map((part) => `${part.amount} ${part.measurement}`).join(' + ')
+        text += `☐ ${amounts} ${group.name}\n`
+        const sources = formatSources(group.recipeCounts)
+        if (sources) text += `   (${sources})\n`
+        text += '\n'
+      })
+    }
 
     const checkedCount = checkedItems.size
     if (checkedCount > 0) {
@@ -231,6 +259,18 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
     } catch (error) {
       console.error('Error updating item:', error)
       showToast('Failed to update amount', 'error')
+    }
+  }
+
+  async function updateIngredientAisle(ingredientId: number, aisle: string | null) {
+    const { error } = await supabase.from('ingredients').update({ aisle }).eq('id', ingredientId)
+    if (!error) {
+      setItems(prev => prev.map(item =>
+        item.ingredient_id === ingredientId
+          ? { ...item, ingredients: { ...item.ingredients, aisle } }
+          : item
+      ))
+      setAisleEditId(null)
     }
   }
 
@@ -334,6 +374,7 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
   const groupedItems = items.reduce<Record<number, {
     ingredient_id: number
     name: string
+    aisle: string | null
     parts: Array<{ id: number; amount: number; measurement: string }>
     recipeCounts: Record<string, number>
   }>>((acc, item) => {
@@ -349,6 +390,7 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
       acc[item.ingredient_id] = {
         ingredient_id: item.ingredient_id,
         name: item.ingredients.name,
+        aisle: item.ingredients.aisle || null,
         parts: [{ id: item.id, amount: item.amount, measurement: item.measurement }],
         recipeCounts: { ...counts },
       }
@@ -359,6 +401,20 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
   const groupedList = Object.values(groupedItems).sort((a, b) =>
     a.name.localeCompare(b.name)
   )
+
+  // Aisle grouping for section rendering
+  const aisleOrder = AISLE_OPTIONS.map(a => a.value)
+  const byAisle = groupedList.reduce<Record<string, typeof groupedList>>((acc, item) => {
+    const key = item.aisle || ''
+    if (!acc[key]) acc[key] = []
+    acc[key].push(item)
+    return acc
+  }, {})
+  const sortedAisleKeys = [
+    ...aisleOrder.filter(a => byAisle[a]),
+    ...Object.keys(byAisle).filter(k => k !== '' && !(aisleOrder as string[]).includes(k)).sort(),
+    ...(byAisle[''] ? [''] : []),
+  ]
 
   return (
     <SectionCard className="h-full flex flex-col">
@@ -446,105 +502,140 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
         </div>
       ) : (
         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-6">
-          <div className="space-y-3">
-            {groupedList.map((group) => (
-              <div
-                key={group.ingredient_id}
-                className={`flex items-center gap-4 p-3 rounded-lg transition-all duration-200 ${
-                  checkedItems.has(group.ingredient_id)
-                    ? 'bg-white/5 opacity-50'
-                    : 'bg-white/10 hover:bg-white/15'
-                }`}
-              >
-                {/* Checkbox */}
-                <input
-                  type="checkbox"
-                  checked={checkedItems.has(group.ingredient_id)}
-                  onChange={() => toggleCheck(group.ingredient_id)}
-                  className="w-5 h-5 rounded border-white/30 bg-white/10 text-white/90 focus:ring-2 focus:ring-white/50 cursor-pointer"
-                />
+          {sortedAisleKeys.map(aisleKey => {
+            const aisleItems = byAisle[aisleKey]
+            const aisleInfo = AISLE_OPTIONS.find(a => a.value === aisleKey)
+            const aisleLabel = aisleKey === '' ? 'Other' : aisleKey
+            const aisleEmoji = aisleInfo?.emoji ?? '📦'
+            const uncheckedCount = aisleItems.filter(g => !checkedItems.has(g.ingredient_id)).length
+            return (
+              <div key={aisleKey || 'other'} className="mb-5 last:mb-0">
+                {/* Aisle section header — only when multiple aisles exist */}
+                {sortedAisleKeys.length > 1 && (
+                  <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-white/15">
+                    <span>{aisleEmoji}</span>
+                    <span className="text-white/80 font-semibold text-sm">{aisleLabel}</span>
+                    <span className="text-white/40 text-xs ml-1">{uncheckedCount}/{aisleItems.length}</span>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {aisleItems.map((group) => (
+                    <div
+                      key={group.ingredient_id}
+                      className={`flex items-start gap-4 p-3 rounded-lg transition-all duration-200 ${
+                        checkedItems.has(group.ingredient_id)
+                          ? 'bg-white/5 opacity-50'
+                          : 'bg-white/10 hover:bg-white/15'
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <input
+                        type="checkbox"
+                        checked={checkedItems.has(group.ingredient_id)}
+                        onChange={() => toggleCheck(group.ingredient_id)}
+                        className="mt-1 w-5 h-5 rounded border-white/30 bg-white/10 text-white/90 focus:ring-2 focus:ring-white/50 cursor-pointer flex-shrink-0"
+                      />
 
-                {/* Ingredient Info */}
-                <div className="flex-1">
-                  <div
-                    className={`text-white font-medium ${
-                      checkedItems.has(group.ingredient_id) ? 'line-through' : ''
-                    }`}
-                  >
-                    {group.parts.map((part, idx) => (
-                      <div key={part.id} className="flex items-center gap-2 mb-1">
-                        {editingItemId === part.id ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              step="0.25"
-                              value={editingAmount}
-                              onChange={(e) =>
-                                setEditingAmount(e.target.value === '' ? '' : Number(e.target.value))
-                              }
-                              className="w-16 px-2 py-1 border border-white/30 rounded text-white recipe-input bg-white/10 text-sm"
-                            />
-                            <select
-                              value={editingMeasurement}
-                              onChange={(e) => setEditingMeasurement(e.target.value)}
-                              className="w-20 px-2 py-1 border border-white/30 rounded text-white bg-white/10 text-sm"
-                            >
-                              {MEASUREMENTS.map((m) => (
-                                <option key={m} value={m} className="bg-gray-800">
-                                  {m}
-                                </option>
+                      {/* Ingredient Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-white font-medium ${checkedItems.has(group.ingredient_id) ? 'line-through' : ''}`}>
+                          {group.parts.map((part) => (
+                            <div key={part.id} className="flex items-center gap-2 mb-1">
+                              {editingItemId === part.id ? (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <input
+                                    type="number"
+                                    step="0.25"
+                                    value={editingAmount}
+                                    onChange={(e) => setEditingAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                                    className="w-16 px-2 py-1 border border-white/30 rounded text-white recipe-input bg-white/10 text-sm"
+                                  />
+                                  <select
+                                    value={editingMeasurement}
+                                    onChange={(e) => setEditingMeasurement(e.target.value)}
+                                    className="w-20 px-2 py-1 border border-white/30 rounded text-white bg-white/10 text-sm"
+                                  >
+                                    {MEASUREMENTS.map((m) => (
+                                      <option key={m} value={m} className="bg-gray-800">{m}</option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    onClick={() => { if (editingAmount !== '' && editingMeasurement) updateItemAmount(part.id, Number(editingAmount), editingMeasurement) }}
+                                    className="px-2 py-1 bg-green-500/30 hover:bg-green-500/40 border border-green-500/50 rounded text-green-200 text-xs font-medium transition-all"
+                                  >Save</button>
+                                  <button
+                                    onClick={() => setEditingItemId(null)}
+                                    className="px-2 py-1 bg-white/20 hover:bg-white/30 border border-white/30 rounded text-white/80 text-xs font-medium transition-all"
+                                  >Cancel</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => { setEditingItemId(part.id); setEditingAmount(part.amount); setEditingMeasurement(part.measurement) }}
+                                  className="text-blue-300 hover:text-blue-200 hover:underline text-sm transition-colors"
+                                >
+                                  {part.amount} {part.measurement}
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          {group.parts.length > 0 && <span>{group.name}</span>}
+                        </div>
+                        {formatSources(group.recipeCounts) && (
+                          <div className="text-white/50 text-xs mt-0.5">from {formatSources(group.recipeCounts)}</div>
+                        )}
+                        {/* Aisle picker */}
+                        {aisleEditId === group.ingredient_id ? (
+                          <div className="mt-2 bg-white/10 border border-white/20 rounded-xl p-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                              {AISLE_OPTIONS.map(opt => (
+                                <button
+                                  key={opt.value}
+                                  onClick={() => updateIngredientAisle(group.ingredient_id, opt.value)}
+                                  className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                                    group.aisle === opt.value
+                                      ? 'bg-purple-500/40 border border-purple-400/40 text-white'
+                                      : 'bg-white/10 hover:bg-white/20 text-white/70 hover:text-white'
+                                  }`}
+                                >
+                                  <span>{opt.emoji}</span>
+                                  <span className="truncate">{opt.value}</span>
+                                </button>
                               ))}
-                            </select>
-                            <button
-                              onClick={() => {
-                                if (editingAmount !== '' && editingMeasurement) {
-                                  updateItemAmount(part.id, Number(editingAmount), editingMeasurement)
-                                }
-                              }}
-                              className="px-2 py-1 bg-green-500/30 hover:bg-green-500/40 border border-green-500/50 rounded text-green-200 text-xs font-medium transition-all"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setEditingItemId(null)}
-                              className="px-2 py-1 bg-white/20 hover:bg-white/30 border border-white/30 rounded text-white/80 text-xs font-medium transition-all"
-                            >
-                              Cancel
-                            </button>
+                              {group.aisle && (
+                                <button
+                                  onClick={() => updateIngredientAisle(group.ingredient_id, null)}
+                                  className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs bg-white/5 hover:bg-white/15 text-white/40 hover:text-white/70 transition-all"
+                                >✕ None</button>
+                              )}
+                            </div>
+                            <button onClick={() => setAisleEditId(null)} className="mt-1.5 w-full text-center text-xs text-white/40 hover:text-white/60 transition-colors">Done</button>
                           </div>
                         ) : (
                           <button
-                            onClick={() => {
-                              setEditingItemId(part.id)
-                              setEditingAmount(part.amount)
-                              setEditingMeasurement(part.measurement)
-                            }}
-                            className="text-blue-300 hover:text-blue-200 hover:underline text-sm transition-colors"
+                            onClick={() => setAisleEditId(group.ingredient_id)}
+                            className="mt-1 text-xs text-white/40 hover:text-white/70 transition-colors inline-flex items-center gap-1"
                           >
-                            {part.amount} {part.measurement}
+                            {group.aisle
+                              ? <><span>{AISLE_OPTIONS.find(a => a.value === group.aisle)?.emoji ?? '📦'}</span><span>{group.aisle}</span></>
+                              : <span>+ aisle</span>
+                            }
                           </button>
                         )}
                       </div>
-                    ))}
-                    {group.parts.length > 0 && <span>{group.name}</span>}
-                  </div>
-                  {formatSources(group.recipeCounts) && (
-                    <div className="text-white/50 text-sm">
-                      from {formatSources(group.recipeCounts)}
-                    </div>
-                  )}
-                </div>
 
-                {/* Delete Button */}
-                <button
-                  onClick={() => removeItem(group.ingredient_id)}
-                  className="px-3 py-1 bg-red-500/30 hover:bg-red-500/50 text-white rounded-lg transition-all duration-200 text-sm"
-                >
-                  Remove
-                </button>
+                      {/* Delete Button */}
+                      <button
+                        onClick={() => removeItem(group.ingredient_id)}
+                        className="flex-shrink-0 px-3 py-1 bg-red-500/30 hover:bg-red-500/50 text-white rounded-lg transition-all duration-200 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
+            )
+          })}
 
           {/* Summary */}
           <div className="mt-6 pt-6 border-t border-white/20">
