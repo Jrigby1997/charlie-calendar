@@ -19,6 +19,7 @@ export function parseFraction(value: string): number {
 export function formatDate(date: Date | string, format: string): string {
   const d = typeof date === 'string' ? new Date(date) : date
 
+  
   const day = d.getDate()
   const month = d.getMonth() + 1
   const year = d.getFullYear()
