@@ -793,7 +793,7 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
               <div className="border-t border-white/20 pt-4">
                 <h4 className="text-white font-semibold mb-4">Push Notifications</h4>
                 <p className="text-white/60 text-sm mb-4">
-                  Receive reminders 15 minutes before events and a morning summary of today&apos;s tasks.
+                  Receive a morning summary of today&apos;s tasks every day.
                 </p>
                 {typeof window !== 'undefined' && 'Notification' in window ? (
                   <div className="flex items-center gap-3">
