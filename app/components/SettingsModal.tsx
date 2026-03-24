@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { urlBase64ToUint8Array } from '@/lib/pushUtils'
 import FamilyMembers from './FamilyMembers'
 
 async function sha256(text: string): Promise<string> {
@@ -60,11 +61,17 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [familyMembersForDropdown, setFamilyMembersForDropdown] = useState<{ id: number; name: string; color: string }[]>([])
 
+  // Push notification state
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | null>(null)
+  const [pushSubscribed, setPushSubscribed] = useState(false)
+  const [pushEnabling, setPushEnabling] = useState(false)
+
   useEffect(() => {
     if (isOpen) {
       loadSettings()
       loadGoogleStatus()
       loadFamilyMembersForDropdown()
+      checkPushStatus()
     }
   }, [isOpen])
 
@@ -75,6 +82,57 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
       .eq('is_active', true)
       .order('created_at', { ascending: true })
     setFamilyMembersForDropdown(data || [])
+  }
+
+  async function checkPushStatus() {
+    if (typeof window === 'undefined' || !('Notification' in window)) return
+    setPushPermission(Notification.permission)
+    if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      setPushSubscribed(!!sub)
+    } else {
+      setPushSubscribed(false)
+    }
+  }
+
+  async function enablePushNotifications() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+    setPushEnabling(true)
+    try {
+      const permission = await Notification.requestPermission()
+      setPushPermission(permission)
+      if (permission !== 'granted') return
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!)
+      })
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify(sub.toJSON())
+      })
+      setPushSubscribed(true)
+    } finally {
+      setPushEnabling(false)
+    }
+  }
+
+  async function disablePushNotifications() {
+    if (!('serviceWorker' in navigator)) return
+    const reg = await navigator.serviceWorker.ready
+    const sub = await reg.pushManager.getSubscription()
+    if (sub) await sub.unsubscribe()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    await fetch('/api/push/subscribe', {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    })
+    setPushSubscribed(false)
   }
 
   async function loadGoogleStatus() {
@@ -728,6 +786,47 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                       )}
                     </div>
                   </div>
+                )}
+              </div>
+
+              {/* Divider — Push Notifications */}
+              <div className="border-t border-white/20 pt-4">
+                <h4 className="text-white font-semibold mb-4">Push Notifications</h4>
+                <p className="text-white/60 text-sm mb-4">
+                  Receive reminders 15 minutes before events and a morning summary of today&apos;s tasks.
+                </p>
+                {typeof window !== 'undefined' && 'Notification' in window ? (
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 text-sm">
+                      {pushPermission === 'denied' ? (
+                        <span className="text-red-300">Notifications blocked by browser. Enable in browser settings.</span>
+                      ) : pushSubscribed ? (
+                        <span className="text-green-300">Notifications enabled</span>
+                      ) : (
+                        <span className="text-white/60">Notifications disabled</span>
+                      )}
+                    </div>
+                    {pushPermission !== 'denied' && (
+                      pushSubscribed ? (
+                        <button
+                          onClick={disablePushNotifications}
+                          className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
+                        >
+                          Disable
+                        </button>
+                      ) : (
+                        <button
+                          onClick={enablePushNotifications}
+                          disabled={pushEnabling}
+                          className="px-3 py-1.5 bg-blue-500/80 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {pushEnabling ? 'Enabling…' : 'Enable'}
+                        </button>
+                      )
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-white/40 text-sm">Push notifications are not supported in this browser.</p>
                 )}
               </div>
 

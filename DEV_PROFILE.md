@@ -1,9 +1,9 @@
 # Developer Profile & Project Context
 
-**Last Updated:** March 17, 2026
+**Last Updated:** March 18, 2026
 **Developer:** jrigb
 **Project:** Skylight-style Calendar Application
-**Current Phase:** Multi-Currency Tasks + Sleep Mode + Calorie Counter planned | Production Live ✅ → https://charlie-calendar.vercel.app
+**Current Phase:** Phase 16 complete — Aisle Organization + Preset Ingredients | Production Live ✅ → https://charlie-calendar.vercel.app
 
 ---
 
@@ -85,7 +85,38 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
     - Halloween / Christmas / Easter / Fall / Spring auto-switching by date range
 
 ---
-## Recent Session Summary (March 17, 2026)
+## Recent Session Summary (March 18, 2026)
+
+**Duration:** ~1 session
+**Accomplishments:**
+
+### Phase 16: Shopping List Aisle Organization + Preset Ingredients
+
+1. **Shopping List Aisle Organization**
+   - New `lib/aisleOptions.ts` — 10 aisles with emojis exported as `AISLE_OPTIONS`: 🥦 Produce, 🥩 Meat & Seafood, 🥚 Dairy & Eggs, 🥖 Bakery, 🥫 Pantry & Canned, 🧊 Frozen, 🌾 Bulk & Spices, 🥤 Beverages, 🧴 Personal Care, 🧹 Household
+   - New `supabase_migration_shopping_list_aisles.sql` — `ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS aisle TEXT;`
+   - `ShoppingListView.tsx` — items grouped by aisle with section headers and item counts; inline chevron-button aisle picker per item; items with no aisle fall into "Other"; share text formatted per-aisle group
+   - `IngredientsTab.tsx` — aisle picker dropdown below each ingredient's alias section; stored immediately to DB on change
+
+2. **Preset Ingredients (~170 curated items, seed-on-first-login)**
+   - New `supabase_migration_ingredients_seeded.sql` — `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS ingredients_seeded BOOLEAN NOT NULL DEFAULT FALSE;`
+   - New `lib/presetIngredients.ts` — `PRESET_INGREDIENTS: PresetIngredient[]` with ~170 entries across 8 aisles; each entry has `name`, `aliases[]` (alternate store names only — no preparations or distinct sub-products), and `aisle`
+   - `app/page.tsx` — `ingredientsSeedingDone = useRef(false)` guard prevents double-seeding if `loadSettings` re-runs; `seedPresetIngredients(userId)` filters out already-present names before inserting; upserts `ingredients_seeded: true` on completion; `loadSettings` restructured to handle both new users (null row) and existing users (column defaults false)
+   - `app/components/IngredientsTab.tsx` — `restoreDefaults()` re-inserts only missing presets (safe to re-run); "↩ Restore defaults" button shown next to ingredient count below the search bar
+
+**New Files:**
+- `supabase_migration_shopping_list_aisles.sql`
+- `supabase_migration_ingredients_seeded.sql`
+- `lib/aisleOptions.ts`
+- `lib/presetIngredients.ts`
+
+**Modified Files:**
+- `app/components/ShoppingListView.tsx` — aisle grouping, inline aisle picker, grouped share text
+- `app/components/IngredientsTab.tsx` — aisle picker per ingredient, restore-defaults button
+- `app/page.tsx` — `useRef`, PRESET_INGREDIENTS import, `seedPresetIngredients`, updated `loadSettings`
+
+---
+## Previous Session Summary (March 17, 2026)
 
 **Duration:** ~1 session
 **Accomplishments:**
@@ -205,7 +236,7 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
 - `.gitignore` — SW build output files
 
 ---
-## Recent Session Summary (March 6, 2026)
+## Previous Session Summary (March 6, 2026)
 
 **Duration:** ~1 session
 **Accomplishments:**

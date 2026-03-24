@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { urlBase64ToUint8Array } from '@/lib/pushUtils'
 import { useAuth } from './contexts/AuthContext'
 import CalendarView from './components/CalendarView'
 import RecipesView from './components/RecipesView'
@@ -48,6 +49,8 @@ type Event = {
   externalIntegrationId?: number // Which user_integrations row owns this event
   isPending?: boolean // True while a newly-created external event is waiting to sync back
   custom_color?: string | null
+  checklist?: { text: string; checked: boolean }[] | null
+  notes?: string | null
 }
 
 type GoogleCalendarOption = {
@@ -338,6 +341,30 @@ export default function Home() {
         ingredientsSeedingDone.current = true
         seedPresetIngredients(user.id)
       }
+      registerPushSubscription()
+    }
+  }
+
+  async function registerPushSubscription() {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return
+    if (Notification.permission !== 'granted') return
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const existing = await reg.pushManager.getSubscription()
+      if (existing) return // Already subscribed
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!)
+      })
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify(sub.toJSON())
+      })
+    } catch {
+      // Push registration is best-effort; don't block app startup
     }
   }
 
@@ -552,7 +579,7 @@ export default function Home() {
     return null
   }
 
-  async function handleAddEvent(title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], customColor?: string, createLinkedTask?: boolean, linkedTaskRewards?: { currency_type: string; amount: number }[]) {
+  async function handleAddEvent(title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], customColor?: string, createLinkedTask?: boolean, linkedTaskRewards?: { currency_type: string; amount: number }[], checklist?: { text: string; checked: boolean }[], notes?: string) {
     if (!user) {
       console.error('No user logged in')
       return
@@ -574,6 +601,8 @@ export default function Home() {
         recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate : null,
         recurrence_days: isRecurring && recurrenceDays.length > 0 ? JSON.stringify(recurrenceDays) : null,
         custom_color: customColor || null,
+        checklist: checklist && checklist.length > 0 ? checklist : null,
+        notes: notes || null,
         user_id: user.id
       }])
       .select()
@@ -643,7 +672,7 @@ export default function Home() {
     }
   }
 
-  async function handleUpdateEvent(id: number, title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], updateScope?: 'single' | 'all' | 'future', instanceDate?: string, customColor?: string) {
+  async function handleUpdateEvent(id: number, title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], updateScope?: 'single' | 'all' | 'future', instanceDate?: string, customColor?: string, checklist?: { text: string; checked: boolean }[], notes?: string) {
 
     if (updateScope === 'single' && instanceDate) {
       // Create or update exception for this single instance
@@ -698,6 +727,8 @@ export default function Home() {
           recurrence_end_date: recurrenceEndDate || null,
           recurrence_days: originalEvent.recurrence_days,
           custom_color: customColor || null,
+          checklist: checklist || null,
+          notes: notes || null,
           user_id: user?.id
         }])
         .select()
@@ -726,7 +757,9 @@ export default function Home() {
           recurrence_interval: isRecurring ? recurrenceInterval : 1,
           recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate : null,
           recurrence_days: isRecurring && recurrenceDays.length > 0 ? JSON.stringify(recurrenceDays) : null,
-          custom_color: customColor || null
+          custom_color: customColor || null,
+          checklist: checklist || null,
+          notes: notes || null
         })
         .eq('id', id)
 

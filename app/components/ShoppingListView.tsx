@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { parseFraction } from '@/lib/dateUtils'
 import SectionCard from './ui/SectionCard'
 import GlassButton from './ui/GlassButton'
 import { AISLE_OPTIONS } from '@/lib/aisleOptions'
@@ -36,12 +37,12 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
   const [recipesMap, setRecipesMap] = useState<Record<number, string>>({})
   const [availableIngredients, setAvailableIngredients] = useState<Ingredient[]>([])
   const [newIngredientName, setNewIngredientName] = useState('')
-  const [newAmount, setNewAmount] = useState<number | ''>('')
+  const [newAmount, setNewAmount] = useState<string>('')
   const [newMeasurement, setNewMeasurement] = useState('cup')
   const [showIngredientSuggestions, setShowIngredientSuggestions] = useState(false)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
   const [editingItemId, setEditingItemId] = useState<number | null>(null)
-  const [editingAmount, setEditingAmount] = useState<number | ''>('')
+  const [editingAmount, setEditingAmount] = useState<string>('')
   const [editingMeasurement, setEditingMeasurement] = useState('')
   const [aisleEditId, setAisleEditId] = useState<number | null>(null)
 
@@ -300,6 +301,8 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
   async function addManualItem() {
     const name = newIngredientName.trim()
     if (!name || newAmount === '' || !newMeasurement) return
+    const parsedAmount = parseFraction(newAmount)
+    if (isNaN(parsedAmount) || parsedAmount <= 0) return
 
     try {
       let ingredient = availableIngredients.find(
@@ -328,7 +331,7 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
 
       if (fetchError) throw fetchError
 
-      const nextAmount = Number(existingItem?.amount || 0) + Number(newAmount)
+      const nextAmount = Number(existingItem?.amount || 0) + parsedAmount
       const recipeCounts = existingItem?.recipe_counts || {}
 
       const { error } = await supabase
@@ -435,12 +438,12 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
         <div className="text-white/80 font-medium mb-3">Add item</div>
         <div className="flex flex-wrap gap-3 items-center">
           <input
-            type="number"
-            step="0.25"
+            type="text"
+            inputMode="decimal"
             value={newAmount}
-            onChange={(e) => setNewAmount(e.target.value === '' ? '' : Number(e.target.value))}
-            placeholder="Amt"
-            className="w-24 px-3 py-2 border border-white/30 rounded-lg text-white recipe-input bg-white/10"
+            onChange={(e) => setNewAmount(e.target.value)}
+            placeholder="Amt (e.g. 1/3)"
+            className="w-28 px-3 py-2 border border-white/30 rounded-lg text-white recipe-input bg-white/10"
           />
           <select
             value={newMeasurement}
@@ -544,11 +547,11 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
                               {editingItemId === part.id ? (
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <input
-                                    type="number"
-                                    step="0.25"
+                                    type="text"
+                                    inputMode="decimal"
                                     value={editingAmount}
-                                    onChange={(e) => setEditingAmount(e.target.value === '' ? '' : Number(e.target.value))}
-                                    className="w-16 px-2 py-1 border border-white/30 rounded text-white recipe-input bg-white/10 text-sm"
+                                    onChange={(e) => setEditingAmount(e.target.value)}
+                                    className="w-24 px-2 py-1 border border-white/30 rounded text-white recipe-input bg-white/10 text-sm"
                                   />
                                   <select
                                     value={editingMeasurement}
@@ -560,7 +563,10 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
                                     ))}
                                   </select>
                                   <button
-                                    onClick={() => { if (editingAmount !== '' && editingMeasurement) updateItemAmount(part.id, Number(editingAmount), editingMeasurement) }}
+                                    onClick={() => {
+                                      const parsed = parseFraction(String(editingAmount))
+                                      if (!isNaN(parsed) && parsed > 0 && editingMeasurement) updateItemAmount(part.id, parsed, editingMeasurement)
+                                    }}
                                     className="px-2 py-1 bg-green-500/30 hover:bg-green-500/40 border border-green-500/50 rounded text-green-200 text-xs font-medium transition-all"
                                   >Save</button>
                                   <button
@@ -570,7 +576,7 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
                                 </div>
                               ) : (
                                 <button
-                                  onClick={() => { setEditingItemId(part.id); setEditingAmount(part.amount); setEditingMeasurement(part.measurement) }}
+                                  onClick={() => { setEditingItemId(part.id); setEditingAmount(String(part.amount)); setEditingMeasurement(part.measurement) }}
                                   className="text-blue-300 hover:text-blue-200 hover:underline text-sm transition-colors"
                                 >
                                   {part.amount} {part.measurement}

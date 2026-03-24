@@ -1,5 +1,21 @@
 // Date formatting utilities
 
+// Parses a quantity string that may contain fractions like "1/3", "1 1/2", or decimals.
+// Returns NaN if the input cannot be parsed.
+export function parseFraction(value: string): number {
+  const s = value.trim()
+  if (s === '') return NaN
+  // Mixed number: "1 1/2"
+  const mixed = s.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)$/)
+  if (mixed) return parseInt(mixed[1]) + parseInt(mixed[2]) / parseInt(mixed[3])
+  // Simple fraction: "1/3"
+  const frac = s.match(/^(\d+)\s*\/\s*(\d+)$/)
+  if (frac) return parseInt(frac[1]) / parseInt(frac[2])
+  // Plain number or decimal
+  const n = Number(s)
+  return isNaN(n) ? NaN : n
+}
+
 export function formatDate(date: Date | string, format: string): string {
   const d = typeof date === 'string' ? new Date(date) : date
 

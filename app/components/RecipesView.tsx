@@ -26,7 +26,7 @@ type RecipeIngredient = {
   id?: number
   ingredient_id?: number
   ingredient_name: string
-  amount: number | ''
+  amount: number | string
   measurement: string
 }
 

@@ -29,12 +29,43 @@
 | 25 | ✅ **Ingredient Aliases + Swipe Navigation** | `aliases TEXT[]` column on ingredients table with GIN index. Autocomplete and recipe-import matching check aliases before creating new rows. `IngredientsTab` (3rd tab in Recipes section) — list all ingredients, add/remove aliases, merge duplicates with automatic rerouting of recipe_ingredients and shopping_list rows. `useSwipe` hook (lib/useSwipe.ts) attached to CalendarView, TasksView, and MealPlanWeekView for swipe-left/right navigation. CalendarView month day cells navigate to day view on tap. `SectionCard` extended to accept HTMLAttributes spread so swipe handlers attach without wrapper divs. |
 | 26 | ✅ **Admin PIN + Recurring Event Exceptions** | Optional 4-digit admin PIN stored as SHA-256 hash in app_settings (via Web Crypto API — no dependencies). When set, a PIN prompt appears before Settings can be opened; PIN can be changed or removed from within Settings. Recurring event exceptions RLS policies added so single-instance edits (edit this occurrence only / edit all / edit future) now work correctly; `custom_color` column added to event_exceptions. |
 | 27 | **Push Notifications** | Web push subscription + Supabase Edge Function or Vercel cron to send reminders before events and morning task digests. PWA is already installed — gap is just push subscription + server-side sender. |
-| 28 | **Shopping List Aisle/Category Organization** | Group shopping list items by category so the list matches how you walk through a store. Ingredient categories (with color metadata) map to aisles. Items auto-grouped on the list view. |
-| 29 | **Event Attachments / Notes** | Structured notes or checklist on individual events (e.g. "Soccer practice — bring shin guards, field is at Oak Park"). Stored in a new event_notes table or as JSONB on events. |
+| 28 | ✅ **Shopping List Aisle Organization** | Items grouped by aisle on the shopping list (matching store layout). Inline aisle picker per item lets you assign/change on the fly. Aisle picker also on each ingredient in IngredientsTab. `lib/aisleOptions.ts` exports 10 aisles with emojis. Share text formatted per-aisle group. |
+| 29 | ✅ **Preset Ingredient Library** | ~170 curated preset ingredients with aliases and aisle assignments seed automatically on first login. Each user owns their own copy (fully editable/deletable). "↩ Restore defaults" button in IngredientsTab re-seeds only missing presets without touching existing user data. |
+| 30 | **Event Attachments / Notes** | Structured notes or checklist on individual events (e.g. "Soccer practice — bring shin guards, field is at Oak Park"). Stored in a new event_notes table or as JSONB on events. |
 
 ---
 
-## 📝 Latest Updates (March 17, 2026)
+## 📝 Latest Updates (March 18, 2026)
+
+### Phase 16: Shopping List Aisle Organization + Preset Ingredients (Tasks 28 & 29)
+
+**Shopping List Aisle Organization:**
+- ✅ `supabase_migration_shopping_list_aisles.sql` — `ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS aisle TEXT;`
+- ✅ `lib/aisleOptions.ts` — 10 aisles with emojis: 🥦 Produce, 🥩 Meat & Seafood, 🥚 Dairy & Eggs, 🥖 Bakery, 🥫 Pantry & Canned, 🧊 Frozen, 🌾 Bulk & Spices, 🥤 Beverages, 🧴 Personal Care, 🧹 Household
+- ✅ `ShoppingListView.tsx` — items grouped by aisle with section headers and item counts; inline chevron-button aisle picker per item; unassigned items fall into "Other"; share text formatted per-aisle group
+- ✅ `IngredientsTab.tsx` — aisle picker dropdown per ingredient card; stored immediately to DB on change
+
+**Preset Ingredients (~170 items, user-owned, seed-on-first-login):**
+- ✅ `supabase_migration_ingredients_seeded.sql` — adds `ingredients_seeded BOOLEAN NOT NULL DEFAULT FALSE` to `app_settings`
+- ✅ `lib/presetIngredients.ts` — `PRESET_INGREDIENTS` array (~170 entries) across Produce, Meat & Seafood, Dairy & Eggs, Pantry & Canned, Bulk & Spices, Bakery, Frozen, Beverages; each entry has `name`, `aliases[]` (alternate store names only — no preparations), and `aisle`
+- ✅ `seedPresetIngredients(userId)` in `page.tsx` — queries existing names; inserts only new presets; upserts `ingredients_seeded: true`; `ingredientsSeedingDone useRef` guard prevents double-seeding per session
+- ✅ `loadSettings` restructured from `else if (data)` → `else { if (data) {...} if (!data?.ingredients_seeded) { seed } }` — handles new users (no row) and existing users (column defaults false) alike
+- ✅ `restoreDefaults()` in `IngredientsTab.tsx` — "↩ Restore defaults" button next to ingredient count; re-inserts only missing presets; shows toast with count added
+
+**New Files:**
+- `supabase_migration_shopping_list_aisles.sql`
+- `supabase_migration_ingredients_seeded.sql`
+- `lib/aisleOptions.ts`
+- `lib/presetIngredients.ts`
+
+**Modified Files:**
+- `app/components/ShoppingListView.tsx` — aisle grouping + inline picker + grouped share text
+- `app/components/IngredientsTab.tsx` — aisle picker per card + restore-defaults button
+- `app/page.tsx` — `useRef`, PRESET_INGREDIENTS import, `seedPresetIngredients`, updated `loadSettings`
+
+---
+
+## 📝 Previous Updates (March 17, 2026)
 
 ### Phase 15: Ingredient Aliases + Swipe Navigation + Mobile Polish (Task 25)
 
@@ -121,7 +152,7 @@
 
 ---
 
-## 📝 Latest Updates (March 13, 2026)
+## 📝 Previous Updates (March 13, 2026)
 
 ### Phase 13: Component Library Refactor (Task 22)
 

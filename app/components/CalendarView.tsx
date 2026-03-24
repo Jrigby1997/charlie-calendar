@@ -35,6 +35,8 @@ type Event = {
   externalProvider?: string // 'google' | 'outlook' | 'apple'
   isPending?: boolean // True while waiting to sync back from provider
   custom_color?: string | null
+  checklist?: { text: string; checked: boolean }[] | null
+  notes?: string | null
 }
 
 type FamilyMember = {
@@ -866,6 +868,9 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                               )}
                               {event.description && calculateEventDuration(event.start_time, event.end_time) >= 60 && (
                                 <div className="text-[10px] opacity-75 mt-0.5 truncate">{event.description}</div>
+                              )}
+                              {event.checklist && event.checklist.length > 0 && calculateEventDuration(event.start_time, event.end_time) >= 30 && (
+                                <div className="text-[10px] opacity-75 mt-0.5">{event.checklist.filter(c => c.checked).length}/{event.checklist.length} ✓</div>
                               )}
                             </div>
                           )

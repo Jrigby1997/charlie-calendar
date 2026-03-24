@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { parseFraction } from '@/lib/dateUtils'
 
 type Ingredient = {
   id: number
@@ -19,7 +20,7 @@ type RecipeIngredient = {
   id?: number
   ingredient_id?: number
   ingredient_name: string
-  amount: number | ''
+  amount: number | string
   measurement: string
 }
 
@@ -108,7 +109,7 @@ export default function AddRecipeModal({
       setFat(editingRecipe.fat ?? '')
       setCarbs(editingRecipe.carbs ?? '')
       setRating(editingRecipe.rating ?? '')
-      setIngredients(editingRecipe.recipe_ingredients || [])
+      setIngredients((editingRecipe.recipe_ingredients || []).map(ing => ({ ...ing, amount: String(ing.amount) })))
       setSelectedCategories(editingRecipe.categories ? editingRecipe.categories.map((c) => c.id) : [])
     } else {
       resetForm()
@@ -217,7 +218,7 @@ export default function AddRecipeModal({
             return {
               ingredient_id: ingredient.id,
               ingredient_name: ing.ingredient_name,
-              amount: ing.amount || 1,
+              amount: ing.amount !== undefined ? String(ing.amount) : '',
               measurement: ing.measurement || 'whole',
             }
           })
@@ -325,15 +326,16 @@ export default function AddRecipeModal({
       return
     }
 
-    // Filter ingredients - ensure all required fields are present
-    const validIngredients = ingredients.filter((ing) => {
-      const hasId = ing.ingredient_id !== undefined && ing.ingredient_id !== null && ing.ingredient_id > 0
-      const hasName = ing.ingredient_name && ing.ingredient_name.trim()
-      const hasAmount = ing.amount || ing.amount === 0
-      const hasMeasurement = ing.measurement && ing.measurement.trim()
-
-      return hasId && hasName && hasAmount && hasMeasurement
-    })
+    // Filter and convert ingredients - parse fraction strings to numbers
+    const validIngredients = ingredients
+      .filter((ing) => {
+        const hasId = ing.ingredient_id !== undefined && ing.ingredient_id !== null && ing.ingredient_id > 0
+        const hasName = ing.ingredient_name && ing.ingredient_name.trim()
+        const hasAmount = ing.amount !== '' && !isNaN(parseFraction(String(ing.amount)))
+        const hasMeasurement = ing.measurement && ing.measurement.trim()
+        return hasId && hasName && hasAmount && hasMeasurement
+      })
+      .map((ing) => ({ ...ing, amount: parseFraction(String(ing.amount)) }))
 
     const recipeData: Recipe = {
       name,
@@ -630,15 +632,14 @@ export default function AddRecipeModal({
                   <div key={index} className="flex gap-2 items-center">
                     {/* Amount */}
                     <input
-                      type="number"
-                      step="0.25"
+                      type="text"
+                      inputMode="decimal"
                       value={ingredient.amount}
                       onChange={(e) => {
-                        const val = e.target.value === '' ? '' : Number(e.target.value)
-                        updateIngredient(index, 'amount', val)
+                        updateIngredient(index, 'amount', e.target.value)
                       }}
                       placeholder="Amt"
-                      className="w-16 px-3 py-2 border border-white/30 rounded-lg focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40 text-sm"
+                      className="w-20 px-3 py-2 border border-white/30 rounded-lg focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white recipe-input bg-black/25 backdrop-blur-sm transition-all duration-200 hover:border-white/40 text-sm"
                     />
 
                     {/* Measurement */}
