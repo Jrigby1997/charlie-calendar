@@ -28,14 +28,104 @@
 | 24 | **Life360 Mockup** | Add tracking software, maybe add it to notify you tied to events (suzie arrived to soccer) |
 | 25 | ✅ **Ingredient Aliases + Swipe Navigation** | `aliases TEXT[]` column on ingredients table with GIN index. Autocomplete and recipe-import matching check aliases before creating new rows. `IngredientsTab` (3rd tab in Recipes section) — list all ingredients, add/remove aliases, merge duplicates with automatic rerouting of recipe_ingredients and shopping_list rows. `useSwipe` hook (lib/useSwipe.ts) attached to CalendarView, TasksView, and MealPlanWeekView for swipe-left/right navigation. CalendarView month day cells navigate to day view on tap. `SectionCard` extended to accept HTMLAttributes spread so swipe handlers attach without wrapper divs. |
 | 26 | ✅ **Admin PIN + Recurring Event Exceptions** | Optional 4-digit admin PIN stored as SHA-256 hash in app_settings (via Web Crypto API — no dependencies). When set, a PIN prompt appears before Settings can be opened; PIN can be changed or removed from within Settings. Recurring event exceptions RLS policies added so single-instance edits (edit this occurrence only / edit all / edit future) now work correctly; `custom_color` column added to event_exceptions. |
-| 27 | **Push Notifications** | Web push subscription + Supabase Edge Function or Vercel cron to send reminders before events and morning task digests. PWA is already installed — gap is just push subscription + server-side sender. |
+| 27 | ✅ **Push Notifications** | Web push subscription + Vercel cron to send morning task digests. PWA is installed; push subscription stored in Supabase; daily digest cron (`0 13 * * *`) fires `/api/push/digest`. |
 | 28 | ✅ **Shopping List Aisle Organization** | Items grouped by aisle on the shopping list (matching store layout). Inline aisle picker per item lets you assign/change on the fly. Aisle picker also on each ingredient in IngredientsTab. `lib/aisleOptions.ts` exports 10 aisles with emojis. Share text formatted per-aisle group. |
 | 29 | ✅ **Preset Ingredient Library** | ~170 curated preset ingredients with aliases and aisle assignments seed automatically on first login. Each user owns their own copy (fully editable/deletable). "↩ Restore defaults" button in IngredientsTab re-seeds only missing presets without touching existing user data. |
-| 30 | **Event Attachments / Notes** | Structured notes or checklist on individual events (e.g. "Soccer practice — bring shin guards, field is at Oak Park"). Stored in a new event_notes table or as JSONB on events. |
+| 30 | ✅ **Event Notes** | Text notes on individual calendar events. `notes TEXT` column on events; textarea in AddEventModal; supports multiline reminders and details. |
+| 31 | ✅ **Special Days Countdown** | Standalone special days (birthday, anniversary, etc.) + flag any event as a special day. Emoji badge on calendar cells. Homescreen shows countdown cards ("X days away") for next 90 days. |
+| 32 | ✅ **Homescreen Tab** | New 🏠 Home tab as default landing page. Sections: Special Day Countdowns, Today & Tomorrow Events, Today's Meals, Task Overview (per-member progress), Family Notepad (shared, debounced-save), Weather Widget. |
+| 33 | ✅ **Weather Integration** | Open-Meteo free API (no key). Weather location + units (°F/°C) in Settings. 3-icon strip (condition/wind/precip) under each date in Day/Week/Month calendar views. WeatherPopup with hourly data. Full weather widget on Homescreen. |
 
 ---
 
-## 📝 Latest Updates (March 18, 2026)
+## 📝 Latest Updates (March 24, 2026)
+
+### Phase 17 Bug Fixes & Polish
+
+**Homescreen — Tasks section:**
+- ✅ Fixed tasks query: was selecting non-existent `assigned_to` column; corrected to join `task_assignments(family_member_id)` (matching actual schema)
+- ✅ Fixed task completion counting: was filtering `task_completions` by `completion_date` but column is `completed_date`; both bugs together meant 0/0 shown for all members
+- ✅ Fixed family member avatar images: `avatar_url` stores filename only (e.g. `avatar_1.svg`); added `/avatars/` prefix so `<img>` resolves correctly
+- ✅ Increased Family Notepad font size from `text-sm` to `text-base`
+
+**Weather improvements:**
+- ✅ Fixed date offset bug in Week view: was using `date.toISOString().split('T')[0]` (UTC) which shifted dates back a day for US timezones; corrected to use local date components (`getFullYear/getMonth/getDate`) — consistent with Month view
+- ✅ Added weather strip to Day view header (condition + hi/lo + wind + precip/snow)
+- ✅ Added wind speed (💨) and precipitation (💧/❄️) icons to Week and Day view weather strips
+- ✅ Month view weather now inline on same row as date number and meal icon (date | weather centered | 🍽️) instead of a separate row
+- ✅ All weather strips use `justify-center` / `w-full` for consistent centering across all three views
+
+**Modified Files (March 24):**
+- `app/components/HomescreenView.tsx` — task_assignments join, completed_date fix, avatar URL prefix, notepad font size
+- `app/components/CalendarView.tsx` — date offset fix, day view weather, month weather inline, wind+precip on all strips
+
+---
+
+## 📝 Previous Updates (March 19, 2026)
+
+### Phase 17: Push Notifications + Event Notes + Special Days + Homescreen + Weather (Tasks 27, 30, 31, 32, 33)
+
+**Push Notifications (Task 27):**
+- ✅ VAPID keys generated and stored in `.env.local` + Vercel dashboard
+- ✅ Daily morning digest cron (`0 13 * * *`) in `vercel.json` — Hobby-plan compatible (once daily max)
+- ✅ `/api/push/digest` route sends push notifications to all subscribed users
+- ✅ `SettingsModal.tsx` — push notification toggle with status indicator
+
+**Event Notes (Task 30):**
+- ✅ `supabase_migration_event_notes_text.sql` — `ALTER TABLE events ADD COLUMN IF NOT EXISTS notes TEXT;`
+- ✅ `AddEventModal.tsx` — 📝 Notes textarea (optional, multiline) at bottom of event form
+- ✅ `page.tsx` + `CalendarView.tsx` — `notes` on Event type; passed through handleAddEvent/handleUpdateEvent
+
+**Fraction Inputs fix:**
+- ✅ `lib/dateUtils.ts` — `parseFraction(str)` handles `1/3`, `1 1/2`, whole numbers, decimals; returns NaN for invalid
+- ✅ `ShoppingListView.tsx` + `AddRecipeModal.tsx` — amount inputs changed from `type="number"` to `type="text"` with fraction parsing
+
+**Special Days Countdown (Task 31):**
+- ✅ `supabase_migration_special_days.sql` — `special_days` table (id, user_id, title, date, emoji, color, is_recurring)
+- ✅ `supabase_migration_event_special_day.sql` — `ALTER TABLE events ADD COLUMN is_special_day BOOLEAN DEFAULT FALSE`
+- ✅ `AddSpecialDayModal.tsx` — title, date, emoji picker (grid), color, is_recurring toggle
+- ✅ `AddEventModal.tsx` — ⭐ "Mark as special day" checkbox
+- ✅ `CalendarView.tsx` — emoji badge on month cells, week/day headers for special days
+- ✅ `page.tsx` — specialDays state, loadSpecialDays(), handleAddSpecialDay(), handleDeleteSpecialDay()
+
+**Homescreen Tab (Task 32):**
+- ✅ `supabase_migration_family_notes.sql` — `family_notes` table (id, user_id UNIQUE, content, updated_at)
+- ✅ `HomescreenView.tsx` — 6 sections: Special Day Countdowns, Today & Tomorrow Events, Today's Meals, Task Overview, Family Notepad (debounced), Weather Widget
+- ✅ `BottomNav.tsx` + sidebar — 🏠 Home tab added as first item
+- ✅ `page.tsx` — `currentView` default changed to `'home'`; Home view wired
+
+**Weather Integration (Task 33):**
+- ✅ `supabase_migration_weather_settings.sql` — `ALTER TABLE app_settings ADD COLUMN weather_location TEXT, weather_lat DOUBLE PRECISION, weather_lon DOUBLE PRECISION, weather_units TEXT DEFAULT 'fahrenheit'`
+- ✅ `app/api/weather/route.ts` — proxies Open-Meteo forecast API; 1-hour server cache
+- ✅ `app/api/weather/geocode/route.ts` — city/zip → lat/lon via Open-Meteo geocoding API
+- ✅ `WeatherPopup.tsx` — hourly forecast for a clicked day; dismisses on ESC or outside click
+- ✅ `CalendarView.tsx` — weather icon strip under each date in Month/Week/Day views (within 10-day window)
+- ✅ `SettingsModal.tsx` — weather location input, geocode "Find" button, °F/°C toggle
+
+**New Files:**
+- `supabase_migration_special_days.sql`
+- `supabase_migration_event_special_day.sql`
+- `supabase_migration_family_notes.sql`
+- `supabase_migration_weather_settings.sql`
+- `app/api/weather/route.ts`
+- `app/api/weather/geocode/route.ts`
+- `app/components/AddSpecialDayModal.tsx`
+- `app/components/HomescreenView.tsx`
+- `app/components/WeatherPopup.tsx`
+
+**Modified Files:**
+- `app/components/BottomNav.tsx` — Home tab added
+- `app/components/CalendarView.tsx` — weather strip, special day badges, WeatherPopup
+- `app/components/SettingsModal.tsx` — weather location section
+- `app/components/AddEventModal.tsx` — notes textarea, is_special_day checkbox
+- `app/page.tsx` — home view, specialDays + weatherData states, loadSpecialDays/loadWeather, Home NavTab
+- `lib/dateUtils.ts` — parseFraction()
+- `app/components/ShoppingListView.tsx` — fraction inputs
+- `app/components/AddRecipeModal.tsx` — fraction inputs
+
+---
+
+## 📝 Previous Updates (March 18, 2026)
 
 ### Phase 16: Shopping List Aisle Organization + Preset Ingredients (Tasks 28 & 29)
 

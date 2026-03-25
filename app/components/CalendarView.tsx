@@ -8,6 +8,7 @@ import PillToggle from './ui/PillToggle'
 import AvatarFilterGroup from './ui/AvatarFilterGroup'
 import GlassButton from './ui/GlassButton'
 import { useSwipe } from '@/lib/useSwipe'
+import WeatherPopup from './WeatherPopup'
 
 type Event = {
   id: number
@@ -70,15 +71,56 @@ type CalendarViewProps = {
   eventColorMode?: string
   colorTheme?: string
   linkedTaskEventIds?: Set<number>
+  weatherData?: { daily: { date: string; weathercode: number; tempMax: number; tempMin: number; wind: number; precipitation: number; snowfall: number }[]; hourly: { time: string; temp: number; weathercode: number; wind: number; precipitationProbability: number }[]; units: string } | null
+  weatherUnits?: string
+  specialDays?: { id: number; title: string; date: string; emoji: string; color: string | null; is_recurring: boolean }[]
 }
 
-export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList, dateFormat = 'MM/DD/YYYY', weekStartDay = 'Sunday', isGoogleConnected = false, onSyncGoogleCalendar, isSyncingGoogle = false, sectionTitle, eventColorMode, colorTheme, linkedTaskEventIds }: CalendarViewProps) {
+export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList, dateFormat = 'MM/DD/YYYY', weekStartDay = 'Sunday', isGoogleConnected = false, onSyncGoogleCalendar, isSyncingGoogle = false, sectionTitle, eventColorMode, colorTheme, linkedTaskEventIds, weatherData, weatherUnits = 'fahrenheit', specialDays = [] }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<'day' | 'week' | 'month'>('week')
   const [currentTime, setCurrentTime] = useState(new Date())
   const [draggedEventId, setDraggedEventId] = useState<number | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const dragOffsetY = useRef<number>(0)
+
+  // Weather popup state
+  const [weatherPopup, setWeatherPopup] = useState<{ date: string; rect: DOMRect } | null>(null)
+
+  function getWeatherForDate(dateStr: string) {
+    return weatherData?.daily?.find(d => d.date === dateStr) ?? null
+  }
+
+  function weatherEmoji(code: number): string {
+    if (code === 0) return '☀️'
+    if (code <= 2) return '⛅'
+    if (code <= 3) return '☁️'
+    if (code <= 49) return '🌫️'
+    if (code <= 59) return '🌦️'
+    if (code <= 69) return '🌧️'
+    if (code <= 79) return '❄️'
+    if (code <= 82) return '🌧️'
+    if (code <= 84) return '🌨️'
+    if (code <= 99) return '⛈️'
+    return '🌡️'
+  }
+
+  function getSpecialDaysForDate(dateStr: string) {
+    const results: { emoji: string; title: string }[] = []
+    for (const sd of specialDays) {
+      if (sd.is_recurring) {
+        // Match month+day only
+        const [, sdMonth, sdDay] = sd.date.split('-')
+        const [, dateMonth, dateDay] = dateStr.split('-')
+        if (sdMonth === dateMonth && sdDay === dateDay) {
+          results.push({ emoji: sd.emoji, title: sd.title })
+        }
+      } else if (sd.date === dateStr) {
+        results.push({ emoji: sd.emoji, title: sd.title })
+      }
+    }
+    return results
+  }
 
   const swipeHandlers = useSwipe({
     onSwipeLeft:  () => { if (view !== 'week' || isMobile) nextMonth() },
@@ -519,6 +561,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
   const dayOfWeekName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][currentDate.getDay()]
 
   return (
+    <>
     <SectionCard className="h-full flex flex-col" {...swipeHandlers}>
       {/* ── Mobile Header ── */}
       <div className="md:hidden px-3 pt-3 pb-1 flex flex-col gap-2">
@@ -632,8 +675,10 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
             {/* Day headers */}
             <div className="sticky top-0 bg-white/20 backdrop-blur-xl z-10 border-b-2 border-r-2 border-white/30 shadow-lg"></div>
             {weekDays.map((date, idx) => {
-              const dateStr = date.toISOString().split('T')[0]
+              const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
               const mealCount = mealPlansCount[dateStr] || 0
+              const weekWeather = getWeatherForDate(dateStr)
+              const weekSpecialDays = getSpecialDaysForDate(dateStr)
 
               return (
                 <div
@@ -643,7 +688,26 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                   <div className="text-sm">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]}</div>
                   <div className={`text-lg ${isTodayDate(date) ? 'text-yellow-300 font-bold drop-shadow-lg' : ''}`}>
                     {formatDate(date, dateFormat)}
+                    {weekSpecialDays.length > 0 && (
+                      <span className="ml-1 text-base" title={weekSpecialDays.map(s => s.title).join(', ')}>{weekSpecialDays[0].emoji}</span>
+                    )}
                   </div>
+                  {weekWeather && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                        setWeatherPopup(p => p?.date === dateStr ? null : { date: dateStr, rect })
+                      }}
+                      className="flex items-center justify-center gap-1 text-[10px] text-white/60 hover:text-white/90 transition-colors mt-0.5 w-full"
+                    >
+                      <span>{weatherEmoji(weekWeather.weathercode)}</span>
+                      <span>{Math.round(weekWeather.tempMax)}°/{Math.round(weekWeather.tempMin)}°</span>
+                      {weekWeather.wind > 0 && <span className="text-white/40">💨{Math.round(weekWeather.wind)}</span>}
+                      {weekWeather.precipitation > 0.1 && <span>💧</span>}
+                      {weekWeather.snowfall > 0.1 && <span>❄️</span>}
+                    </button>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
@@ -902,35 +966,55 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
             {/* Day header */}
             <div className="sticky top-0 bg-white/20 backdrop-blur-xl z-10 border-b-2 border-r-2 border-white/30 shadow-lg"></div>
             <div className="sticky top-0 bg-white/20 backdrop-blur-xl z-10 text-center font-semibold text-white py-3 border-b-2 border-r-2 border-white/30 shadow-lg">
-              <div className="flex items-center justify-between px-2">
-                <div className="flex-1">
-                  <div className="text-sm">{dayOfWeekName}</div>
-                  <div className={`text-lg ${isTodayDate(currentDate) ? 'text-yellow-300 font-bold drop-shadow-lg' : ''}`}>
-                    {dayOfMonth}
-                  </div>
-                </div>
-                {(() => {
-                  const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`
-                  const mealCount = mealPlansCount[dateStr] ?? 0
-                  return (
-                    <button
-                      onClick={() => onMealIconClick(dateStr)}
-                      className={`ml-2 px-2 py-1 rounded-lg text-lg transition-all duration-200 hover:scale-110 ${
-                        mealCount > 0
-                          ? 'bg-orange-500/80 hover:bg-orange-500 border border-orange-400/60'
-                          : 'bg-white/20 hover:bg-white/30 border border-white/40'
-                      }`}
-                      title={
-                        mealCount > 0
-                          ? `${mealCount} meals assigned - click to modify`
-                          : 'Click to add meals'
-                      }
-                    >
-                      🍽️{mealCount > 0 ? mealCount : ''}
-                    </button>
-                  )
-                })()}
-              </div>
+              {(() => {
+                const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`
+                const mealCount = mealPlansCount[dateStr] ?? 0
+                const dayWeather = getWeatherForDate(dateStr)
+                const daySpecialDaysList = getSpecialDaysForDate(dateStr)
+                return (
+                  <>
+                    <div className="flex items-center justify-between px-2">
+                      <div className="flex-1">
+                        <div className="text-sm">{dayOfWeekName}</div>
+                        <div className={`text-lg ${isTodayDate(currentDate) ? 'text-yellow-300 font-bold drop-shadow-lg' : ''}`}>
+                          {dayOfMonth}
+                          {daySpecialDaysList.length > 0 && (
+                            <span className="ml-1 text-base" title={daySpecialDaysList.map(s => s.title).join(', ')}>{daySpecialDaysList[0].emoji}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => onMealIconClick(dateStr)}
+                        className={`ml-2 px-2 py-1 rounded-lg text-lg transition-all duration-200 hover:scale-110 ${
+                          mealCount > 0
+                            ? 'bg-orange-500/80 hover:bg-orange-500 border border-orange-400/60'
+                            : 'bg-white/20 hover:bg-white/30 border border-white/40'
+                        }`}
+                        title={mealCount > 0 ? `${mealCount} meals assigned - click to modify` : 'Click to add meals'}
+                      >
+                        🍽️{mealCount > 0 ? mealCount : ''}
+                      </button>
+                    </div>
+                    {dayWeather && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                          setWeatherPopup(p => p?.date === dateStr ? null : { date: dateStr, rect })
+                        }}
+                        className="flex items-center justify-center gap-1.5 text-[11px] text-white/60 hover:text-white/90 transition-colors mt-1 w-full"
+                        title="Click for hourly forecast"
+                      >
+                        <span>{weatherEmoji(dayWeather.weathercode)}</span>
+                        <span>{Math.round(dayWeather.tempMax)}°/{Math.round(dayWeather.tempMin)}°</span>
+                        {dayWeather.wind > 0 && <span className="text-white/40">💨{Math.round(dayWeather.wind)}</span>}
+                        {dayWeather.precipitation > 0.1 && <span>💧</span>}
+                        {dayWeather.snowfall > 0.1 && <span>❄️</span>}
+                      </button>
+                    )}
+                  </>
+                )
+              })()}
             </div>
 
             {/* All-day events row - Sticky at top */}
@@ -1184,6 +1268,9 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
           const isTodayDate = isToday(day)
           const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
           const mealCount = mealPlansCount[dateStr] || 0
+          const weatherDay = getWeatherForDate(dateStr)
+          const daySpecialDays = getSpecialDaysForDate(dateStr)
+          const hasSpecialDayEvent = dayEvents.some(e => (e as any).is_special_day)
 
           return (
             <div
@@ -1195,19 +1282,44 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                   : 'bg-white/10 backdrop-blur-lg border-white/20 hover:border-white/40'
               }`}
             >
-              <div className="flex items-start justify-between mb-0.5 md:mb-2">
-                <div className={`text-[10px] md:text-sm font-bold ${
+              <div className="flex items-center gap-1 mb-0.5 md:mb-2">
+                {/* Date number + special day */}
+                <div className={`text-[10px] md:text-sm font-bold shrink-0 ${
                   isTodayDate ? 'text-yellow-300 drop-shadow-lg' : 'text-white/90'
                 }`}>
                   {day}
+                  {(daySpecialDays.length > 0 || hasSpecialDayEvent) && (
+                    <span className="ml-0.5 text-[10px]" title={daySpecialDays.map(s => s.title).join(', ')}>
+                      {daySpecialDays[0]?.emoji ?? '⭐'}
+                    </span>
+                  )}
                 </div>
+                {/* Weather — desktop only, centered in middle */}
+                {weatherDay && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setWeatherPopup(p => p?.date === dateStr ? null : { date: dateStr, rect })
+                    }}
+                    className="hidden md:flex items-center gap-0.5 text-[9px] text-white/60 hover:text-white/90 transition-colors flex-1 justify-center"
+                    title="Click for hourly forecast"
+                  >
+                    <span>{weatherEmoji(weatherDay.weathercode)}</span>
+                    <span>{Math.round(weatherDay.tempMax)}°/{Math.round(weatherDay.tempMin)}°</span>
+                    {weatherDay.wind > 0 && <span className="text-white/40">💨{Math.round(weatherDay.wind)}</span>}
+                    {weatherDay.precipitation > 0.1 && <span>💧</span>}
+                    {weatherDay.snowfall > 0.1 && <span>❄️</span>}
+                  </button>
+                )}
+                {!weatherDay && <div className="flex-1" />}
                 {/* Meal icon — only show on larger screens where there's room */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
                     onMealIconClick(dateStr)
                   }}
-                  className={`hidden md:inline-flex text-white text-xs px-1.5 py-0.5 rounded-full font-bold transition-all hover:scale-110 shadow-lg ${
+                  className={`hidden md:inline-flex text-white text-xs px-1.5 py-0.5 rounded-full font-bold transition-all hover:scale-110 shadow-lg shrink-0 ${
                     mealCount > 0
                       ? 'bg-orange-500/80 hover:bg-orange-500'
                       : 'bg-white/20 hover:bg-white/30 border border-white/40'
@@ -1256,5 +1368,17 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
       )}
       </div>
     </SectionCard>
+
+    {/* Weather popup */}
+    {weatherPopup && weatherData && (
+      <WeatherPopup
+        date={weatherPopup.date}
+        hourly={weatherData.hourly}
+        units={weatherUnits}
+        anchorRect={weatherPopup.rect}
+        onClose={() => setWeatherPopup(null)}
+      />
+    )}
+    </>
   )
 }

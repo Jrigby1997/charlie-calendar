@@ -1,9 +1,9 @@
 # Developer Profile & Project Context
 
-**Last Updated:** March 18, 2026
+**Last Updated:** March 24, 2026
 **Developer:** jrigb
 **Project:** Skylight-style Calendar Application
-**Current Phase:** Phase 16 complete — Aisle Organization + Preset Ingredients | Production Live ✅ → https://charlie-calendar.vercel.app
+**Current Phase:** Phase 17 complete + bug fixes | Production Live ✅ → https://charlie-calendar.vercel.app
 
 ---
 
@@ -85,7 +85,119 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
     - Halloween / Christmas / Easter / Fall / Spring auto-switching by date range
 
 ---
-## Recent Session Summary (March 18, 2026)
+## Recent Session Summary (March 24, 2026)
+
+**Duration:** ~1 session
+**Accomplishments:**
+
+### Phase 17 Bug Fixes & Weather Polish
+
+1. **Homescreen Tasks section** (complete rewrite of query logic)
+   - Was querying `assigned_to` column on `tasks` table — column doesn't exist; corrected to `task_assignments(family_member_id)` join
+   - Was filtering `task_completions` by `completion_date` — column is actually `completed_date`; both bugs together caused 0/0 for every member
+   - Avatar images were broken: `avatar_url` stores filename only (`avatar_1.svg`); fixed by prepending `/avatars/` path prefix
+   - Family Notepad textarea font increased from `text-sm` → `text-base`
+
+2. **Weather date offset bug (Week view)**
+   - `weekDays.map()` computed `dateStr` via `date.toISOString().split('T')[0]` — this converts to UTC, shifting dates back 1 day for US timezones (e.g. Mar 24 local → Mar 23 UTC)
+   - Fixed to: `` `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}` `` — consistent with Month view which was already correct
+
+3. **Weather in Day view**
+   - Day view header previously showed only date + meal icon
+   - Restructured to compute `dayWeather` and `daySpecialDays` and render them inline
+   - Weather strip (emoji + hi/lo + wind + precip) centered below date row, clickable for WeatherPopup
+   - Special day emoji badge added to day view date number
+
+4. **Weather layout improvements**
+   - Month view: weather moved from its own row to inline between date and meal icon using flex layout (`[date] [weather flex-1 centered] [🍽️]`)
+   - Week + Day + Month views all now include 💨 wind speed and 💧/❄️ precip icons
+   - All weather strips use `w-full justify-center` for consistent centering
+
+**Modified Files:**
+- `app/components/HomescreenView.tsx` — task_assignments join, completed_date, /avatars/ prefix, text-base notepad
+- `app/components/CalendarView.tsx` — date offset fix, day view weather, month inline weather, wind+precip everywhere
+
+---
+
+## Previous Session Summary (March 19, 2026)
+
+**Duration:** ~1 session
+**Accomplishments:**
+
+### Phase 17: Push Notifications + Event Notes + Special Days + Homescreen + Weather
+
+1. **Push Notifications (Task 27)**
+   - VAPID keys generated (`web-push generate-vapid-keys`) and stored in `.env.local` + Vercel
+   - `vercel.json` daily digest cron `0 13 * * *` — Hobby-plan (once-daily minimum); removed the `/15 * * * *` reminders cron that required Pro plan
+   - `/api/push/digest` sends push to all subscribed users each morning
+   - `SettingsModal.tsx` push toggle with subscription status
+
+2. **Event Notes (Task 30)**
+   - `supabase_migration_event_notes_text.sql` — `ALTER TABLE events ADD COLUMN IF NOT EXISTS notes TEXT`
+   - `AddEventModal.tsx` — notes state, 📝 Notes textarea (optional), passed as arg to all call sites
+   - `page.tsx` — `notes` on Event type; `handleAddEvent` / `handleUpdateEvent` include notes in DB calls
+   - `CalendarView.tsx` — `notes` on Event type
+
+3. **Fraction Input Fix**
+   - `lib/dateUtils.ts` — `parseFraction(str: string): number`; handles `1/3`, `1 1/2`, whole numbers, plain decimals; NaN on invalid
+   - `ShoppingListView.tsx` — `newAmount`/`editingAmount` as `string`; inputs `type="text" inputMode="decimal"`; `parseFraction()` on save; widened to `w-28`/`w-24`
+   - `AddRecipeModal.tsx` — `RecipeIngredient.amount: string | number`; inputs `type="text"`; `parseFraction()` on submit
+   - `RecipesView.tsx` — `amount: number | string` type update
+
+4. **Special Days Countdown (Task 31)**
+   - `supabase_migration_special_days.sql` — `special_days` table: id, user_id, title TEXT NOT NULL, date DATE NOT NULL, emoji TEXT DEFAULT '⭐', color TEXT, is_recurring BOOLEAN DEFAULT FALSE, created_at; RLS enabled
+   - `supabase_migration_event_special_day.sql` — `ALTER TABLE events ADD COLUMN IF NOT EXISTS is_special_day BOOLEAN DEFAULT FALSE`
+   - `app/components/AddSpecialDayModal.tsx` — title, date, emoji grid picker (30 common emojis), color select (10 colors), is_recurring toggle; saves to `special_days` table
+   - `AddEventModal.tsx` — ⭐ "Mark as special day" checkbox
+   - `CalendarView.tsx` — receives `specialDays` prop; emoji badge overlaid on month cells, week column headers, day header for matching dates
+   - `page.tsx` — `specialDays: SpecialDay[]` state, `loadSpecialDays()`, `handleAddSpecialDay()`, `handleDeleteSpecialDay()`, `AddSpecialDayModal` render
+
+5. **Homescreen Tab (Task 32)**
+   - `supabase_migration_family_notes.sql` — `family_notes` table: id, user_id UUID UNIQUE, content TEXT DEFAULT '', updated_at; RLS enabled (own row only)
+   - `app/components/HomescreenView.tsx` — 6 sections:
+     1. **Special Day Countdowns** — filter special_days + is_special_day events for next 90 days; countdown cards with emoji + "X days away"
+     2. **Today & Tomorrow Events** — two-column event cards with time badges
+     3. **Today's Meals** — breakfast/lunch/dinner slots from meal_plans prop
+     4. **Task Overview** — per family member: avatar + "X/Y done today" + mini progress bar
+     5. **Family Notepad** — shared textarea, 1s debounce → upsert to family_notes
+     6. **Weather Widget** — today's condition + 6-day mini forecast strip (only shown if lat/lon configured)
+   - `BottomNav.tsx` — 🏠 Home tab added as first item; View type includes `'home'`
+   - `page.tsx` — `currentView` default changed from `'calendar'` to `'home'`; `HomescreenView` render case; Home added to sidebar NavTabs
+
+6. **Weather Integration (Task 33)**
+   - `supabase_migration_weather_settings.sql` — `ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS weather_location TEXT, ADD COLUMN IF NOT EXISTS weather_lat DOUBLE PRECISION, ADD COLUMN IF NOT EXISTS weather_lon DOUBLE PRECISION, ADD COLUMN IF NOT EXISTS weather_units TEXT DEFAULT 'fahrenheit'`
+   - `app/api/weather/route.ts` — `GET /api/weather?lat=X&lon=X&units=fahrenheit` → proxies Open-Meteo; `next: {revalidate: 3600}` server cache; returns `{daily[], hourly[]}`
+   - `app/api/weather/geocode/route.ts` — `GET /api/weather/geocode?city=...` → Open-Meteo geocoding API; returns `{lat, lon, name}`
+   - `app/components/WeatherPopup.tsx` — absolute-positioned popover; hourly data for clicked day; closes on ESC or outside click
+   - `CalendarView.tsx` — receives `weatherData` prop; 3-icon strip per date within 10-day window: condition emoji (WMO weathercode map), 💨 wind speed, 💧/❄️ precip/snowfall; clicking opens WeatherPopup
+   - `SettingsModal.tsx` — city/zip text input + Find button → geocode → show resolved name; save to app_settings; °F/°C PillToggle; saving triggers `onSettingsUpdate()`
+   - `page.tsx` — `weatherData` state, `weatherUnits` from settings, `loadWeather()` called from auth effect; all wired to CalendarView + HomescreenView
+
+**New Files:**
+- `supabase_migration_special_days.sql`
+- `supabase_migration_event_special_day.sql`
+- `supabase_migration_family_notes.sql`
+- `supabase_migration_weather_settings.sql`
+- `app/api/weather/route.ts`
+- `app/api/weather/geocode/route.ts`
+- `app/components/AddSpecialDayModal.tsx`
+- `app/components/HomescreenView.tsx`
+- `app/components/WeatherPopup.tsx`
+
+**Modified Files:**
+- `app/components/BottomNav.tsx` — Home tab
+- `app/components/CalendarView.tsx` — weather strip + WeatherPopup + special day badges
+- `app/components/SettingsModal.tsx` — weather location + units
+- `app/components/AddEventModal.tsx` — notes textarea, is_special_day checkbox
+- `app/page.tsx` — home view, specialDays + weatherData states, Home NavTab, default view
+- `lib/dateUtils.ts` — parseFraction()
+- `app/components/ShoppingListView.tsx` — fraction inputs
+- `app/components/AddRecipeModal.tsx` — fraction inputs
+- `app/components/RecipesView.tsx` — amount type fix
+
+---
+
+## Previous Session Summary (March 18, 2026)
 
 **Duration:** ~1 session
 **Accomplishments:**

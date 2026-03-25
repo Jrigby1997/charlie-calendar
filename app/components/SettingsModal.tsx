@@ -66,6 +66,15 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
   const [pushSubscribed, setPushSubscribed] = useState(false)
   const [pushEnabling, setPushEnabling] = useState(false)
 
+  // Weather settings state
+  const [weatherLocation, setWeatherLocation] = useState('')
+  const [weatherLat, setWeatherLat] = useState<number | null>(null)
+  const [weatherLon, setWeatherLon] = useState<number | null>(null)
+  const [weatherUnits, setWeatherUnits] = useState<'fahrenheit' | 'celsius'>('fahrenheit')
+  const [weatherGeocodingCity, setWeatherGeocodingCity] = useState('')
+  const [weatherGeocodingLoading, setWeatherGeocodingLoading] = useState(false)
+  const [weatherGeocodingError, setWeatherGeocodingError] = useState('')
+
   useEffect(() => {
     if (isOpen) {
       loadSettings()
@@ -293,6 +302,11 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
       setDateFormat(data.date_format || 'MM/DD/YYYY')
       setWeekStartDay(data.week_start_day || 'Sunday')
       setAdminPinHash(data.admin_pin_hash || null)
+      setWeatherLocation(data.weather_location || '')
+      setWeatherLat(data.weather_lat ?? null)
+      setWeatherLon(data.weather_lon ?? null)
+      setWeatherUnits(data.weather_units === 'celsius' ? 'celsius' : 'fahrenheit')
+      setWeatherGeocodingCity(data.weather_location || '')
     }
 
     setLoading(false)
@@ -343,6 +357,30 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
     setPinMode('idle'); setPinCurrent(''); setPinNew(''); setPinConfirm(''); setPinError('')
   }
 
+  async function handleGeocodeCity() {
+    if (!weatherGeocodingCity.trim()) return
+    setWeatherGeocodingLoading(true)
+    setWeatherGeocodingError('')
+    try {
+      const res = await fetch(`/api/weather/geocode?city=${encodeURIComponent(weatherGeocodingCity.trim())}`)
+      if (!res.ok) {
+        const err = await res.json()
+        setWeatherGeocodingError(err.error || 'Location not found')
+        return
+      }
+      const { lat, lon, name } = await res.json()
+      setWeatherLat(lat)
+      setWeatherLon(lon)
+      setWeatherLocation(name)
+      setWeatherGeocodingCity(name)
+      setWeatherGeocodingError('')
+    } catch {
+      setWeatherGeocodingError('Failed to look up location')
+    } finally {
+      setWeatherGeocodingLoading(false)
+    }
+  }
+
   async function handleSave() {
     if (!familySectionTitle.trim()) {
       onShowToast?.('Family section title cannot be empty', 'error')
@@ -373,6 +411,10 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
         event_color_mode: eventColorMode,
         date_format: dateFormat,
         week_start_day: weekStartDay,
+        weather_location: weatherLocation || null,
+        weather_lat: weatherLat,
+        weather_lon: weatherLon,
+        weather_units: weatherUnits,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' })
 
@@ -787,6 +829,59 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Divider — Weather */}
+              <div className="border-t border-white/20 pt-4">
+                <h4 className="text-white font-semibold mb-4">🌤️ Weather</h4>
+                <p className="text-white/60 text-sm mb-4">
+                  Enter your city or zip code to show weather forecasts on the calendar and homescreen.
+                </p>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={weatherGeocodingCity}
+                    onChange={e => setWeatherGeocodingCity(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleGeocodeCity() }}
+                    placeholder="City or zip code…"
+                    className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-white placeholder-white/40 focus:outline-none focus:border-white/40 text-sm"
+                  />
+                  <button
+                    onClick={handleGeocodeCity}
+                    disabled={weatherGeocodingLoading}
+                    className="px-4 py-2 bg-blue-500/70 hover:bg-blue-500 text-white text-sm rounded-xl transition-colors disabled:opacity-50"
+                  >
+                    {weatherGeocodingLoading ? '…' : 'Find'}
+                  </button>
+                </div>
+                {weatherGeocodingError && (
+                  <p className="text-red-400 text-xs mb-2">{weatherGeocodingError}</p>
+                )}
+                {weatherLat && (
+                  <p className="text-green-300 text-xs mb-3">📍 {weatherLocation}</p>
+                )}
+                <div className="flex items-center gap-3">
+                  <span className="text-white/60 text-sm">Units:</span>
+                  <div className="flex gap-1 bg-white/10 rounded-xl p-1">
+                    {(['fahrenheit', 'celsius'] as const).map(u => (
+                      <button
+                        key={u}
+                        onClick={() => setWeatherUnits(u)}
+                        className={`px-3 py-1 rounded-lg text-sm transition-colors ${weatherUnits === u ? 'bg-white/20 text-white' : 'text-white/50 hover:text-white'}`}
+                      >
+                        {u === 'fahrenheit' ? '°F' : '°C'}
+                      </button>
+                    ))}
+                  </div>
+                  {weatherLat && (
+                    <button
+                      onClick={() => { setWeatherLat(null); setWeatherLon(null); setWeatherLocation(''); setWeatherGeocodingCity('') }}
+                      className="text-white/40 hover:text-red-400 text-xs transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Divider — Push Notifications */}

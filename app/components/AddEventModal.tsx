@@ -69,14 +69,15 @@ type Event = {
   custom_color?: string | null
   checklist?: { text: string; checked: boolean }[] | null
   notes?: string | null
+  is_special_day?: boolean | null
 }
 
 type AddEventModalProps = {
   isOpen: boolean
   onClose: () => void
   familyMembers: FamilyMember[]
-  onAddEvent: (title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, memberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], customColor?: string, createLinkedTask?: boolean, linkedTaskRewards?: { currency_type: string; amount: number }[], checklist?: { text: string; checked: boolean }[], notes?: string) => void
-  onUpdateEvent?: (id: number, title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, memberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], updateScope?: 'single' | 'all' | 'future', instanceDate?: string, customColor?: string, checklist?: { text: string; checked: boolean }[], notes?: string) => void
+  onAddEvent: (title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, memberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], customColor?: string, createLinkedTask?: boolean, linkedTaskRewards?: { currency_type: string; amount: number }[], checklist?: { text: string; checked: boolean }[], notes?: string, isSpecialDay?: boolean) => void
+  onUpdateEvent?: (id: number, title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, memberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], updateScope?: 'single' | 'all' | 'future', instanceDate?: string, customColor?: string, checklist?: { text: string; checked: boolean }[], notes?: string, isSpecialDay?: boolean) => void
   onDeleteEvent?: (id: number, deleteScope?: 'single' | 'all' | 'future', instanceDate?: string) => void
   editingEvent?: Event | null
   instanceDate?: string // The specific date of the instance being edited (for recurring events)
@@ -108,6 +109,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
   const [checklist, setChecklist] = useState<{ text: string; checked: boolean }[]>([])
   const [newChecklistItem, setNewChecklistItem] = useState('')
   const [notes, setNotes] = useState('')
+  const [isSpecialDay, setIsSpecialDay] = useState(false)
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([])
   const [isRecurring, setIsRecurring] = useState(false)
   const [recurrencePattern, setRecurrencePattern] = useState('weekly')
@@ -162,6 +164,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
       setChecklist(editingEvent.checklist || [])
       setNewChecklistItem('')
       setNotes(editingEvent.notes || '')
+      setIsSpecialDay(editingEvent.is_special_day || false)
       // Linked task not shown when editing
       setCreateLinkedTask(false)
       setLinkedTaskRewards(DEFAULT_LINKED_REWARDS)
@@ -194,6 +197,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
       setChecklist([])
       setNewChecklistItem('')
       setNotes('')
+      setIsSpecialDay(false)
       setCreateLinkedTask(false)
       setLinkedTaskRewards(DEFAULT_LINKED_REWARDS)
       setGoogleCalendarTarget('local')
@@ -244,7 +248,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
       if (editingEvent.is_recurring && instanceDate) {
         setShowUpdateOptions(true)
       } else {
-        onUpdateEvent(editingEvent.id, title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays, undefined, undefined, customColor, checklist, notes)
+        onUpdateEvent(editingEvent.id, title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays, undefined, undefined, customColor, checklist, notes, isSpecialDay)
         onClose()
       }
     } else {
@@ -259,7 +263,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
           { integrationId, calendarId }
         ).catch(() => {/* onAddGoogleEvent shows its own toast */})
       } else {
-        onAddEvent(title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays, customColor, createLinkedTask, linkedTaskRewards.filter(r => r.enabled).map(({ currency_type, amount }) => ({ currency_type, amount })), checklist, notes)
+        onAddEvent(title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays, customColor, createLinkedTask, linkedTaskRewards.filter(r => r.enabled).map(({ currency_type, amount }) => ({ currency_type, amount })), checklist, notes, isSpecialDay)
       }
       onClose()
     }
@@ -267,7 +271,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
 
   function handleUpdateWithScope(scope: 'single' | 'all' | 'future') {
     if (editingEvent && onUpdateEvent) {
-      onUpdateEvent(editingEvent.id, title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays, scope, instanceDate, customColor, scope !== 'single' ? checklist : undefined, notes)
+      onUpdateEvent(editingEvent.id, title, date, endDate, startTime, endTime, description, selectedMemberIds, isRecurring, recurrencePattern, recurrenceInterval, recurrenceEndDate, recurrenceDays, scope, instanceDate, customColor, scope !== 'single' ? checklist : undefined, notes, isSpecialDay)
     }
     setShowUpdateOptions(false)
     onClose()
@@ -558,6 +562,18 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
               className="w-full px-4 py-2.5 border border-white/30 rounded-xl focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-white/60 bg-white/10 backdrop-blur-sm transition-all duration-200 hover:border-white/40 resize-none"
               placeholder="Add longer notes, reminders, or details…"
             />
+          </div>
+
+          {/* Special Day */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsSpecialDay(!isSpecialDay)}
+              className={`relative inline-flex items-center w-10 h-6 rounded-full transition-colors ${isSpecialDay ? 'bg-yellow-500' : 'bg-white/20'}`}
+            >
+              <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transition-transform ${isSpecialDay ? 'translate-x-5' : 'translate-x-1'}`} />
+            </button>
+            <span className="text-white/80 text-sm">⭐ Mark as special day</span>
           </div>
 
           {/* Also add as a task — only shown when creating a new local event */}

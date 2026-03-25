@@ -19,6 +19,8 @@ import EditGoogleEventModal from './components/EditGoogleEventModal'
 import NavTab from './components/ui/NavTab'
 import BottomNav from './components/BottomNav'
 import { PRESET_INGREDIENTS } from '@/lib/presetIngredients'
+import HomescreenView from './components/HomescreenView'
+import AddSpecialDayModal, { SpecialDay } from './components/AddSpecialDayModal'
 
 type Event = {
   id: number
@@ -51,6 +53,7 @@ type Event = {
   custom_color?: string | null
   checklist?: { text: string; checked: boolean }[] | null
   notes?: string | null
+  is_special_day?: boolean | null
 }
 
 type GoogleCalendarOption = {
@@ -79,7 +82,7 @@ export default function Home() {
   const [newEventDate, setNewEventDate] = useState<string>('')
   const [newEventTime, setNewEventTime] = useState<string>('')
   const [eventExceptions, setEventExceptions] = useState<any[]>([])
-  const [currentView, setCurrentView] = useState<'calendar' | 'recipes' | 'shopping-list' | 'tasks' | 'rewards'>('calendar')
+  const [currentView, setCurrentView] = useState<'home' | 'calendar' | 'recipes' | 'shopping-list' | 'tasks' | 'rewards'>('home')
   const [visibleMembers, setVisibleMembers] = useState<Set<number>>(new Set())
   const [showUnassigned, setShowUnassigned] = useState(true)
   const [mealPlans, setMealPlans] = useState<any[]>([])
@@ -88,6 +91,19 @@ export default function Home() {
   const [mealPlanRefreshKey, setMealPlanRefreshKey] = useState(0)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
   const ingredientsSeedingDone = useRef(false)
+
+  // Special Days
+  const [specialDays, setSpecialDays] = useState<SpecialDay[]>([])
+  const [isAddSpecialDayOpen, setIsAddSpecialDayOpen] = useState(false)
+
+  // Weather
+  type WeatherData = {
+    daily: { date: string; weathercode: number; tempMax: number; tempMin: number; wind: number; precipitation: number; snowfall: number }[]
+    hourly: { time: string; temp: number; weathercode: number; wind: number; precipitationProbability: number }[]
+    units: string
+  }
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null)
+  const [weatherUnits, setWeatherUnits] = useState<string>('fahrenheit')
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [adminPinHash, setAdminPinHash] = useState<string | null>(null)
   const [showPinPrompt, setShowPinPrompt] = useState(false)
@@ -200,6 +216,7 @@ export default function Home() {
     loadSettings()
     loadExternalData()
     loadLinkedTaskEventIds()
+    loadSpecialDays(user.id)
 
     // Subscribe to realtime changes
     const eventsChannel = supabase
@@ -336,6 +353,11 @@ export default function Home() {
         setDateFormat(data.date_format || 'MM/DD/YYYY')
         setWeekStartDay(data.week_start_day || 'Sunday')
         setAdminPinHash(data.admin_pin_hash || null)
+        if (data.weather_lat && data.weather_lon) {
+          const units = data.weather_units || 'fahrenheit'
+          setWeatherUnits(units)
+          loadWeather(data.weather_lat, data.weather_lon, units)
+        }
       }
       if (!data?.ingredients_seeded && !ingredientsSeedingDone.current) {
         ingredientsSeedingDone.current = true
@@ -343,6 +365,43 @@ export default function Home() {
       }
       registerPushSubscription()
     }
+  }
+
+  async function loadWeather(lat: number, lon: number, units: string) {
+    try {
+      const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}&units=${units}`)
+      if (res.ok) {
+        const data = await res.json()
+        setWeatherData(data)
+      }
+    } catch {
+      // Weather is non-critical; silently fail
+    }
+  }
+
+  async function loadSpecialDays(userId: string) {
+    const { data } = await supabase
+      .from('special_days')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: true })
+    if (data) setSpecialDays(data as SpecialDay[])
+  }
+
+  async function handleAddSpecialDay(payload: Omit<SpecialDay, 'id' | 'user_id' | 'created_at'>) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { error } = await supabase.from('special_days').insert({ ...payload, user_id: user.id })
+    if (!error) await loadSpecialDays(user.id)
+    else showToast('Failed to save special day', 'error')
+  }
+
+  async function handleDeleteSpecialDay(id: number) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { error } = await supabase.from('special_days').delete().eq('id', id).eq('user_id', user.id)
+    if (!error) setSpecialDays(prev => prev.filter(s => s.id !== id))
+    else showToast('Failed to delete special day', 'error')
   }
 
   async function registerPushSubscription() {
@@ -579,7 +638,7 @@ export default function Home() {
     return null
   }
 
-  async function handleAddEvent(title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], customColor?: string, createLinkedTask?: boolean, linkedTaskRewards?: { currency_type: string; amount: number }[], checklist?: { text: string; checked: boolean }[], notes?: string) {
+  async function handleAddEvent(title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], customColor?: string, createLinkedTask?: boolean, linkedTaskRewards?: { currency_type: string; amount: number }[], checklist?: { text: string; checked: boolean }[], notes?: string, isSpecialDay?: boolean) {
     if (!user) {
       console.error('No user logged in')
       return
@@ -603,6 +662,7 @@ export default function Home() {
         custom_color: customColor || null,
         checklist: checklist && checklist.length > 0 ? checklist : null,
         notes: notes || null,
+        is_special_day: isSpecialDay || false,
         user_id: user.id
       }])
       .select()
@@ -672,7 +732,7 @@ export default function Home() {
     }
   }
 
-  async function handleUpdateEvent(id: number, title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], updateScope?: 'single' | 'all' | 'future', instanceDate?: string, customColor?: string, checklist?: { text: string; checked: boolean }[], notes?: string) {
+  async function handleUpdateEvent(id: number, title: string, date: string, endDate: string, startTime: string, endTime: string, description: string, selectedMemberIds: number[], isRecurring: boolean, recurrencePattern: string, recurrenceInterval: number, recurrenceEndDate: string, recurrenceDays: string[], updateScope?: 'single' | 'all' | 'future', instanceDate?: string, customColor?: string, checklist?: { text: string; checked: boolean }[], notes?: string, isSpecialDay?: boolean) {
 
     if (updateScope === 'single' && instanceDate) {
       // Create or update exception for this single instance
@@ -729,6 +789,7 @@ export default function Home() {
           custom_color: customColor || null,
           checklist: checklist || null,
           notes: notes || null,
+          is_special_day: isSpecialDay || false,
           user_id: user?.id
         }])
         .select()
@@ -759,7 +820,8 @@ export default function Home() {
           recurrence_days: isRecurring && recurrenceDays.length > 0 ? JSON.stringify(recurrenceDays) : null,
           custom_color: customColor || null,
           checklist: checklist || null,
-          notes: notes || null
+          notes: notes || null,
+          is_special_day: isSpecialDay || false
         })
         .eq('id', id)
 
@@ -1491,6 +1553,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
         <div className="hidden md:flex w-20 flex-shrink-0 flex-col gap-3 overflow-y-auto py-4">
           {/* View Toggle - Vertical, Minimal */}
           <div className="flex flex-col gap-2">
+            <NavTab icon="🏠" label="Home"          active={currentView === 'home'}          onClick={() => setCurrentView('home')} />
             <NavTab icon="📅" label="Calendar"      active={currentView === 'calendar'}      onClick={() => setCurrentView('calendar')} />
             <NavTab icon="📖" label="Recipes"       active={currentView === 'recipes'}       onClick={() => setCurrentView('recipes')} />
             <NavTab icon="🛒" label="Lists"         active={currentView === 'shopping-list'} onClick={() => setCurrentView('shopping-list')} title="Shopping List" />
@@ -1507,7 +1570,20 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
 
         {/* Main Content Area */}
         <div className="flex-1 min-h-0 overflow-hidden pb-14 md:pb-0 max-w-[100vw]">
-            {currentView === 'calendar' ? (
+            {currentView === 'home' ? (
+              <HomescreenView
+                userId={user?.id || ''}
+                colorTheme={colorTheme}
+                familyMembers={familyMembers}
+                familySectionTitle={familySectionTitle}
+                specialDays={specialDays}
+                events={events}
+                mealPlans={mealPlans}
+                weatherData={weatherData}
+                weatherUnits={weatherUnits}
+                onAddSpecialDay={() => setIsAddSpecialDayOpen(true)}
+              />
+            ) : currentView === 'calendar' ? (
               <div className="h-full p-4">
               <CalendarView
                 sectionTitle={familyName ? `${familyName} Calendar` : 'Calendar'}
@@ -1532,6 +1608,9 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                 eventColorMode={eventColorMode}
                 colorTheme={colorTheme}
                 linkedTaskEventIds={linkedTaskEventIds}
+                weatherData={weatherData}
+                weatherUnits={weatherUnits}
+                specialDays={specialDays}
               />
               </div>
             ) : currentView === 'recipes' ? (
@@ -1632,6 +1711,14 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
           onSave={handleSaveGoogleEventEdit}
           onShowToast={showToast}
         />
+
+        {/* Add Special Day Modal */}
+        {isAddSpecialDayOpen && (
+          <AddSpecialDayModal
+            onClose={() => setIsAddSpecialDayOpen(false)}
+            onSave={handleAddSpecialDay}
+          />
+        )}
 
         {/* Settings Modal */}
         <SettingsModal
