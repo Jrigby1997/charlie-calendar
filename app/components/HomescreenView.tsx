@@ -26,8 +26,24 @@ interface FamilyMember {
 interface MealPlan {
   date: string
   meal_type: string
-  recipes?: { title: string } | null
-  custom_meal_name?: string | null
+  recipe_id?: number | null
+  recipes?: { name: string } | null
+}
+
+type RecipeDetail = {
+  id: number
+  name: string
+  description?: string | null
+  instructions: string
+  prep_time: number | null
+  cook_time: number | null
+  servings: number | null
+  calories: number | null
+  protein?: number | null
+  fat?: number | null
+  carbs?: number | null
+  rating: number | null
+  recipe_ingredients: { amount: number; measurement: string; ingredient_name: string; ingredient_id?: number }[]
 }
 
 interface WeatherDay {
@@ -93,6 +109,51 @@ export default function HomescreenView({
 
   // Task completions for today - per member
   const [taskStats, setTaskStats] = useState<Map<number, { total: number; done: number }>>(new Map())
+
+  // Recipe detail viewer
+  const [viewingRecipe, setViewingRecipe] = useState<RecipeDetail | null>(null)
+  const [loadingRecipe, setLoadingRecipe] = useState(false)
+  const [addingToList, setAddingToList] = useState(false)
+
+  async function openRecipeDetail(recipeId: number) {
+    setLoadingRecipe(true)
+    setViewingRecipe(null)
+    const { data, error } = await supabase
+      .from('recipes')
+      .select(`id, name, description, instructions, prep_time, cook_time, servings, calories, protein, fat, carbs, rating,
+        recipe_ingredients ( ingredient_id, amount, measurement, ingredients ( name ) )`)
+      .eq('id', recipeId)
+      .single()
+    setLoadingRecipe(false)
+    if (error || !data) return
+    setViewingRecipe({
+      id: data.id, name: data.name, description: data.description, instructions: data.instructions,
+      prep_time: data.prep_time, cook_time: data.cook_time, servings: data.servings, calories: data.calories,
+      protein: data.protein, fat: data.fat, carbs: data.carbs, rating: data.rating,
+      recipe_ingredients: (data.recipe_ingredients as any[]).map(ri => ({
+        amount: ri.amount, measurement: ri.measurement, ingredient_id: ri.ingredient_id,
+        ingredient_name: Array.isArray(ri.ingredients) ? ri.ingredients[0]?.name : ri.ingredients?.name ?? ''
+      }))
+    })
+  }
+
+  async function addRecipeToShoppingList(recipe: RecipeDetail) {
+    setAddingToList(true)
+    try {
+      const valid = recipe.recipe_ingredients.filter(i => i.ingredient_id && i.amount && i.measurement)
+      if (valid.length === 0) { setAddingToList(false); return }
+      const { data: existing } = await supabase.from('shopping_list').select('*').eq('user_id', userId)
+      const items = valid.map(ing => {
+        const ex = (existing || []).find(e => e.ingredient_id === ing.ingredient_id && e.measurement === ing.measurement)
+        const counts = { ...((ex?.recipe_counts as Record<string,number>) || {}), [String(recipe.id)]: ((ex?.recipe_counts as Record<string,number>)?.[String(recipe.id)] || 0) + 1 }
+        return ex
+          ? { id: ex.id, user_id: userId, ingredient_id: ing.ingredient_id, amount: Number(ex.amount) + Number(ing.amount), measurement: ing.measurement, recipe_id: recipe.id, recipe_counts: counts }
+          : { user_id: userId, ingredient_id: ing.ingredient_id, amount: ing.amount, measurement: ing.measurement, recipe_id: recipe.id, recipe_counts: counts }
+      })
+      await supabase.from('shopping_list').upsert(items.map(({ id: _id, ...r }) => r), { onConflict: 'user_id,ingredient_id,measurement' })
+    } catch (err) { console.error(err) }
+    setAddingToList(false)
+  }
 
   // Family notepad
   const [noteContent, setNoteContent] = useState('')
@@ -271,11 +332,17 @@ export default function HomescreenView({
           <div className="grid grid-cols-3 gap-2">
             {MEAL_ORDER.filter(mt => todayMeals.some(m => m.meal_type === mt)).map(mealType => {
               const meal = todayMeals.find(m => m.meal_type === mealType)
-              const name = meal?.recipes?.title || meal?.custom_meal_name || ''
+              const name = meal?.recipes?.name || ''
+              const hasRecipe = !!meal?.recipe_id
               return (
-                <div key={mealType} className="bg-white/10 rounded-xl p-2 border border-white/15">
+                <div
+                  key={mealType}
+                  className={`bg-white/10 rounded-xl p-2 border border-white/15 transition-colors ${hasRecipe ? 'cursor-pointer hover:bg-white/20 active:bg-white/25' : ''}`}
+                  onClick={() => hasRecipe && meal?.recipe_id && openRecipeDetail(meal.recipe_id)}
+                >
                   <p className="text-white/50 text-xs mb-0.5">{mealType}</p>
                   <p className="text-white text-sm font-medium leading-tight truncate">{name || '—'}</p>
+                  {hasRecipe && <p className="text-white/30 text-[10px] mt-0.5">Tap to view</p>}
                 </div>
               )
             })}
@@ -360,6 +427,108 @@ export default function HomescreenView({
             </div>
           </div>
         </section>
+      )}
+
+      {/* Recipe Detail Modal */}
+      {(viewingRecipe || loadingRecipe) && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setViewingRecipe(null)}
+        >
+          <div
+            className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {loadingRecipe ? (
+              <div className="p-8 text-center text-white/60">Loading recipe…</div>
+            ) : viewingRecipe && (
+              <div className="p-5 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="text-xl font-bold text-white leading-tight">{viewingRecipe.name}</h2>
+                  <button onClick={() => setViewingRecipe(null)} className="shrink-0 text-white/50 hover:text-white text-2xl leading-none">✕</button>
+                </div>
+
+                {viewingRecipe.description && (
+                  <p className="text-white/70 text-sm leading-relaxed">{viewingRecipe.description}</p>
+                )}
+
+                {/* Stats */}
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { label: 'Prep', value: viewingRecipe.prep_time ? `${viewingRecipe.prep_time}m` : '—' },
+                    { label: 'Cook', value: viewingRecipe.cook_time ? `${viewingRecipe.cook_time}m` : '—' },
+                    { label: 'Servings', value: viewingRecipe.servings ?? '—' },
+                    { label: 'Calories', value: viewingRecipe.calories ?? '—' },
+                  ].map(s => (
+                    <div key={s.label} className="bg-white/10 rounded-xl p-2 text-center">
+                      <p className="text-white/50 text-xs">{s.label}</p>
+                      <p className="text-white font-semibold text-sm">{s.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Macros */}
+                {(viewingRecipe.protein != null || viewingRecipe.fat != null || viewingRecipe.carbs != null) && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'Protein', value: viewingRecipe.protein, unit: 'g' },
+                      { label: 'Fat', value: viewingRecipe.fat, unit: 'g' },
+                      { label: 'Carbs', value: viewingRecipe.carbs, unit: 'g' },
+                    ].map(m => (
+                      <div key={m.label} className="bg-white/10 rounded-xl p-2 text-center">
+                        <p className="text-white/50 text-xs">{m.label}</p>
+                        <p className="text-white font-semibold text-sm">{m.value != null ? `${m.value}${m.unit}` : '—'}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Ingredients */}
+                {viewingRecipe.recipe_ingredients.length > 0 && (
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Ingredients</h3>
+                    <ul className="space-y-1">
+                      {viewingRecipe.recipe_ingredients.map((ing, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm">
+                          <span className="text-white/30 mt-0.5">•</span>
+                          <span className="text-white/80">{ing.amount} {ing.measurement} {ing.ingredient_name}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Instructions */}
+                {viewingRecipe.instructions && (
+                  <div>
+                    <h3 className="text-white font-semibold mb-2">Instructions</h3>
+                    <p className="text-white/70 text-sm leading-relaxed whitespace-pre-line">{viewingRecipe.instructions}</p>
+                  </div>
+                )}
+
+                {viewingRecipe.rating != null && (
+                  <p className="text-white/50 text-sm">Rating: {'★'.repeat(viewingRecipe.rating)}{'☆'.repeat(5 - viewingRecipe.rating)}</p>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => addRecipeToShoppingList(viewingRecipe)}
+                    disabled={addingToList}
+                    className="flex-1 bg-green-600/80 hover:bg-green-600 text-white text-sm font-medium py-2.5 rounded-xl transition-colors disabled:opacity-50"
+                  >
+                    {addingToList ? 'Adding…' : '🛒 Add ALL Ingredients to Shopping List'}
+                  </button>
+                  <button
+                    onClick={() => setViewingRecipe(null)}
+                    className="bg-white/10 hover:bg-white/20 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

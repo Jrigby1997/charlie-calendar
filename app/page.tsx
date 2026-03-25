@@ -503,7 +503,7 @@ export default function Home() {
   async function loadMealPlans() {
     const { data, error } = await supabase
       .from('meal_plans')
-      .select('*')
+      .select('id, recipe_id, meal_type, date, recipes(name)')
 
     if (error) {
       console.error('Error loading meal plans:', error)
