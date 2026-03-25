@@ -699,13 +699,13 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                         setWeatherPopup(p => p?.date === dateStr ? null : { date: dateStr, rect })
                       }}
-                      className="flex items-center justify-center gap-1 text-[10px] text-white/60 hover:text-white/90 transition-colors mt-0.5 w-full"
+                      className="flex items-center justify-center gap-2 text-[10px] text-white/60 hover:text-white/90 transition-colors mt-0.5 mx-auto bg-white/20 hover:bg-white/30 border border-white/30 hover:border-white/50 rounded-full px-2 py-0.5"
                     >
                       <span>{weatherEmoji(weekWeather.weathercode)}</span>
                       <span>{Math.round(weekWeather.tempMax)}°/{Math.round(weekWeather.tempMin)}°</span>
-                      {weekWeather.wind > 0 && <span className="text-white/40">💨{Math.round(weekWeather.wind)}</span>}
-                      {weekWeather.precipitation > 0.1 && <span>💧</span>}
-                      {weekWeather.snowfall > 0.1 && <span>❄️</span>}
+                      {weekWeather.wind > 0 && <span className="text-white/40">💨 {Math.round(weekWeather.wind)}</span>}
+                      {weekWeather.precipitation > 0.1 && <span>💧 {weekWeather.precipitation.toFixed(1)}&quot;</span>}
+                      {weekWeather.snowfall > 0.1 && <span>❄️ {weekWeather.snowfall.toFixed(1)}&quot;</span>}
                     </button>
                   )}
                   <button
@@ -973,8 +973,8 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                 const daySpecialDaysList = getSpecialDaysForDate(dateStr)
                 return (
                   <>
-                    <div className="flex items-center justify-between px-2">
-                      <div className="flex-1">
+                    <div className="relative flex items-center justify-center px-2">
+                      <div className="text-center">
                         <div className="text-sm">{dayOfWeekName}</div>
                         <div className={`text-lg ${isTodayDate(currentDate) ? 'text-yellow-300 font-bold drop-shadow-lg' : ''}`}>
                           {dayOfMonth}
@@ -985,7 +985,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                       </div>
                       <button
                         onClick={() => onMealIconClick(dateStr)}
-                        className={`ml-2 px-2 py-1 rounded-lg text-lg transition-all duration-200 hover:scale-110 ${
+                        className={`absolute right-2 px-2 py-1 rounded-lg text-lg transition-all duration-200 hover:scale-110 ${
                           mealCount > 0
                             ? 'bg-orange-500/80 hover:bg-orange-500 border border-orange-400/60'
                             : 'bg-white/20 hover:bg-white/30 border border-white/40'
@@ -1002,14 +1002,14 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                           setWeatherPopup(p => p?.date === dateStr ? null : { date: dateStr, rect })
                         }}
-                        className="flex items-center justify-center gap-1.5 text-[11px] text-white/60 hover:text-white/90 transition-colors mt-1 w-full"
+                        className="flex items-center justify-center gap-2.5 text-[11px] text-white/60 hover:text-white/90 transition-colors mt-1 mx-auto bg-white/20 hover:bg-white/30 border border-white/30 hover:border-white/50 rounded-full px-3 py-0.5"
                         title="Click for hourly forecast"
                       >
                         <span>{weatherEmoji(dayWeather.weathercode)}</span>
                         <span>{Math.round(dayWeather.tempMax)}°/{Math.round(dayWeather.tempMin)}°</span>
-                        {dayWeather.wind > 0 && <span className="text-white/40">💨{Math.round(dayWeather.wind)}</span>}
-                        {dayWeather.precipitation > 0.1 && <span>💧</span>}
-                        {dayWeather.snowfall > 0.1 && <span>❄️</span>}
+                        {dayWeather.wind > 0 && <span className="text-white/40">💨 {Math.round(dayWeather.wind)}</span>}
+                        {dayWeather.precipitation > 0.1 && <span>💧 {dayWeather.precipitation.toFixed(1)}&quot;</span>}
+                        {dayWeather.snowfall > 0.1 && <span>❄️ {dayWeather.snowfall.toFixed(1)}&quot;</span>}
                       </button>
                     )}
                   </>
@@ -1296,23 +1296,25 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                 </div>
                 {/* Weather — desktop only, centered in middle */}
                 {weatherDay && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                      setWeatherPopup(p => p?.date === dateStr ? null : { date: dateStr, rect })
-                    }}
-                    className="hidden md:flex items-center gap-0.5 text-[9px] text-white/60 hover:text-white/90 transition-colors flex-1 justify-center"
-                    title="Click for hourly forecast"
-                  >
-                    <span>{weatherEmoji(weatherDay.weathercode)}</span>
-                    <span>{Math.round(weatherDay.tempMax)}°/{Math.round(weatherDay.tempMin)}°</span>
-                    {weatherDay.wind > 0 && <span className="text-white/40">💨{Math.round(weatherDay.wind)}</span>}
-                    {weatherDay.precipitation > 0.1 && <span>💧</span>}
-                    {weatherDay.snowfall > 0.1 && <span>❄️</span>}
-                  </button>
+                  <div className="flex-1 hidden md:flex justify-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                        setWeatherPopup(p => p?.date === dateStr ? null : { date: dateStr, rect })
+                      }}
+                      className="inline-flex items-center gap-1.5 text-[9px] text-white/60 hover:text-white/90 transition-colors bg-white/20 hover:bg-white/30 border border-white/30 hover:border-white/50 rounded-full px-1.5 py-0.5"
+                      title="Click for hourly forecast"
+                    >
+                      <span>{weatherEmoji(weatherDay.weathercode)}</span>
+                      <span>{Math.round(weatherDay.tempMax)}°/{Math.round(weatherDay.tempMin)}°</span>
+                      {weatherDay.wind > 0 && <span className="text-white/40">💨 {Math.round(weatherDay.wind)}</span>}
+                      {weatherDay.precipitation > 0.1 && <span>💧 {weatherDay.precipitation.toFixed(1)}&quot;</span>}
+                      {weatherDay.snowfall > 0.1 && <span>❄️ {weatherDay.snowfall.toFixed(1)}&quot;</span>}
+                    </button>
+                  </div>
                 )}
-                {!weatherDay && <div className="flex-1" />}
+                {!weatherDay && <div className="flex-1 hidden md:block" />}
                 {/* Meal icon — only show on larger screens where there's room */}
                 <button
                   onClick={(e) => {
