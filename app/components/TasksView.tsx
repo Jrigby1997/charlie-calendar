@@ -8,6 +8,7 @@ import confetti from 'canvas-confetti'
 import SectionCard from './ui/SectionCard'
 import IconButton from './ui/IconButton'
 import GlassButton from './ui/GlassButton'
+import PillToggle from './ui/PillToggle'
 import { useSwipe } from '@/lib/useSwipe'
 
 type FamilyMember = {
@@ -97,6 +98,9 @@ type TasksViewProps = {
   familyMembers: FamilyMember[]
   onShowToast: (message: string, tone: 'success' | 'error') => void
   sectionTitle?: string
+  showRewards?: boolean
+  tasksSubView?: 'tasks' | 'rewards'
+  onTasksSubViewChange?: (v: 'tasks' | 'rewards') => void
 }
 
 /** Returns YYYY-MM-DD in the user's LOCAL timezone (avoids UTC-date-shift bugs). */
@@ -166,7 +170,7 @@ const CURRENCY_META: Record<string, { icon: string; label: string }> = {
   trophy:      { icon: '🏆', label: 'Trophies'    },
 }
 
-export default function TasksView({ familyMembers, onShowToast, sectionTitle }: TasksViewProps) {
+export default function TasksView({ familyMembers, onShowToast, sectionTitle, showRewards, tasksSubView, onTasksSubViewChange }: TasksViewProps) {
   const { user } = useAuth()
   const [tasks, setTasks]             = useState<Task[]>([])
   const [completions, setCompletions] = useState<TaskCompletion[]>([])
@@ -862,25 +866,34 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle }: 
       <SectionCard className="h-full flex flex-col" {...swipeHandlers}>
         {/* Header */}
         <div className="px-4 md:px-6 pt-4 md:pt-6 pb-3 flex flex-col gap-2 flex-shrink-0">
-          {/* Row 1: ← title/date → | + button */}
-          <div className="flex items-center gap-1">
-            <GlassButton size="sm" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() - 1))} className="flex-shrink-0 px-3">←</GlassButton>
-            <div className="flex-1 text-center min-w-0">
-              {sectionTitle && <p className="text-[10px] font-semibold text-white/60 uppercase tracking-wide truncate">{sectionTitle}</p>}
-              <h2 className="text-base md:text-2xl font-bold text-white drop-shadow-lg leading-tight">{viewDateFormatted}</h2>
+          {/* Row 1: title (left) + toggle + add button (right) */}
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-xl md:text-2xl font-bold text-white drop-shadow-lg truncate">{sectionTitle || '✅ Tasks'}</h2>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {showRewards && onTasksSubViewChange && (
+                <PillToggle
+                  items={[{ value: 'tasks', label: '✅ Tasks' }, { value: 'rewards', label: '🏆 Rewards' }]}
+                  value={tasksSubView ?? 'tasks'}
+                  onChange={v => onTasksSubViewChange(v as 'tasks' | 'rewards')}
+                  size="sm"
+                />
+              )}
+              <IconButton
+                onClick={() => {
+                  setEditingTask(null)
+                  setIsModalOpen(true)
+                }}
+                title="Add Task"
+              />
             </div>
-            <GlassButton size="sm" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() + 1))} className="flex-shrink-0 px-3">→</GlassButton>
-            <IconButton
-              onClick={() => {
-                setEditingTask(null)
-                setIsModalOpen(true)
-              }}
-              title="Add Task"
-            />
           </div>
-          {/* Row 2: Today button */}
-          <div className="flex justify-center">
+          {/* Row 2: date heading centered */}
+          <h3 className="text-base md:text-lg font-semibold text-white/80 drop-shadow leading-tight text-center">{viewDateFormatted}</h3>
+          {/* Row 3: ← Today → centered */}
+          <div className="flex justify-center gap-1">
+            <GlassButton size="sm" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() - 1))} className="px-3">←</GlassButton>
             <GlassButton size="sm" onClick={() => setViewDate(new Date())}>Today</GlassButton>
+            <GlassButton size="sm" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate() + 1))} className="px-3">→</GlassButton>
           </div>
           {/* Row 3: member picker (mobile only) */}
           {familyMembers.length > 0 && (

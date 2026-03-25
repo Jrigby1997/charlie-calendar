@@ -22,7 +22,16 @@ Build a custom calendar/family organizer application similar to Skylight Calenda
 
 ## 🔜 Upcoming Tasks (Next Sessions)
 
-1. **Multi-Currency Reward System** *(highest priority)*
+1. **General-Purpose Lists** *(planned — not yet started)*
+   - Users can create multiple named lists (e.g. "Grocery", "Home Improvement", "Wish List", "Packing")
+   - Each list has a name, optional emoji, and ordered items (text only, with checkbox completion)
+   - Lists live in a new **Lists** nav section (separate from the Recipes/Shopping tab merge)
+   - Members can be assigned to / share a list
+   - DB: new `lists` table (id, user_id, name, emoji, created_at); `list_items` (id, list_id, content, is_checked, sort_order)
+   - UI: List picker sidebar on the left, item checklist on the right; add/reorder/delete items; swipe to check on mobile
+   - Shopping List (currently inside Recipes tab) can optionally be rebuilt on top of this system in the future
+
+2. **Multi-Currency Reward System** *(highest priority)*
    - Preset currencies: ⭐ Stars, 💪 Muscles, ❤️ Heart, 🎮 Game Points, 🏆 Trophy
    - Tasks can award one OR multiple currency types simultaneously
    - Rewards in the store are priced in a specific currency (only spendable with matching currency)

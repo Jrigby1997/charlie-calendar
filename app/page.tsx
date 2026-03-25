@@ -7,7 +7,6 @@ import { urlBase64ToUint8Array } from '@/lib/pushUtils'
 import { useAuth } from './contexts/AuthContext'
 import CalendarView from './components/CalendarView'
 import RecipesView from './components/RecipesView'
-import ShoppingListView from './components/ShoppingListView'
 import TasksView from './components/TasksView'
 import RewardsView from './components/RewardsView'
 import AddEventModal from './components/AddEventModal'
@@ -17,6 +16,7 @@ import AdminPinModal from './components/AdminPinModal'
 import ExternalEventDetailModal from './components/ExternalEventDetailModal'
 import EditGoogleEventModal from './components/EditGoogleEventModal'
 import NavTab from './components/ui/NavTab'
+import PillToggle from './components/ui/PillToggle'
 import BottomNav from './components/BottomNav'
 import { PRESET_INGREDIENTS } from '@/lib/presetIngredients'
 import HomescreenView from './components/HomescreenView'
@@ -82,7 +82,7 @@ export default function Home() {
   const [newEventDate, setNewEventDate] = useState<string>('')
   const [newEventTime, setNewEventTime] = useState<string>('')
   const [eventExceptions, setEventExceptions] = useState<any[]>([])
-  const [currentView, setCurrentView] = useState<'home' | 'calendar' | 'recipes' | 'shopping-list' | 'tasks' | 'rewards'>('home')
+  const [currentView, setCurrentView] = useState<'home' | 'calendar' | 'recipes' | 'tasks'>('home')
   const [visibleMembers, setVisibleMembers] = useState<Set<number>>(new Set())
   const [showUnassigned, setShowUnassigned] = useState(true)
   const [mealPlans, setMealPlans] = useState<any[]>([])
@@ -91,6 +91,11 @@ export default function Home() {
   const [mealPlanRefreshKey, setMealPlanRefreshKey] = useState(0)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
   const ingredientsSeedingDone = useRef(false)
+
+  // Feature visibility
+  const [showIngredients, setShowIngredients] = useState(true)
+  const [showRewards, setShowRewards] = useState(true)
+  const [tasksSubView, setTasksSubView] = useState<'tasks' | 'rewards'>('tasks')
 
   // Special Days
   const [specialDays, setSpecialDays] = useState<SpecialDay[]>([])
@@ -353,6 +358,8 @@ export default function Home() {
         setDateFormat(data.date_format || 'MM/DD/YYYY')
         setWeekStartDay(data.week_start_day || 'Sunday')
         setAdminPinHash(data.admin_pin_hash || null)
+        setShowIngredients(data.show_ingredients ?? true)
+        setShowRewards(data.show_rewards ?? true)
         if (data.weather_lat && data.weather_lon) {
           const units = data.weather_units || 'fahrenheit'
           setWeatherUnits(units)
@@ -1556,9 +1563,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
             <NavTab icon="🏠" label="Home"          active={currentView === 'home'}          onClick={() => setCurrentView('home')} />
             <NavTab icon="📅" label="Calendar"      active={currentView === 'calendar'}      onClick={() => setCurrentView('calendar')} />
             <NavTab icon="📖" label="Recipes"       active={currentView === 'recipes'}       onClick={() => setCurrentView('recipes')} />
-            <NavTab icon="🛒" label="Lists"         active={currentView === 'shopping-list'} onClick={() => setCurrentView('shopping-list')} title="Shopping List" />
             <NavTab icon="✅" label="Tasks"         active={currentView === 'tasks'}         onClick={() => setCurrentView('tasks')} />
-            <NavTab icon="🏆" label="Rewards"       active={currentView === 'rewards'}       onClick={() => setCurrentView('rewards')} />
           </div>
 
           {/* Settings and Sign Out Buttons */}
@@ -1622,32 +1627,32 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                   onMealDayClick={handleMealIconClick}
                   mealRefreshKey={mealPlanRefreshKey}
                   onAddWeekMealsToList={handleAddWeekMealsToList}
-                />
-              </div>
-            ) : currentView === 'shopping-list' ? (
-              <div className="h-full p-4">
-                <ShoppingListView
-                  sectionTitle={familyName ? `${familyName} Shopping List` : 'Shopping List'}
-                  userId={user?.id || ''}
+                  showIngredients={showIngredients}
                 />
               </div>
             ) : currentView === 'tasks' ? (
               <div className="h-full p-4">
-                <TasksView
-                  sectionTitle={familyName ? `${familyName} Tasks` : 'Tasks'}
-                  familyMembers={familyMembers}
-                  onShowToast={showToast}
-                />
+                {tasksSubView === 'rewards' && showRewards ? (
+                  <RewardsView
+                    sectionTitle={familyName ? `${familyName} Rewards` : 'Rewards'}
+                    familyMembers={familyMembers}
+                    onShowToast={showToast}
+                    showTasksToggle={showRewards}
+                    tasksSubView={tasksSubView}
+                    onTasksSubViewChange={setTasksSubView}
+                  />
+                ) : (
+                  <TasksView
+                    sectionTitle={familyName ? `${familyName} Tasks` : 'Tasks'}
+                    familyMembers={familyMembers}
+                    onShowToast={showToast}
+                    showRewards={showRewards}
+                    tasksSubView={tasksSubView}
+                    onTasksSubViewChange={setTasksSubView}
+                  />
+                )}
               </div>
-            ) : (
-              <div className="h-full p-4">
-                <RewardsView
-                  sectionTitle={familyName ? `${familyName} Rewards` : 'Rewards'}
-                  familyMembers={familyMembers}
-                  onShowToast={showToast}
-                />
-              </div>
-            )}
+            ) : null}
         </div>
       </div>
 
@@ -1727,6 +1732,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
           onSettingsUpdate={loadSettings}
           onShowToast={showToast}
           onExternalCalendarsChange={loadExternalData}
+          onSignOut={handleSignOut}
         />
 
         {/* Admin PIN prompt — shown before opening Settings when a PIN is set */}

@@ -68,9 +68,12 @@ type RewardsViewProps = {
   familyMembers: FamilyMember[]
   onShowToast: (message: string, tone: 'success' | 'error') => void
   sectionTitle?: string
+  showTasksToggle?: boolean
+  tasksSubView?: 'tasks' | 'rewards'
+  onTasksSubViewChange?: (v: 'tasks' | 'rewards') => void
 }
 
-export default function RewardsView({ familyMembers, onShowToast, sectionTitle }: RewardsViewProps) {
+export default function RewardsView({ familyMembers, onShowToast, sectionTitle, showTasksToggle, tasksSubView, onTasksSubViewChange }: RewardsViewProps) {
   const { user } = useAuth()
   const [rewards, setRewards] = useState<Reward[]>([])
   const [memberPoints, setMemberPoints] = useState<MemberPoints[]>([])
@@ -444,18 +447,29 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle }
       <SectionCard className="h-full flex flex-col">
         {/* Header */}
         <div className="px-4 md:px-6 pt-4 md:pt-6 pb-4 flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
-          <h2 className="text-xl md:text-2xl font-bold text-white drop-shadow-lg">{sectionTitle || '🏆 Rewards'}</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-white drop-shadow-lg">
+            {subView === 'history' ? (sectionTitle || 'Rewards').replace(/Rewards$/i, 'Rewards History') : (sectionTitle || '🏆 Rewards')}
+          </h2>
           <div className="flex items-center gap-2 md:gap-3">
-            {/* Subview toggle */}
-            <PillToggle
-              items={[
-                { value: 'rewards', label: '🎁 Rewards' },
-                { value: 'history', label: '📜 History' },
-              ]}
-              value={subView}
-              onChange={setSubView}
+            {/* History toggle button */}
+            <GlassButton
               size="sm"
-            />
+              onClick={() => setSubView(v => v === 'history' ? 'rewards' : 'history')}
+              className={subView === 'history'
+                ? 'bg-white text-gray-900 font-semibold shadow-lg'
+                : 'opacity-70'}
+            >
+              📜 History
+            </GlassButton>
+            {/* Tasks/Rewards outer toggle (shown when embedded in tasks tab) */}
+            {showTasksToggle && onTasksSubViewChange && (
+              <PillToggle
+                items={[{ value: 'tasks', label: '✅ Tasks' }, { value: 'rewards', label: '🏆 Rewards' }]}
+                value={tasksSubView ?? 'rewards'}
+                onChange={v => onTasksSubViewChange(v as 'tasks' | 'rewards')}
+                size="sm"
+              />
+            )}
             <IconButton
               onClick={() => {
                 setEditingReward(null)

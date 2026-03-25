@@ -28,9 +28,10 @@ type Ingredient = {
 type ShoppingListViewProps = {
   sectionTitle?: string
   userId: string
+  noCard?: boolean
 }
 
-export default function ShoppingListView({ sectionTitle, userId }: ShoppingListViewProps) {
+export default function ShoppingListView({ sectionTitle, userId, noCard }: ShoppingListViewProps) {
   const [items, setItems] = useState<ShoppingListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set())
@@ -419,21 +420,33 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
     ...(byAisle[''] ? [''] : []),
   ]
 
+  const Wrapper = noCard
+    ? ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={className}>{children}</div>
+    : SectionCard
+
   return (
-    <SectionCard className="h-full flex flex-col">
-      {/* Header */}
-      <div className="px-6 pt-6 pb-4 flex items-center justify-between flex-shrink-0">
-        <h2 className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle || '🛒 Shopping List'}</h2>
-        {items.length > 0 && (
-          <div className="flex gap-3">
-            <GlassButton variant="blue" size="md" onClick={handleShareList}><span>📤</span> Share List</GlassButton>
-            <GlassButton variant="red" size="md" onClick={clearShoppingList}>Clear All</GlassButton>
-          </div>
-        )}
-      </div>
+    <Wrapper className="h-full flex flex-col">
+      {/* Header — hidden when noCard (title is shown by parent) */}
+      {!noCard && (
+        <div className="px-6 pt-6 pb-4 flex items-center justify-between flex-shrink-0">
+          <h2 className="text-2xl font-bold text-white drop-shadow-lg">{sectionTitle || '🛒 Shopping List'}</h2>
+          {items.length > 0 && (
+            <div className="flex gap-3">
+              <GlassButton variant="blue" size="md" onClick={handleShareList}><span>📤</span> Share List</GlassButton>
+              <GlassButton variant="red" size="md" onClick={clearShoppingList}>Clear All</GlassButton>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Add Manual Item */}
-      <div className="flex-shrink-0 px-6 py-4">
+      <div className={`flex-shrink-0 px-6 ${noCard ? 'pt-4 pb-4' : 'py-4'}`}>
+      {noCard && items.length > 0 && (
+        <div className="flex gap-2 justify-end mb-3">
+          <GlassButton variant="blue" size="sm" onClick={handleShareList}><span>📤</span> Share</GlassButton>
+          <GlassButton variant="red" size="sm" onClick={clearShoppingList}>Clear All</GlassButton>
+        </div>
+      )}
       <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-4">
         <div className="text-white/80 font-medium mb-3">Add item</div>
         <div className="flex flex-wrap gap-3 items-center">
@@ -670,6 +683,6 @@ export default function ShoppingListView({ sectionTitle, userId }: ShoppingListV
           </div>
         </div>
       )}
-    </SectionCard>
+    </Wrapper>
   )
 }

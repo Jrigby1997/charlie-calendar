@@ -639,31 +639,37 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
             onToggleUnassigned={onToggleUnassigned}
           />
         </div>
-        {/* Controls row */}
-        <div className="flex items-center gap-3">
-          <GlassButton onClick={onAddEventClick} size="lg" className="backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105">
-            <span className="text-xl">+</span> Add Event
-          </GlassButton>
-          {isGoogleConnected && (
-            <GlassButton onClick={async () => { if (onSyncGoogleCalendar) await onSyncGoogleCalendar() }} disabled={isSyncingGoogle} size="lg" title="Sync Google Calendar" className="backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105">
-              <span className={isSyncingGoogle ? 'animate-spin' : ''}>🔄</span>
+        {/* Controls row: left | center (← Today →) | right spacer */}
+        <div className="flex items-center">
+          {/* Left: Add + Sync + view toggle */}
+          <div className="flex items-center gap-3 flex-1">
+            <GlassButton onClick={onAddEventClick} size="lg" className="backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105">
+              <span className="text-xl">+</span> Add Event
             </GlassButton>
-          )}
-          <PillToggle
-            items={[
-              { value: 'day',   label: 'Day' },
-              { value: 'week',  label: 'Week' },
-              { value: 'month', label: 'Month' },
-            ]}
-            value={view}
-            onChange={setView}
-            size="lg"
-          />
-          <div className="flex gap-1.5 ml-auto">
+            {isGoogleConnected && (
+              <GlassButton onClick={async () => { if (onSyncGoogleCalendar) await onSyncGoogleCalendar() }} disabled={isSyncingGoogle} size="lg" title="Sync Google Calendar" className="backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105">
+                <span className={isSyncingGoogle ? 'animate-spin' : ''}>🔄</span>
+              </GlassButton>
+            )}
+            <PillToggle
+              items={[
+                { value: 'day',   label: 'Day' },
+                { value: 'week',  label: 'Week' },
+                { value: 'month', label: 'Month' },
+              ]}
+              value={view}
+              onChange={setView}
+              size="lg"
+            />
+          </div>
+          {/* Center: ← Today → navigation */}
+          <div className="flex gap-1.5">
             <GlassButton onClick={previousMonth} size="lg" className="backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105">←</GlassButton>
             <GlassButton onClick={goToToday} size="lg" className="backdrop-blur-lg shadow-md hover:shadow-lg hover:scale-105">Today</GlassButton>
             <GlassButton onClick={nextMonth} size="lg" className="backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105">→</GlassButton>
           </div>
+          {/* Right spacer to balance */}
+          <div className="flex-1" />
         </div>
       </div>
 

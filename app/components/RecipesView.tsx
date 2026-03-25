@@ -10,6 +10,7 @@ import CategoryFilterBar from './ui/CategoryFilterBar'
 import CategoryChip from './ui/CategoryChip'
 import GlassButton from './ui/GlassButton'
 import IngredientsTab from './IngredientsTab'
+import ShoppingListView from './ShoppingListView'
 
 type Ingredient = {
   id: number
@@ -90,9 +91,10 @@ type RecipesViewProps = {
   onMealDayClick?: (date: string) => void
   mealRefreshKey?: number
   onAddWeekMealsToList?: (startDate: string, endDate: string) => void
+  showIngredients?: boolean
 }
 
-export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sunday', onMealDayClick, mealRefreshKey, onAddWeekMealsToList }: RecipesViewProps) {
+export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sunday', onMealDayClick, mealRefreshKey, onAddWeekMealsToList, showIngredients = true }: RecipesViewProps) {
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [categories, setCategories] = useState<RecipeCategory[]>([])
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | null>(null)
@@ -103,7 +105,12 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
-  const [subView, setSubView] = useState<'recipes' | 'mealplan' | 'ingredients'>('recipes')
+  const [subView, setSubView] = useState<'recipes' | 'mealplan' | 'ingredients' | 'shopping-list'>('recipes')
+
+  // Reset to recipes if ingredients tab is hidden while it's active
+  useEffect(() => {
+    if (!showIngredients && subView === 'ingredients') setSubView('recipes')
+  }, [showIngredients])
 
   async function loadCategories() {
     try {
@@ -595,15 +602,25 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
       <div className="flex-shrink-0 space-y-3 px-4 md:px-6 pt-4 md:pt-6 pb-4">
         {/* Title + Toggle row */}
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg md:text-2xl font-bold text-white drop-shadow-lg truncate">{sectionTitle || '📖 Recipes'}</h2>
+          <h2 className="text-lg md:text-2xl font-bold text-white drop-shadow-lg truncate">
+            {(() => {
+              const base = (sectionTitle || 'Recipes').replace(/\s*Recipes\s*$/i, '').trim()
+              const prefix = base ? `${base} ` : ''
+              if (subView === 'mealplan') return `${prefix}Meal Plan`
+              if (subView === 'ingredients') return `${prefix}Ingredients`
+              if (subView === 'shopping-list') return `${prefix}Shopping List`
+              return `${prefix}Recipes`
+            })()}
+          </h2>
           <PillToggle
             items={[
-              { value: 'recipes',     label: '🍳 Recipes' },
-              { value: 'mealplan',    label: '📅 Meal Plan' },
-              { value: 'ingredients', label: '🥕 Ingredients' },
+              { value: 'recipes',        label: '🍳 Recipes' },
+              { value: 'mealplan',       label: '📅 Meal Plan' },
+              { value: 'shopping-list',  label: '🛒 Shopping' },
+              ...(showIngredients ? [{ value: 'ingredients' as const, label: '🥕 Ingredients' }] : []),
             ]}
             value={subView}
-            onChange={setSubView}
+            onChange={v => setSubView(v as 'recipes' | 'mealplan' | 'ingredients' | 'shopping-list')}
             size="md"
           />
         </div>
@@ -658,6 +675,17 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
       {subView === 'ingredients' && (
         <div className="flex-1 min-h-0 overflow-hidden px-4 md:px-6 pb-4 md:pb-6">
           <IngredientsTab userId={userId} />
+        </div>
+      )}
+
+      {/* Shopping List */}
+      {subView === 'shopping-list' && (
+        <div className="flex-1 min-h-0 overflow-hidden px-4 md:px-6 pb-4 md:pb-6">
+          <ShoppingListView
+            sectionTitle={(sectionTitle || 'Recipes').replace('Recipes', 'Shopping List')}
+            userId={userId}
+            noCard
+          />
         </div>
       )}
 

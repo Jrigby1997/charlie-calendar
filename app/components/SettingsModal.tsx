@@ -33,9 +33,10 @@ type SettingsModalProps = {
   onSettingsUpdate: () => void
   onShowToast?: (message: string, tone: 'success' | 'error') => void
   onExternalCalendarsChange?: () => void
+  onSignOut?: () => void
 }
 
-export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onShowToast, onExternalCalendarsChange }: SettingsModalProps) {
+export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onShowToast, onExternalCalendarsChange, onSignOut }: SettingsModalProps) {
   const [calendarTitle, setCalendarTitle] = useState('Charlie Calendar')
   const [familySectionTitle, setFamilySectionTitle] = useState('Family Members')
   const [colorTheme, setColorTheme] = useState('glass')
@@ -43,6 +44,10 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
   const [dateFormat, setDateFormat] = useState('MM/DD/YYYY')
   const [weekStartDay, setWeekStartDay] = useState('Sunday')
   const [loading, setLoading] = useState(false)
+
+  // Feature visibility
+  const [showIngredients, setShowIngredients] = useState(true)
+  const [showRewards, setShowRewards] = useState(true)
 
   // Admin PIN state
   const [adminPinHash, setAdminPinHash] = useState<string | null>(null)
@@ -302,6 +307,8 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
       setDateFormat(data.date_format || 'MM/DD/YYYY')
       setWeekStartDay(data.week_start_day || 'Sunday')
       setAdminPinHash(data.admin_pin_hash || null)
+      setShowIngredients(data.show_ingredients ?? true)
+      setShowRewards(data.show_rewards ?? true)
       setWeatherLocation(data.weather_location || '')
       setWeatherLat(data.weather_lat ?? null)
       setWeatherLon(data.weather_lon ?? null)
@@ -415,6 +422,8 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
         weather_lat: weatherLat,
         weather_lon: weatherLon,
         weather_units: weatherUnits,
+        show_ingredients: showIngredients,
+        show_rewards: showRewards,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' })
 
@@ -584,6 +593,33 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                 <p className="text-white/60 text-sm mt-1">
                   First day of the week in calendar view
                 </p>
+              </div>
+
+              {/* Divider — Feature Visibility */}
+              <div className="border-t border-white/20 pt-4">
+                <h4 className="text-white font-semibold mb-1">Feature Visibility</h4>
+                <p className="text-white/60 text-sm mb-4">Hide sections you don't use to keep the app tidy.</p>
+              </div>
+
+              <div className="space-y-3">
+                {[{label: 'Ingredients tab (in Recipes)', value: showIngredients, set: setShowIngredients},
+                  {label: 'Rewards (in Tasks)', value: showRewards, set: setShowRewards}]
+                  .map(({ label, value, set }) => (
+                  <div key={label} className="flex items-center justify-between gap-3">
+                    <span className="text-white/80 text-sm">{label}</span>
+                    <button
+                      type="button"
+                      onClick={() => set(!value)}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 transition-colors duration-200 ${
+                        value ? 'bg-green-500/60 border-green-400/60' : 'bg-white/20 border-white/30'
+                      }`}
+                    >
+                      <span className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform duration-200 ${
+                        value ? 'translate-x-5' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+                ))}
               </div>
 
               {/* Divider — Connected Calendars */}
@@ -944,20 +980,30 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white/10 backdrop-blur-xl border-t border-white/20 p-6 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 px-6 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-lg border border-white/30 rounded-xl text-white font-medium transition-all duration-200 hover:scale-105"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={loading}
-            className="flex-1 px-6 py-3 bg-green-500/30 hover:bg-green-500/40 backdrop-blur-lg border border-green-500/40 rounded-xl text-white font-medium transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Saving...' : 'Save Settings'}
-          </button>
+        <div className="sticky bottom-0 bg-white/10 backdrop-blur-xl border-t border-white/20 p-6">
+          {onSignOut && (
+            <button
+              onClick={onSignOut}
+              className="w-full mb-3 px-6 py-2.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-xl text-red-300 hover:text-red-200 text-sm font-medium transition-all duration-200"
+            >
+              🚪 Sign Out
+            </button>
+          )}
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 px-6 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-lg border border-white/30 rounded-xl text-white font-medium transition-all duration-200 hover:scale-105"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={loading}
+              className="flex-1 px-6 py-3 bg-green-500/30 hover:bg-green-500/40 backdrop-blur-lg border border-green-500/40 rounded-xl text-white font-medium transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Saving...' : 'Save Settings'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
