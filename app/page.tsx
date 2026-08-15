@@ -87,6 +87,7 @@ export default function Home() {
   const [showUnassigned, setShowUnassigned] = useState(true)
   const [mealPlans, setMealPlans] = useState<any[]>([])
   const [selectedMealDate, setSelectedMealDate] = useState<string | null>(null)
+  const [selectedMealType, setSelectedMealType] = useState<string | null>(null)
   const [isMealModalOpen, setIsMealModalOpen] = useState(false)
   const [mealPlanRefreshKey, setMealPlanRefreshKey] = useState(0)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
@@ -1379,12 +1380,14 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
 
   function handleMealIconClick(date: string) {
     setSelectedMealDate(date)
+    setSelectedMealType(null)
     setIsMealModalOpen(true)
   }
 
   function handleCloseMealModal() {
     setIsMealModalOpen(false)
     setSelectedMealDate(null)
+    setSelectedMealType(null)
   }
 
   async function handleAddWeekMealsToList(startDate: string, endDate: string) {
@@ -1599,7 +1602,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                     weatherLocation={weatherLocationDisplay}
                     onNavigateToDate={(d) => { setCalendarTargetDate(d); setCalendarTargetView('day'); setCurrentView('calendar') }}
                     onOpenTasks={() => { setCurrentView('tasks'); setTasksSubView('tasks') }}
-                    onEditMeal={(mealType, dateISO) => { setSelectedMealDate(dateISO); setIsMealModalOpen(true) }}
+                    onEditMeal={(mealType, dateISO) => { setSelectedMealDate(dateISO); setSelectedMealType(mealType); setIsMealModalOpen(true) }}
                     onAddSpecialDay={() => setIsAddSpecialDayOpen(true)}
               />
             ) : currentView === 'calendar' ? (
@@ -1696,6 +1699,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
           isOpen={isMealModalOpen}
           onClose={handleCloseMealModal}
           selectedDate={selectedMealDate}
+          preferredMealType={selectedMealType}
           userId={user?.id || ''}
           onRefresh={() => { loadMealPlans(); setMealPlanRefreshKey(k => k + 1) }}
           onShowToast={showToast}

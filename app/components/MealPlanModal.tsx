@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
 type Recipe = {
@@ -47,12 +47,14 @@ type MealPlanModalProps = {
   isOpen: boolean
   onClose: () => void
   selectedDate: string | null
+  /** When provided (e.g. opened from a homescreen meal tile), preselect/highlight this meal type. */
+  preferredMealType?: 'Breakfast' | 'Lunch' | 'Dinner' | string | null
   userId: string
   onRefresh: () => void
   onShowToast?: (message: string, tone: 'success' | 'error') => void
 }
 
-export default function MealPlanModal({ isOpen, onClose, selectedDate, userId, onRefresh, onShowToast }: MealPlanModalProps) {
+export default function MealPlanModal({ isOpen, onClose, selectedDate, preferredMealType, userId, onRefresh, onShowToast }: MealPlanModalProps) {
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([])
   const [mealTypes, setMealTypes] = useState<MealType[]>([])
   const [recipes, setRecipes] = useState<Recipe[]>([])
@@ -61,12 +63,28 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, userId, o
   const [viewingRecipeId, setViewingRecipeId] = useState<number | null>(null)
   const [recipeDetails, setRecipeDetails] = useState<RecipeDetails | null>(null)
   const [loadingRecipe, setLoadingRecipe] = useState(false)
+  const [highlightedMealType, setHighlightedMealType] = useState<string | null>(null)
+  const mealTypeRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   useEffect(() => {
     if (isOpen && selectedDate && userId) {
       loadData()
     }
   }, [isOpen, selectedDate, userId])
+
+  // Preselect the preferred meal type (e.g. when opened from a homescreen tile):
+  // scroll it into view and briefly highlight it. Manual selection is unaffected.
+  useEffect(() => {
+    if (!isOpen || loading || !preferredMealType) return
+    if (!mealTypes.some(m => m.name === preferredMealType)) return
+
+    setHighlightedMealType(preferredMealType)
+    const el = mealTypeRefs.current[preferredMealType]
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+    const timer = setTimeout(() => setHighlightedMealType(null), 2500)
+    return () => clearTimeout(timer)
+  }, [isOpen, loading, preferredMealType, mealTypes])
 
   async function loadData() {
     setLoading(true)
@@ -312,8 +330,18 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, userId, o
               {mealTypes.map(mealType => {
                 const assignedRecipeId = selectedRecipes[mealType.name]
 
+                const isHighlighted = highlightedMealType === mealType.name
+
                 return (
-                  <div key={mealType.id} className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+                  <div
+                    key={mealType.id}
+                    ref={(el) => { mealTypeRefs.current[mealType.name] = el }}
+                    className={`bg-white/5 backdrop-blur-sm rounded-xl p-4 border transition-all duration-500 ${
+                      isHighlighted
+                        ? 'border-blue-400/70 ring-2 ring-blue-400/50 bg-blue-500/10'
+                        : 'border-white/10'
+                    }`}
+                  >
                     <label className="block text-white font-semibold mb-3">
                       {mealType.name}
                     </label>
