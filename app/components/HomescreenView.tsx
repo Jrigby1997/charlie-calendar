@@ -71,6 +71,10 @@ interface HomescreenViewProps {
   mealPlans: MealPlan[]
   weatherData: WeatherData | null
   weatherUnits: string
+  weatherLocation?: string
+  onNavigateToDate?: (dateISO: string) => void
+  onOpenTasks?: () => void
+  onEditMeal?: (mealType: string, dateISO: string) => void
   onAddSpecialDay?: () => void
 }
 
@@ -103,6 +107,7 @@ function toLocalDateISO(d: Date) {
 export default function HomescreenView({
   userId, colorTheme, familyMembers, familySectionTitle,
   specialDays, events, mealPlans, weatherData, weatherUnits, onAddSpecialDay,
+  weatherLocation, onNavigateToDate, onOpenTasks, onEditMeal,
 }: HomescreenViewProps) {
   const today = toLocalDateISO(new Date())
   const tomorrow = toLocalDateISO(new Date(Date.now() + 86400000))
@@ -263,6 +268,7 @@ export default function HomescreenView({
   // Today's meals
   const MEAL_ORDER = ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Dessert']
   const todayMeals = mealPlans.filter(m => m.date === today)
+  const PROMO_MEALS = ['Breakfast', 'Lunch', 'Dinner']
 
   // Weather today
   const weatherToday = weatherData?.daily?.[0]
@@ -280,6 +286,7 @@ export default function HomescreenView({
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-white">Good {getGreeting()}</h1>
           <p className="text-white/60 text-sm mt-0.5">{formatFullDate(new Date())}</p>
+          {weatherLocation && <p className="text-white/50 text-xs mt-0.5">📍 {weatherLocation}</p>}
         </div>
         {weatherToday && (
           <div className="text-right">
@@ -290,65 +297,47 @@ export default function HomescreenView({
       </div>
 
       {/* Special Day Countdowns */}
-      {upcoming.length > 0 && (
-        <section>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider">⭐ Coming Up</h2>
-            {onAddSpecialDay && (
-              <button onClick={onAddSpecialDay} className="text-white/60 hover:text-white text-sm leading-none px-2 py-0.5 rounded-lg hover:bg-white/10 transition-colors">+ Add</button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {upcoming.map((item, i) => (
+      {/* Always show Breakfast/Lunch/Dinner tiles (mobile-ready) */}
+      <section>
+        <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider mb-2">🍽️ Today's Meals</h2>
+        <div className="grid grid-cols-3 gap-2">
+          {PROMO_MEALS.map(mealType => {
+            const meal = todayMeals.find(m => m.meal_type === mealType)
+            const name = meal?.recipes?.name || ''
+            const hasRecipe = !!meal?.recipe_id
+            return (
               <div
-                key={i}
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 border ${item.color && colorBorderMap[item.color] ? colorBorderMap[item.color] : 'border-white/20'}`}
+                key={mealType}
+                className={`bg-white/10 rounded-xl p-2 border border-white/15 transition-colors ${hasRecipe ? 'cursor-pointer hover:bg-white/20 active:bg-white/25' : 'cursor-pointer hover:bg-white/12'}`}
+                onClick={() => hasRecipe && meal?.recipe_id ? openRecipeDetail(meal.recipe_id) : onEditMeal?.(mealType, today)}
               >
-                <span className="text-xl">{item.emoji}</span>
-                <div>
-                  <p className="text-white text-sm font-medium leading-tight">{item.title}</p>
-                  <p className="text-white/50 text-xs">
-                    {item.daysAway === 0 ? 'Today! 🎉' : item.daysAway === 1 ? 'Tomorrow' : `${item.daysAway} days away`}
-                  </p>
+                <p className="text-white/50 text-xs mb-0.5">{mealType}</p>
+                <p className="text-white text-sm font-medium leading-tight truncate">{name || '—'}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  {hasRecipe ? <p className="text-white/30 text-[10px]">Tap to view</p> : <p className="text-white/30 text-[10px]">No recipe</p>}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEditMeal?.(mealType, today) }}
+                    className="ml-auto text-xs text-white/60 hover:text-white px-2 py-1 rounded-md bg-white/5"
+                  >
+                    Change
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Today & Tomorrow Events */}
+            )
+          })}
+        </div>
+      </section>
       <section>
         <div className="grid grid-cols-2 gap-3">
-          <EventColumn title="📅 Today" events={todayEvents} emptyText="Nothing today" />
-          <EventColumn title="📅 Tomorrow" events={tomorrowEvents} emptyText="Nothing tomorrow" />
+          <div onClick={() => onNavigateToDate?.(today)} className="cursor-pointer">
+            <EventColumn title="📅 Today" events={todayEvents} emptyText="Nothing today" />
+          </div>
+          <div onClick={() => onNavigateToDate?.(tomorrow)} className="cursor-pointer">
+            <EventColumn title="📅 Tomorrow" events={tomorrowEvents} emptyText="Nothing tomorrow" />
+          </div>
         </div>
       </section>
 
-      {/* Today's Meals */}
-      {todayMeals.length > 0 && (
-        <section>
-          <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider mb-2">🍽️ Today's Meals</h2>
-          <div className="grid grid-cols-3 gap-2">
-            {MEAL_ORDER.filter(mt => todayMeals.some(m => m.meal_type === mt)).map(mealType => {
-              const meal = todayMeals.find(m => m.meal_type === mealType)
-              const name = meal?.recipes?.name || ''
-              const hasRecipe = !!meal?.recipe_id
-              return (
-                <div
-                  key={mealType}
-                  className={`bg-white/10 rounded-xl p-2 border border-white/15 transition-colors ${hasRecipe ? 'cursor-pointer hover:bg-white/20 active:bg-white/25' : ''}`}
-                  onClick={() => hasRecipe && meal?.recipe_id && openRecipeDetail(meal.recipe_id)}
-                >
-                  <p className="text-white/50 text-xs mb-0.5">{mealType}</p>
-                  <p className="text-white text-sm font-medium leading-tight truncate">{name || '—'}</p>
-                  {hasRecipe && <p className="text-white/30 text-[10px] mt-0.5">Tap to view</p>}
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
 
       {/* Task Overview */}
       {familyMembers.length > 0 && (
@@ -359,7 +348,7 @@ export default function HomescreenView({
               const stats = taskStats.get(member.id) ?? { total: 0, done: 0 }
               const pct = stats.total > 0 ? (stats.done / stats.total) * 100 : 0
               return (
-                <div key={member.id} className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2 border border-white/15 min-w-[120px]">
+                  <div key={member.id} onClick={() => onOpenTasks?.()} className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2 border border-white/15 min-w-[120px] cursor-pointer hover:bg-white/20">
                   {member.avatar_url ? (
                     <img src={`/avatars/${member.avatar_url}`} alt={member.name} className="w-8 h-8 rounded-full object-cover" />
                   ) : (
@@ -410,7 +399,8 @@ export default function HomescreenView({
                 <div className="text-5xl">{weatherEmoji(weatherToday.weathercode)}</div>
                 <div>
                   <p className="text-3xl font-bold text-white">{Math.round(weatherToday.tempMax)}°<span className="text-white/50 text-lg font-normal">/ {Math.round(weatherToday.tempMin)}°</span></p>
-                  <p className="text-white/60 text-sm">💨 {Math.round(weatherToday.wind)} mph · 💧 {weatherToday.precipitation.toFixed(1)}&quot;</p>
+                    <p className="text-white/60 text-sm">💨 {Math.round(weatherToday.wind)} mph · 💧 {weatherToday.precipitation.toFixed(1)}&quot;</p>
+                    {weatherLocation && <p className="text-white/50 text-xs mt-1">📍 {weatherLocation}</p>}
                 </div>
               </div>
             )}

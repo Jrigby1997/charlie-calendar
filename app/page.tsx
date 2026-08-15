@@ -109,6 +109,7 @@ export default function Home() {
   }
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null)
   const [weatherUnits, setWeatherUnits] = useState<string>('fahrenheit')
+  const [weatherLocationDisplay, setWeatherLocationDisplay] = useState<string>('')
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [adminPinHash, setAdminPinHash] = useState<string | null>(null)
   const [showPinPrompt, setShowPinPrompt] = useState(false)
@@ -133,6 +134,10 @@ export default function Home() {
   const [connectedGoogleCalendars, setConnectedGoogleCalendars] = useState<GoogleCalendarOption[]>([])
   // Events created on Google but not yet synced back; shown as dimmed placeholders
   const [pendingExternalEvents, setPendingExternalEvents] = useState<Event[]>([])
+
+  // Calendar navigation targets (used when navigating from Homescreen)
+  const [calendarTargetDate, setCalendarTargetDate] = useState<string | null>(null)
+  const [calendarTargetView, setCalendarTargetView] = useState<'day' | 'week' | 'month' | null>(null)
 
   // Edit Google Event modal
   const [editGoogleEvent, setEditGoogleEvent] = useState<{
@@ -304,6 +309,9 @@ export default function Home() {
           } else {
             showToast('Connected, but sync failed — try syncing manually.', 'error')
           }
+        } catch (err) {
+          console.error('Google Calendar sync failed:', err)
+          showToast('Connected, but sync failed — try syncing manually.', 'error')
         } finally {
           setIsSyncingGoogle(false)
         }
@@ -365,6 +373,7 @@ export default function Home() {
           setWeatherUnits(units)
           loadWeather(data.weather_lat, data.weather_lon, units)
         }
+        setWeatherLocationDisplay(data.weather_location || '')
       }
       if (!data?.ingredients_seeded && !ingredientsSeedingDone.current) {
         ingredientsSeedingDone.current = true
@@ -381,8 +390,9 @@ export default function Home() {
         const data = await res.json()
         setWeatherData(data)
       }
-    } catch {
-      // Weather is non-critical; silently fail
+    } catch (err) {
+      // Weather is non-critical; log for diagnostics
+      console.error('Error loading weather:', err)
     }
   }
 
@@ -1586,7 +1596,11 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                 mealPlans={mealPlans}
                 weatherData={weatherData}
                 weatherUnits={weatherUnits}
-                onAddSpecialDay={() => setIsAddSpecialDayOpen(true)}
+                    weatherLocation={weatherLocationDisplay}
+                    onNavigateToDate={(d) => { setCalendarTargetDate(d); setCalendarTargetView('day'); setCurrentView('calendar') }}
+                    onOpenTasks={() => { setCurrentView('tasks'); setTasksSubView('tasks') }}
+                    onEditMeal={(mealType, dateISO) => { setSelectedMealDate(dateISO); setIsMealModalOpen(true) }}
+                    onAddSpecialDay={() => setIsAddSpecialDayOpen(true)}
               />
             ) : currentView === 'calendar' ? (
               <div className="h-full p-4">
@@ -1603,6 +1617,8 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                 onToggleMember={toggleMemberVisibility}
                 onToggleUnassigned={setShowUnassigned}
                 mealPlansCount={mealPlansCount}
+                targetDate={calendarTargetDate}
+                targetView={calendarTargetView}
                 onMealIconClick={handleMealIconClick}
                 onAddWeekMealsToList={handleAddWeekMealsToList}
                 dateFormat={dateFormat}
@@ -1615,6 +1631,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                 linkedTaskEventIds={linkedTaskEventIds}
                 weatherData={weatherData}
                 weatherUnits={weatherUnits}
+                weatherLocation={weatherLocationDisplay}
                 specialDays={specialDays}
               />
               </div>

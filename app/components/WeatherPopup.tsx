@@ -16,6 +16,7 @@ interface WeatherPopupProps {
   units: string
   anchorRect: DOMRect
   onClose: () => void
+  location?: string
 }
 
 function weatherEmoji(code: number): string {
@@ -40,7 +41,7 @@ function formatHour(timeStr: string) {
   return h > 12 ? `${h - 12}pm` : `${h}am`
 }
 
-export default function WeatherPopup({ date, hourly, units, anchorRect, onClose }: WeatherPopupProps) {
+export default function WeatherPopup({ date, hourly, units, anchorRect, onClose, location }: WeatherPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null)
 
   // Filter to this day's hours, every 3 hours
@@ -87,7 +88,10 @@ export default function WeatherPopup({ date, hourly, units, anchorRect, onClose 
       className="bg-black/80 backdrop-blur-xl border border-white/20 rounded-2xl p-3 shadow-2xl"
     >
       <div className="flex items-center justify-between mb-2">
-        <p className="text-white text-sm font-semibold">{displayDate}</p>
+        <div>
+          <p className="text-white text-sm font-semibold">{displayDate}</p>
+          {location && <p className="text-white/50 text-xs">📍 {location}</p>}
+        </div>
         <button onClick={onClose} className="text-white/50 hover:text-white text-lg leading-none">✕</button>
       </div>
 

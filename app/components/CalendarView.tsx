@@ -73,10 +73,13 @@ type CalendarViewProps = {
   linkedTaskEventIds?: Set<number>
   weatherData?: { daily: { date: string; weathercode: number; tempMax: number; tempMin: number; wind: number; precipitation: number; snowfall: number }[]; hourly: { time: string; temp: number; weathercode: number; wind: number; precipitationProbability: number }[]; units: string } | null
   weatherUnits?: string
+  weatherLocation?: string
   specialDays?: { id: number; title: string; date: string; emoji: string; color: string | null; is_recurring: boolean }[]
+  targetDate?: string | null
+  targetView?: 'day' | 'week' | 'month' | null
 }
 
-export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList, dateFormat = 'MM/DD/YYYY', weekStartDay = 'Sunday', isGoogleConnected = false, onSyncGoogleCalendar, isSyncingGoogle = false, sectionTitle, eventColorMode, colorTheme, linkedTaskEventIds, weatherData, weatherUnits = 'fahrenheit', specialDays = [] }: CalendarViewProps) {
+export default function CalendarView({ events, onAddEventClick, onEventClick, onTimeSlotClick, onEventDrop, familyMembers, visibleMembers, showUnassigned, onToggleMember, onToggleUnassigned, mealPlansCount, onMealIconClick, onAddWeekMealsToList, dateFormat = 'MM/DD/YYYY', weekStartDay = 'Sunday', isGoogleConnected = false, onSyncGoogleCalendar, isSyncingGoogle = false, sectionTitle, eventColorMode, colorTheme, linkedTaskEventIds, weatherData, weatherUnits = 'fahrenheit', weatherLocation = '', specialDays = [], targetDate = null, targetView = null }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<'day' | 'week' | 'month'>('week')
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -137,6 +140,24 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
       setCurrentTime(new Date())
     }, 60000) // Update every minute
     return () => clearInterval(interval)
+  }, [])
+
+  // Apply external navigation targets (e.g., from Homescreen)
+  useEffect(() => {
+    if (targetDate) {
+      const d = new Date(targetDate + 'T00:00:00')
+      if (!isNaN(d.getTime())) setCurrentDate(d)
+    }
+    if (targetView) {
+      setView(targetView)
+    }
+  }, [targetDate, targetView])
+
+  // Respond to external navigation targets (from Homescreen)
+  useEffect(() => {
+    // @ts-ignore - targetDate/targetView may be injected by parent
+    const anyProps: any = arguments?.[0]
+    // No-op: placeholder for TypeScript compatibility
   }, [])
 
   // Detect mobile and auto-switch week view to day view on small screens
@@ -1385,6 +1406,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
         units={weatherUnits}
         anchorRect={weatherPopup.rect}
         onClose={() => setWeatherPopup(null)}
+        location={weatherLocation}
       />
     )}
     </>

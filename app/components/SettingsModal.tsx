@@ -381,7 +381,8 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
       setWeatherLocation(name)
       setWeatherGeocodingCity(name)
       setWeatherGeocodingError('')
-    } catch {
+    } catch (err) {
+      console.error('Geocode lookup failed:', err)
       setWeatherGeocodingError('Failed to look up location')
     } finally {
       setWeatherGeocodingLoading(false)
