@@ -11,6 +11,7 @@ type Ingredient = {
   name: string
   aliases: string[]
   aisle: string | null
+  is_pantry_staple: boolean
 }
 
 type IngredientsTabProps = {
@@ -40,13 +41,13 @@ export default function IngredientsTab({ userId }: IngredientsTabProps) {
     setLoading(true)
     const { data, error } = await supabase
       .from('ingredients')
-      .select('id, name, aliases, aisle')
+      .select('*')
       .eq('user_id', userId)
       .order('name', { ascending: true })
     if (error) {
       console.error('Error loading ingredients:', error)
     } else {
-      setIngredients((data ?? []).map(i => ({ ...i, aliases: i.aliases ?? [], aisle: i.aisle ?? null })))
+      setIngredients((data ?? []).map(i => ({ ...i, aliases: i.aliases ?? [], aisle: i.aisle ?? null, is_pantry_staple: i.is_pantry_staple ?? false })))
     }
     setLoading(false)
   }
@@ -99,6 +100,16 @@ export default function IngredientsTab({ userId }: IngredientsTabProps) {
       )
       showToast(`Added alias "${alias}" to ${ingredient.name}.`, 'success')
     }
+  }
+
+  async function togglePantryStaple(ingredient: Ingredient) {
+    const next = !ingredient.is_pantry_staple
+    const { error } = await supabase.from('ingredients').update({ is_pantry_staple: next }).eq('id', ingredient.id).eq('user_id', userId)
+    if (error) {
+      showToast('Failed to update pantry staple.', 'error')
+      return
+    }
+    setIngredients(prev => prev.map(i => i.id === ingredient.id ? { ...i, is_pantry_staple: next } : i))
   }
 
   async function updateIngredientAisle(id: number, aisle: string | null) {
@@ -253,13 +264,27 @@ export default function IngredientsTab({ userId }: IngredientsTabProps) {
               {/* Name row */}
               <div className="flex items-center justify-between gap-2">
                 <span className="text-white font-semibold text-sm">{ingredient.name}</span>
-                <button
-                  onClick={() => setConfirmMergeId(isConfirmingMerge ? null : ingredient.id)}
-                  className="text-white/40 hover:text-white/70 text-xs px-2 py-1 bg-white/8 hover:bg-white/15 rounded-lg border border-white/15 transition-all"
-                  title="Merge this ingredient into another"
-                >
-                  Merge into…
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => togglePantryStaple(ingredient)}
+                    aria-pressed={ingredient.is_pantry_staple}
+                    className={`text-xs px-2 py-1 rounded-lg border transition-all ${
+                      ingredient.is_pantry_staple
+                        ? 'bg-emerald-500/25 border-emerald-400/40 text-emerald-100'
+                        : 'bg-white/8 hover:bg-white/15 border-white/15 text-white/40 hover:text-white/70'
+                    }`}
+                    title={ingredient.is_pantry_staple ? 'Pantry staple — skipped when building the shopping list. Click to unset.' : 'Mark as pantry staple (always on hand → skip on shopping list)'}
+                  >
+                    🥫 Staple
+                  </button>
+                  <button
+                    onClick={() => setConfirmMergeId(isConfirmingMerge ? null : ingredient.id)}
+                    className="text-white/40 hover:text-white/70 text-xs px-2 py-1 bg-white/8 hover:bg-white/15 rounded-lg border border-white/15 transition-all"
+                    title="Merge this ingredient into another"
+                  >
+                    Merge into…
+                  </button>
+                </div>
               </div>
 
               {/* Alias chips */}

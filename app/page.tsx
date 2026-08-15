@@ -1422,10 +1422,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
             ingredient_id,
             amount,
             measurement,
-            ingredients (
-              id,
-              name
-            )
+            ingredients ( * )
           )
         `)
         .in('id', recipeIds)
@@ -1454,6 +1451,10 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
 
         recipeIngredients.forEach((ri: any) => {
           if (!ri.ingredient_id || !ri.amount || !ri.measurement) return
+
+          // Skip pantry staples — things you always have on hand.
+          const ingRow = Array.isArray(ri.ingredients) ? ri.ingredients[0] : ri.ingredients
+          if (ingRow?.is_pantry_staple) return
 
           totalIngredients++
 
