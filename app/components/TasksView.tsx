@@ -137,9 +137,14 @@ function isDueOnDate(task: Task, date: Date): boolean {
     return task.due_date === toLocalISO(date)
   }
 
-  // Repeating task — enforce recurrence interval
+  // Repeating task — enforce recurrence interval.
+  // Normalize both sides to local midnight so a task created mid-day still
+  // shows on its creation day (and interval math stays whole-day accurate).
   const anchor = new Date(task.created_at)
-  const diffMs = date.getTime() - anchor.getTime()
+  anchor.setHours(0, 0, 0, 0)
+  const target = new Date(date)
+  target.setHours(0, 0, 0, 0)
+  const diffMs = target.getTime() - anchor.getTime()
   if (diffMs < 0) return false
 
   const interval = task.recurrence_interval || 1

@@ -1354,7 +1354,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                   return (
                     <div
                       key={event.id}
-                      onClick={() => handleEventInteraction(event)}
+                      onClick={(e) => { e.stopPropagation(); handleEventInteraction(event) }}
                       className={`text-[9px] md:text-xs p-0.5 md:p-1.5 cursor-pointer hover:scale-105 transition-all duration-200 ${colorTheme === 'pastel' ? 'rounded border' : 'rounded md:rounded-xl border md:border-2 border-white/20'}`}
                       style={pastelStyle ?? {
                         background: glassyColor,

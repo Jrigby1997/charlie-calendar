@@ -503,9 +503,10 @@ export default function HomescreenView({
                   </div>
                 )}
 
-                {viewingRecipe.rating != null && (
-                  <p className="text-white/50 text-sm">Rating: {'★'.repeat(viewingRecipe.rating)}{'☆'.repeat(5 - viewingRecipe.rating)}</p>
-                )}
+                {viewingRecipe.rating != null && (() => {
+                  const r = Math.max(0, Math.min(5, Math.round(viewingRecipe.rating)))
+                  return <p className="text-white/50 text-sm">Rating: {'★'.repeat(r)}{'☆'.repeat(5 - r)}</p>
+                })()}
 
                 <div className="flex gap-2 pt-2">
                   <button

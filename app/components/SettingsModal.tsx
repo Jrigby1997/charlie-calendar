@@ -928,7 +928,7 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                 {weatherGeocodingError && (
                   <p className="text-red-400 text-xs mb-2">{weatherGeocodingError}</p>
                 )}
-                {weatherLat && (
+                {weatherLat !== null && (
                   <p className="text-green-300 text-xs mb-3">📍 {weatherLocation}</p>
                 )}
                 <div className="flex items-center gap-3">
@@ -944,7 +944,7 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                       </button>
                     ))}
                   </div>
-                  {weatherLat && (
+                  {weatherLat !== null && (
                     <button
                       onClick={() => { setWeatherLat(null); setWeatherLon(null); setWeatherLocation(''); setWeatherGeocodingCity('') }}
                       className="text-white/40 hover:text-red-400 text-xs transition-colors"

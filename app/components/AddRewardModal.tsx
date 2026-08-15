@@ -219,7 +219,7 @@ export default function AddRewardModal({
               <input
                 type="range"
                 min={1}
-                max={100}
+                max={Math.max(100, cost)}
                 value={cost}
                 onChange={(e) => setCost(Number(e.target.value))}
                 className="flex-1 accent-yellow-400"
