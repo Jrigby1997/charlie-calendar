@@ -26,10 +26,10 @@ export default function PillToggle<T extends string>({
 }: PillToggleProps<T>) {
   const padClass =
     size === 'lg'
-      ? 'px-4 py-2'
+      ? 'px-4 py-2 text-sm'
       : size === 'sm'
       ? 'px-3 py-1 text-xs'
-      : 'px-4 py-1.5'
+      : 'px-4 py-1.5 text-sm'
 
   const containerClass =
     size === 'lg'
@@ -42,7 +42,7 @@ export default function PillToggle<T extends string>({
         <button
           key={item.value}
           onClick={() => onChange(item.value)}
-          className={`${padClass} rounded-lg font-medium transition-all duration-200 text-sm ${
+          className={`${padClass} rounded-lg font-medium transition-all duration-200 ${
             item.value === value
               ? size === 'lg'
                 ? 'bg-white/30 text-white shadow-md scale-105 border border-white/40'

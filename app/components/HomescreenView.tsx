@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { SpecialDay } from './AddSpecialDayModal'
 import GlassButton from './ui/GlassButton'
+import { dateRotationIndex } from '@/lib/rotation'
 
 interface Event {
   id: number
@@ -114,6 +115,7 @@ export default function HomescreenView({
 
   // Task completions for today - per member
   const [taskStats, setTaskStats] = useState<Map<number, { total: number; done: number }>>(new Map())
+  const [roles, setRoles] = useState<{ id: number; title: string; holder: FamilyMember | null }[]>([])
 
   // Recipe detail viewer
   const [viewingRecipe, setViewingRecipe] = useState<RecipeDetail | null>(null)
@@ -170,7 +172,7 @@ export default function HomescreenView({
     async function loadTaskStats() {
       const { data: tasks } = await supabase
         .from('tasks')
-        .select('id, task_assignments(family_member_id)')
+        .select('*, task_assignments(family_member_id)')
         .eq('user_id', userId)
         .eq('is_active', true)
 
@@ -189,6 +191,7 @@ export default function HomescreenView({
       }
 
       for (const task of tasks) {
+        if ((task as any).is_role) continue // family roles aren't completable chores — don't count them
         const memberIds: number[] = (task.task_assignments as { family_member_id: number }[]).map(a => a.family_member_id)
         for (const mid of memberIds) {
           const s = stats.get(mid)
@@ -206,6 +209,33 @@ export default function HomescreenView({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, today, familyMembers.length])
+
+  // Load family roles (rotating, date-based) + compute the current holder
+  useEffect(() => {
+    async function loadRoles() {
+      const { data } = await supabase
+        .from('tasks')
+        .select('*, task_rotation_members(family_member_id, rotation_order)')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+      if (!data) { setRoles([]); return }
+      const roleRows = data.filter((t: any) => t.is_role)
+      const computed = roleRows.map((t: any) => {
+        const roster = ((t.task_rotation_members ?? []) as { family_member_id: number; rotation_order: number }[])
+          .slice()
+          .sort((a, b) => a.rotation_order - b.rotation_order)
+        let holder: FamilyMember | null = null
+        if (roster.length > 0) {
+          const idx = dateRotationIndex(t.last_rotated_date ?? t.created_at, t.rotation_days_interval, roster.length)
+          holder = familyMembers.find(m => m.id === roster[idx]?.family_member_id) ?? null
+        }
+        return { id: t.id as number, title: t.title as string, holder }
+      })
+      setRoles(computed)
+    }
+    if (userId) loadRoles()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, familyMembers])
 
   // Load family notepad
   useEffect(() => {
@@ -233,10 +263,18 @@ export default function HomescreenView({
     }, 1000)
   }, [userId])
 
-  // Special day countdowns — next 90 days
+  // Clear any pending note-save timeout when the component unmounts
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
+
+  // Special day countdowns — next 30 days
   const now = new Date()
-  now.setHours(0,0,0,0)
-  const upcoming: { emoji: string; title: string; date: Date; daysAway: number; color: string | null }[] = []
+  now.setHours(0, 0, 0, 0)
+  const COUNTDOWN_WINDOW_DAYS = 30
+  const upcoming: { emoji: string; title: string; date: Date; daysAway: number; color: string | null; imageUrl: string | null }[] = []
 
   for (const sd of specialDays) {
     let sdDate = new Date(sd.date + 'T00:00:00')
@@ -245,8 +283,8 @@ export default function HomescreenView({
       if (sdDate < now) sdDate = new Date(sdDate.getFullYear() + 1, sdDate.getMonth(), sdDate.getDate())
     }
     const daysAway = Math.round((sdDate.getTime() - now.getTime()) / 86400000)
-    if (daysAway >= 0 && daysAway <= 90) {
-      upcoming.push({ emoji: sd.emoji, title: sd.title, date: sdDate, daysAway, color: sd.color })
+    if (daysAway >= 0 && daysAway <= COUNTDOWN_WINDOW_DAYS) {
+      upcoming.push({ emoji: sd.emoji, title: sd.title, date: sdDate, daysAway, color: sd.color, imageUrl: sd.image_url ?? null })
     }
   }
 
@@ -254,8 +292,8 @@ export default function HomescreenView({
     if (!ev.is_special_day) continue
     const evDate = new Date(ev.date + 'T00:00:00')
     const daysAway = Math.round((evDate.getTime() - now.getTime()) / 86400000)
-    if (daysAway >= 0 && daysAway <= 90) {
-      upcoming.push({ emoji: '⭐', title: ev.title, date: evDate, daysAway, color: null })
+    if (daysAway >= 0 && daysAway <= COUNTDOWN_WINDOW_DAYS) {
+      upcoming.push({ emoji: '⭐', title: ev.title, date: evDate, daysAway, color: null, imageUrl: null })
     }
   }
 
@@ -297,7 +335,28 @@ export default function HomescreenView({
       </div>
 
       {/* Special Day Countdowns */}
-      {/* Always show Breakfast/Lunch/Dinner tiles (mobile-ready) */}
+      {upcoming.length > 0 && (
+        <section>
+          <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider mb-2">⏳ Coming Up</h2>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            {upcoming.map((u, i) => {
+              const border = u.color && colorBorderMap[u.color] ? colorBorderMap[u.color] : 'border-white/15'
+              const label = u.daysAway === 0 ? 'Today!' : u.daysAway === 1 ? 'Tomorrow' : `in ${u.daysAway} days`
+              return (
+                <div key={`${u.title}-${i}`} className={`flex items-center gap-2.5 bg-white/10 rounded-xl border ${border} px-3 py-2 shrink-0`}>
+                  <CountdownAvatar emoji={u.emoji} imageUrl={u.imageUrl} />
+                  <div className="min-w-0">
+                    <p className="text-white text-sm font-medium leading-tight truncate max-w-[11rem]">{u.title}</p>
+                    <p className={`text-xs font-semibold ${u.daysAway === 0 ? 'text-yellow-300' : 'text-white/60'}`}>{label}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Today's meals — always show Breakfast/Lunch/Dinner tiles */}
       <section>
         <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider mb-2">🍽️ Today's Meals</h2>
         <div className="grid grid-cols-3 gap-2">
@@ -366,6 +425,35 @@ export default function HomescreenView({
                 </div>
               )
             })}
+          </div>
+        </section>
+      )}
+
+      {/* Family Roles */}
+      {roles.length > 0 && (
+        <section>
+          <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider mb-2">👑 Family Roles</h2>
+          <div className="flex flex-wrap gap-2">
+            {roles.map(r => (
+              <div key={r.id} className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2 border border-white/15">
+                <span className="text-white/70 text-sm">{r.title}</span>
+                <span className="text-white/25">·</span>
+                {r.holder ? (
+                  <span className="flex items-center gap-1.5">
+                    {r.holder.avatar_url ? (
+                      <img src={`/avatars/${r.holder.avatar_url}`} alt={r.holder.name} className="w-6 h-6 rounded-full object-cover" />
+                    ) : (
+                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: r.holder.color }}>
+                        {r.holder.name[0]?.toUpperCase()}
+                      </span>
+                    )}
+                    <span className="text-white text-sm font-semibold">{r.holder.name}</span>
+                  </span>
+                ) : (
+                  <span className="text-white/40 text-sm">unassigned</span>
+                )}
+              </div>
+            ))}
           </div>
         </section>
       )}
@@ -496,9 +584,10 @@ export default function HomescreenView({
                   </div>
                 )}
 
-                {viewingRecipe.rating != null && (
-                  <p className="text-white/50 text-sm">Rating: {'★'.repeat(viewingRecipe.rating)}{'☆'.repeat(5 - viewingRecipe.rating)}</p>
-                )}
+                {viewingRecipe.rating != null && (() => {
+                  const r = Math.max(0, Math.min(5, Math.round(viewingRecipe.rating)))
+                  return <p className="text-white/50 text-sm">Rating: {'★'.repeat(r)}{'☆'.repeat(5 - r)}</p>
+                })()}
 
                 <div className="flex gap-2 pt-2">
                   <button
@@ -533,6 +622,21 @@ function getGreeting() {
 
 function formatFullDate(d: Date) {
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+}
+
+function CountdownAvatar({ emoji, imageUrl }: { emoji: string; imageUrl: string | null }) {
+  const [failed, setFailed] = useState(false)
+  if (imageUrl && !failed) {
+    return (
+      <img
+        src={imageUrl}
+        alt=""
+        className="w-9 h-9 rounded-full object-cover shrink-0 border border-white/20"
+        onError={() => setFailed(true)}
+      />
+    )
+  }
+  return <span className="text-2xl leading-none shrink-0 w-9 text-center">{emoji}</span>
 }
 
 function EventColumn({ title, events, emptyText }: { title: string; events: Event[]; emptyText: string }) {

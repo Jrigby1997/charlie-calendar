@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { getWeekDays as getWeekDaysUtil, formatDate } from '@/lib/dateUtils'
-import { get } from 'http'
 import SectionCard from './ui/SectionCard'
 import PillToggle from './ui/PillToggle'
 import AvatarFilterGroup from './ui/AvatarFilterGroup'
@@ -153,13 +152,6 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
     }
   }, [targetDate, targetView])
 
-  // Respond to external navigation targets (from Homescreen)
-  useEffect(() => {
-    // @ts-ignore - targetDate/targetView may be injected by parent
-    const anyProps: any = arguments?.[0]
-    // No-op: placeholder for TypeScript compatibility
-  }, [])
-
   // Detect mobile and auto-switch week view to day view on small screens
   useEffect(() => {
     const checkMobile = () => {
@@ -206,13 +198,6 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
   const dayOfMonth = currentDate.getDate()
-
-  // Get the start of the week (Sunday)
-  // Use utility function from dateUtils with weekStartDay preference
-  function getWeekStart(date: Date): Date {
-    const weekDaysArray = getWeekDaysUtil(date, weekStartDay)
-    return weekDaysArray[0]
-  }
 
   // Helper function to format time range
   function formatTimeRange(startTime: string | null, endTime: string | null): string {
@@ -1273,12 +1258,15 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
         </div>
       )}
 
-      {/* Month View */}
+      {/* Month View — fills available height, no scroll: header row auto, week rows split the rest */}
       {view === 'month' && (
-        <div className="grid grid-cols-7 gap-0.5 md:gap-3">
+        <div
+          className="grid grid-cols-7 gap-1 md:gap-2 flex-1 min-h-0 overflow-hidden"
+          style={{ gridTemplateRows: `auto repeat(${Math.ceil((blanks.length + days.length) / 7)}, minmax(0, 1fr))` }}
+        >
         {/* Day headers */}
         {getOrderedDayNames().map(day => (
-          <div key={day} className="text-center font-semibold text-white/90 py-1.5 md:py-3 text-[10px] md:text-sm">
+          <div key={day} className="text-center font-semibold text-white/90 py-1 md:py-1.5 text-[10px] md:text-sm">
             <span className="hidden md:inline">{day}</span>
             <span className="md:hidden">{day.slice(0, 1)}</span>
           </div>
@@ -1286,7 +1274,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
 
         {/* Blank spaces before first day */}
         {blanks.map(i => (
-          <div key={`blank-${i}`} className="bg-white/5 rounded md:rounded-xl min-h-10 md:min-h-24 border border-white/20" />
+          <div key={`blank-${i}`} className="bg-white/5 rounded md:rounded-xl border border-white/20" />
         ))}
 
         {/* Calendar days */}
@@ -1303,13 +1291,13 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
             <div
               key={day}
               onClick={() => { setCurrentDate(new Date(year, month, day)); setView('day') }}
-              className={`border rounded md:rounded-xl p-1 md:p-3 min-h-10 md:min-h-24 transition-all duration-200 shadow-lg hover:shadow-xl relative cursor-pointer ${
+              className={`border rounded md:rounded-xl p-1 md:p-2 flex flex-col overflow-hidden transition-all duration-200 shadow-lg hover:shadow-xl relative cursor-pointer ${
                 isTodayDate
                   ? 'bg-white/20 backdrop-blur-lg border-yellow-300/50 shadow-yellow-500/20'
                   : 'bg-white/10 backdrop-blur-lg border-white/20 hover:border-white/40'
               }`}
             >
-              <div className="flex items-center gap-1 mb-0.5 md:mb-2">
+              <div className="flex items-center gap-1 mb-0.5 md:mb-1 shrink-0">
                 {/* Date number + special day */}
                 <div className={`text-[10px] md:text-sm font-bold shrink-0 ${
                   isTodayDate ? 'text-yellow-300 drop-shadow-lg' : 'text-white/90'
@@ -1321,34 +1309,30 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                     </span>
                   )}
                 </div>
-                {/* Weather — desktop only, centered in middle */}
+                {/* Weather — desktop only, emoji only; click opens full forecast */}
                 {weatherDay && (
-                  <div className="flex-1 hidden md:flex justify-center">
+                  <div className="flex-1 hidden md:flex justify-center min-w-0">
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
                         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                         setWeatherPopup(p => p?.date === dateStr ? null : { date: dateStr, rect })
                       }}
-                      className="inline-flex items-center gap-1.5 text-[9px] text-white/60 hover:text-white/90 transition-colors bg-white/20 hover:bg-white/30 border border-white/30 hover:border-white/50 rounded-full px-1.5 py-0.5"
-                      title="Click for hourly forecast"
+                      className="inline-flex items-center justify-center text-base leading-none rounded-full p-0.5 hover:bg-white/20 hover:scale-110 transition-all shrink-0"
+                      title={`${Math.round(weatherDay.tempMax)}°/${Math.round(weatherDay.tempMin)}°${weatherDay.precipitation > 0.1 ? ` · 💧${weatherDay.precipitation.toFixed(1)}"` : ''} — click for forecast`}
                     >
                       <span>{weatherEmoji(weatherDay.weathercode)}</span>
-                      <span>{Math.round(weatherDay.tempMax)}°/{Math.round(weatherDay.tempMin)}°</span>
-                      {weatherDay.wind > 0 && <span className="text-white/40">💨 {Math.round(weatherDay.wind)}</span>}
-                      {weatherDay.precipitation > 0.1 && <span>💧 {weatherDay.precipitation.toFixed(1)}&quot;</span>}
-                      {weatherDay.snowfall > 0.1 && <span>❄️ {weatherDay.snowfall.toFixed(1)}&quot;</span>}
                     </button>
                   </div>
                 )}
                 {!weatherDay && <div className="flex-1 hidden md:block" />}
-                {/* Meal icon — only show on larger screens where there's room */}
+                {/* Meal icon — desktop only, compact */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
                     onMealIconClick(dateStr)
                   }}
-                  className={`hidden md:inline-flex text-white text-xs px-1.5 py-0.5 rounded-full font-bold transition-all hover:scale-110 shadow-lg shrink-0 ${
+                  className={`hidden md:inline-flex items-center text-white text-[10px] px-1 py-0.5 rounded-full font-bold transition-all hover:scale-110 shadow-lg shrink-0 ${
                     mealCount > 0
                       ? 'bg-orange-500/80 hover:bg-orange-500'
                       : 'bg-white/20 hover:bg-white/30 border border-white/40'
@@ -1358,7 +1342,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                   {mealCount > 0 ? `🍽️${mealCount}` : '🍽️'}
                 </button>
               </div>
-              <div className="space-y-0.5 md:space-y-1.5">
+              <div className="space-y-0.5 md:space-y-1 flex-1 min-h-0 overflow-hidden">
                 {dayEvents.map(event => {
                   const members = event.event_family_members.map(efm => efm.family_members)
                   const eventColor = eventColorMode === 'custom' ? (event.custom_color || '#9CA3AF') : getEventColor(members)
@@ -1370,7 +1354,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
                   return (
                     <div
                       key={event.id}
-                      onClick={() => handleEventInteraction(event)}
+                      onClick={(e) => { e.stopPropagation(); handleEventInteraction(event) }}
                       className={`text-[9px] md:text-xs p-0.5 md:p-1.5 cursor-pointer hover:scale-105 transition-all duration-200 ${colorTheme === 'pastel' ? 'rounded border' : 'rounded md:rounded-xl border md:border-2 border-white/20'}`}
                       style={pastelStyle ?? {
                         background: glassyColor,

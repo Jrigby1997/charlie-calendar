@@ -196,11 +196,12 @@ export default function Home() {
         setNewEventDate(new Date().toISOString().split('T')[0])
         setIsModalOpen(true)
       }
-      // Ctrl+F for search (focus on search if available)
+      // Ctrl+F for search (focus on search if available).
+      // Only hijack the browser's native Find when a search box actually exists.
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault()
         const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement
         if (searchInput) {
+          e.preventDefault()
           searchInput.focus()
         }
       }
@@ -642,11 +643,11 @@ export default function Home() {
   // Show loading state while checking auth
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="fixed inset-0 -z-10 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-400 via-pink-400 to-blue-400 animate-gradient-slow"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#667eea] via-[#764ba2] to-[#23a6d5]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+          <div className="text-white/80 text-sm font-medium">Loading…</div>
         </div>
-        <div className="text-white text-xl">Loading...</div>
       </div>
     )
   }
@@ -1010,7 +1011,6 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
           if (byday) rrule += `;BYDAY=${byday}`
         }
         if (fields.recurrenceEndDate) rrule += `;UNTIL=${fields.recurrenceEndDate.replace(/-/g, '')}T235959Z`
-        console.log('[Google Calendar] RRULE:', rrule)
       }
 
       const res = await fetch('/api/google-calendar/events', {
@@ -1422,10 +1422,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
             ingredient_id,
             amount,
             measurement,
-            ingredients (
-              id,
-              name
-            )
+            ingredients ( * )
           )
         `)
         .in('id', recipeIds)
@@ -1454,6 +1451,10 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
 
         recipeIngredients.forEach((ri: any) => {
           if (!ri.ingredient_id || !ri.amount || !ri.measurement) return
+
+          // Skip pantry staples — things you always have on hand.
+          const ingRow = Array.isArray(ri.ingredients) ? ri.ingredients[0] : ri.ingredients
+          if (ingRow?.is_pantry_staple) return
 
           totalIngredients++
 
@@ -1768,9 +1769,9 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
 
         {/* Toast Notification */}
         {toast && (
-          <div className="fixed top-6 right-6 z-50">
+          <div className="fixed top-6 right-6 z-50" role="status" aria-live="polite">
             <div
-              className={`px-4 py-3 rounded-lg shadow-lg border backdrop-blur-xl text-sm font-medium ${
+              className={`px-4 py-3 rounded-lg shadow-lg border backdrop-blur-xl text-sm font-medium max-w-[calc(100vw-3rem)] sm:max-w-sm ${
                 toast.tone === 'success'
                   ? 'bg-green-500/20 border-green-500/40 text-green-100'
                   : 'bg-red-500/20 border-red-500/40 text-red-100'

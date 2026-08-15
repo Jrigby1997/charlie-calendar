@@ -20,6 +20,7 @@ export default function NavTab({ icon, label, active, onClick, title }: NavTabPr
           : 'text-white/60 hover:text-white hover:bg-white/10'
       }`}
       title={title ?? label}
+      aria-current={active ? 'page' : undefined}
     >
       <span className="text-xl">{icon}</span>
       <span className="text-xs font-medium">{label}</span>

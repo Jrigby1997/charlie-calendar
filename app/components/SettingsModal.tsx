@@ -44,6 +44,7 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
   const [dateFormat, setDateFormat] = useState('MM/DD/YYYY')
   const [weekStartDay, setWeekStartDay] = useState('Sunday')
   const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<'general' | 'members' | 'calendars' | 'weather' | 'notifications' | 'security'>('general')
 
   // Feature visibility
   const [showIngredients, setShowIngredients] = useState(true)
@@ -445,26 +446,53 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl max-w-lg w-full shadow-2xl">
+      <div className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className="sticky top-0 bg-white/10 backdrop-blur-xl border-b border-white/20 p-6 z-10">
+        <div className="shrink-0 bg-white/10 backdrop-blur-xl border-b border-white/20 p-6">
           <div className="flex justify-between items-center">
             <h3 className="text-2xl font-bold text-white">⚙️ Settings</h3>
             <button
               onClick={onClose}
+              aria-label="Close"
               className="text-white/60 hover:text-white text-3xl leading-none transition-colors"
             >
               ✕
             </button>
           </div>
+          {!loading && (
+            <div className="flex gap-1 mt-4 overflow-x-auto pb-1 -mb-1">
+              {([
+                ['general', '⚙️', 'General'],
+                ['members', '👪', 'Members'],
+                ['calendars', '📅', 'Calendars'],
+                ['weather', '🌤️', 'Weather'],
+                ['notifications', '🔔', 'Alerts'],
+                ['security', '🔒', 'Security'],
+              ] as const).map(([id, icon, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setActiveTab(id)}
+                  aria-current={activeTab === id ? 'page' : undefined}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                    activeTab === id ? 'bg-white/25 text-white' : 'text-white/60 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <span>{icon}</span>
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
           {loading ? (
             <div className="text-white/60 text-center py-8">Loading settings...</div>
           ) : (
             <>
+              {activeTab === 'general' && (<div className="space-y-6">
               {/* Family Name */}
               <div>
                 <label className="block text-white font-semibold mb-2">
@@ -623,8 +651,10 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                 ))}
               </div>
 
+              </div>)}
+              {activeTab === 'calendars' && (<div className="space-y-6">
               {/* Divider — Connected Calendars */}
-              <div className="border-t border-white/20 pt-4">
+              <div className="pt-1">
                 <h4 className="text-white font-semibold mb-1">Connected Calendars</h4>
                 <p className="text-white/60 text-sm mb-4">
                   View your Google Calendar events alongside Skylight events (read-only).
@@ -750,8 +780,10 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                 </div>
               )}
 
-              {/* Divider — Admin PIN */}
-              <div className="border-t border-white/20 pt-4">
+              </div>)}
+              {activeTab === 'security' && (<div className="space-y-6">
+              {/* Admin PIN */}
+              <div className="pt-1">
                 <h4 className="text-white font-semibold mb-1">Admin PIN</h4>
                 <p className="text-white/60 text-sm mb-4">
                   Restrict access to Settings with a 4-digit PIN. Optional — leave unset to keep Settings open to everyone.
@@ -868,8 +900,10 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                 )}
               </div>
 
-              {/* Divider — Weather */}
-              <div className="border-t border-white/20 pt-4">
+              </div>)}
+              {activeTab === 'weather' && (<div className="space-y-6">
+              {/* Weather */}
+              <div className="pt-1">
                 <h4 className="text-white font-semibold mb-4">🌤️ Weather</h4>
                 <p className="text-white/60 text-sm mb-4">
                   Enter your city or zip code to show weather forecasts on the calendar and homescreen.
@@ -894,7 +928,7 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                 {weatherGeocodingError && (
                   <p className="text-red-400 text-xs mb-2">{weatherGeocodingError}</p>
                 )}
-                {weatherLat && (
+                {weatherLat !== null && (
                   <p className="text-green-300 text-xs mb-3">📍 {weatherLocation}</p>
                 )}
                 <div className="flex items-center gap-3">
@@ -910,7 +944,7 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                       </button>
                     ))}
                   </div>
-                  {weatherLat && (
+                  {weatherLat !== null && (
                     <button
                       onClick={() => { setWeatherLat(null); setWeatherLon(null); setWeatherLocation(''); setWeatherGeocodingCity('') }}
                       className="text-white/40 hover:text-red-400 text-xs transition-colors"
@@ -921,8 +955,10 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                 </div>
               </div>
 
-              {/* Divider — Push Notifications */}
-              <div className="border-t border-white/20 pt-4">
+              </div>)}
+              {activeTab === 'notifications' && (<div className="space-y-6">
+              {/* Push Notifications */}
+              <div className="pt-1">
                 <h4 className="text-white font-semibold mb-4">Push Notifications</h4>
                 <p className="text-white/60 text-sm mb-4">
                   Receive a morning summary of today&apos;s tasks every day.
@@ -962,8 +998,10 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                 )}
               </div>
 
-              {/* Divider */}
-              <div className="border-t border-white/20 pt-4">
+              </div>)}
+              {activeTab === 'members' && (<div className="space-y-6">
+              {/* Family Members */}
+              <div className="pt-1">
                 <h4 className="text-white font-semibold mb-4">Family Members</h4>
                 <p className="text-white/60 text-sm mb-4">
                   Manage family members who appear on the calendar. Add members at the beginning of setup.
@@ -976,12 +1014,13 @@ export default function SettingsModal({ isOpen, onClose, onSettingsUpdate, onSho
                   <FamilyMembers title="" />
                 </div>
               </div>
+              </div>)}
             </>
           )}
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white/10 backdrop-blur-xl border-t border-white/20 p-6">
+        <div className="shrink-0 bg-white/10 backdrop-blur-xl border-t border-white/20 p-6">
           {onSignOut && (
             <button
               onClick={onSignOut}

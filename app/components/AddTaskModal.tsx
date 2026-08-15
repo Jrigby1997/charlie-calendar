@@ -34,6 +34,7 @@ type Task = {
   rotation_mode?: 'completion' | 'date'
   rotation_members?: number[]
   rotation_days_interval?: number
+  is_role?: boolean
   // Flexible recurrence
   recurrence_interval?: number
   recurrence_unit?: 'days' | 'weeks' | 'months'
@@ -55,7 +56,8 @@ type AddTaskModalProps = {
     rotationMembers: number[],
     rotationDaysInterval: number,
     recurrenceInterval: number,
-    recurrenceUnit: 'days' | 'weeks' | 'months'
+    recurrenceUnit: 'days' | 'weeks' | 'months',
+    isRole: boolean
   ) => void
   onUpdateTask?: (
     id: number,
@@ -71,7 +73,8 @@ type AddTaskModalProps = {
     rotationMembers: number[],
     rotationDaysInterval: number,
     recurrenceInterval: number,
-    recurrenceUnit: 'days' | 'weeks' | 'months'
+    recurrenceUnit: 'days' | 'weeks' | 'months',
+    isRole: boolean
   ) => void
   onDeleteTask?: (id: number) => void
   editTask?: Task | null
@@ -125,6 +128,7 @@ export default function AddTaskModal({
   const [rotationMode, setRotationMode]           = useState<'completion' | 'date'>('completion')
   const [rotationMemberIds, setRotationMemberIds] = useState<number[]>([])
   const [rotationDays, setRotationDays]           = useState(7)
+  const [isRole, setIsRole]                       = useState(false)
 
   // Flexible recurrence
   const [recurrenceInterval, setRecurrenceInterval] = useState(1)
@@ -161,6 +165,7 @@ export default function AddTaskModal({
       setRotationMode(editTask.rotation_mode || 'completion')
       setRotationMemberIds(editTask.rotation_members || [])
       setRotationDays(editTask.rotation_days_interval || 7)
+      setIsRole(editTask.is_role || false)
       setRecurrenceInterval(editTask.recurrence_interval || 1)
       setRecurrenceUnit(editTask.recurrence_unit || 'days')
     } else if (!isOpen) {
@@ -175,6 +180,7 @@ export default function AddTaskModal({
       setRotationMode('completion')
       setRotationMemberIds([])
       setRotationDays(7)
+      setIsRole(false)
       setRecurrenceInterval(1)
       setRecurrenceUnit('days')
     }
@@ -268,7 +274,8 @@ export default function AddTaskModal({
           rotMembers,
           rotationDays,
           taskType === 'daily' ? recurrenceInterval : 1,
-          taskType === 'daily' ? recurrenceUnit : 'days'
+          taskType === 'daily' ? recurrenceUnit : 'days',
+          isRole
         )
       } else {
         onAddTask(
@@ -284,7 +291,8 @@ export default function AddTaskModal({
           rotMembers,
           rotationDays,
           taskType === 'daily' ? recurrenceInterval : 1,
-          taskType === 'daily' ? recurrenceUnit : 'days'
+          taskType === 'daily' ? recurrenceUnit : 'days',
+          isRole
         )
       }
       onClose()
@@ -572,10 +580,35 @@ export default function AddTaskModal({
             </div>
           )}
 
+          {/* ── Family Role ──────────────────────────────────────────────── */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-white/90">👑 Family Role</label>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !isRole
+                  setIsRole(next)
+                  if (next) { setIsRotating(true); setRotationMode('date') }
+                }}
+                className={`relative w-10 h-5 rounded-full transition-colors duration-200 border ${
+                  isRole ? 'bg-amber-500/60 border-amber-400/60' : 'bg-white/10 border-white/20'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${isRole ? 'translate-x-5' : ''}`} />
+              </button>
+            </div>
+            {isRole && (
+              <p className="text-white/50 text-xs -mt-1">
+                A rotating role like Movie Picker or Prayer Master — shows the current holder, no checkbox to complete. Choose who&apos;s in the rotation and how often it changes below.
+              </p>
+            )}
+          </div>
+
           {/* ── Rotation ─────────────────────────────────────────────────── */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-white/90">Rotating Task</label>
+              <label className="block text-sm font-medium text-white/90">{isRole ? 'Rotation' : 'Rotating Task'}</label>
               <button
                 type="button"
                 onClick={() => setIsRotating((r) => !r)}
@@ -668,27 +701,31 @@ export default function AddTaskModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-white/70 mb-1.5 block">Rotate when</label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setRotationMode('completion')}
-                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-medium border transition-all ${
-                        rotationMode === 'completion'
-                          ? 'bg-indigo-500/40 border-indigo-400/60 text-white'
-                          : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10'
-                      }`}
-                    >✅ On completion</button>
-                    <button
-                      type="button"
-                      onClick={() => setRotationMode('date')}
-                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-medium border transition-all ${
-                        rotationMode === 'date'
-                          ? 'bg-indigo-500/40 border-indigo-400/60 text-white'
-                          : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10'
-                      }`}
-                    >📅 Every N days</button>
-                  </div>
+                  {!isRole && (
+                    <>
+                      <label className="text-xs font-medium text-white/70 mb-1.5 block">Rotate when</label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setRotationMode('completion')}
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-medium border transition-all ${
+                            rotationMode === 'completion'
+                              ? 'bg-indigo-500/40 border-indigo-400/60 text-white'
+                              : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10'
+                          }`}
+                        >✅ On completion</button>
+                        <button
+                          type="button"
+                          onClick={() => setRotationMode('date')}
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-medium border transition-all ${
+                            rotationMode === 'date'
+                              ? 'bg-indigo-500/40 border-indigo-400/60 text-white'
+                              : 'bg-white/5 border-white/20 text-white/60 hover:bg-white/10'
+                          }`}
+                        >📅 Every N days</button>
+                      </div>
+                    </>
+                  )}
                   {rotationMode === 'date' && (
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-white/60 text-xs">Rotate every</span>

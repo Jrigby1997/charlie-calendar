@@ -52,43 +52,24 @@ export default function CategoryChip({ name, color, selected, onClick, size = 's
   }
 
   // ── Interactive filter chip ────────────────────────────────────────────────
-  const baseStyle: React.CSSProperties = selected
-    ? {
-        backgroundColor: `rgba(${r},${g},${b},0.40)`,
-        borderColor:     `rgba(${r},${g},${b},0.75)`,
-        borderWidth:     '2px',
-        color:           'white',
-      }
-    : {
-        backgroundColor: `rgba(${r},${g},${b},0.12)`,
-        borderColor:     `rgba(${r},${g},${b},0.30)`,
-        borderWidth:     '1px',
-        color:           `rgba(${r},${g},${b},0.85)`,
-      }
-
-  function handleMouseEnter(e: React.MouseEvent<HTMLButtonElement>) {
-    if (!selected) {
-      e.currentTarget.style.backgroundColor = `rgba(${r},${g},${b},0.22)`
-      e.currentTarget.style.borderColor      = `rgba(${r},${g},${b},0.50)`
-      e.currentTarget.style.color            = 'white'
-    }
-  }
-
-  function handleMouseLeave(e: React.MouseEvent<HTMLButtonElement>) {
-    if (!selected) {
-      e.currentTarget.style.backgroundColor = `rgba(${r},${g},${b},0.12)`
-      e.currentTarget.style.borderColor      = `rgba(${r},${g},${b},0.30)`
-      e.currentTarget.style.color            = `rgba(${r},${g},${b},0.85)`
-    }
-  }
-
+  // Selected/hover/focus styling is driven by CSS (see `.cat-chip` in globals.css)
+  // via per-instance CSS variables. This replaces the old JS onMouseEnter/Leave
+  // handlers, which left a "stuck hover" after a tap on touchscreens and never
+  // responded to keyboard focus.
   return (
     <button
       onClick={onClick}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      className={`${padClass} rounded-full font-medium transition-colors border`}
-      style={baseStyle}
+      data-selected={selected ? 'true' : undefined}
+      className={`cat-chip ${padClass} rounded-full font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60`}
+      style={{
+        '--chip-bg': `rgba(${r},${g},${b},0.12)`,
+        '--chip-bd': `rgba(${r},${g},${b},0.30)`,
+        '--chip-fg': `rgba(${r},${g},${b},0.85)`,
+        '--chip-bg-h': `rgba(${r},${g},${b},0.22)`,
+        '--chip-bd-h': `rgba(${r},${g},${b},0.50)`,
+        '--chip-bg-sel': `rgba(${r},${g},${b},0.40)`,
+        '--chip-bd-sel': `rgba(${r},${g},${b},0.75)`,
+      } as React.CSSProperties}
     >
       {name}
     </button>

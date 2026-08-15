@@ -231,7 +231,7 @@ export default function AddEventModal({ isOpen, onClose, familyMembers, onAddEve
     }
 
     // Validation: end time before start time (on same day)
-    if (startTime && endTime && !endDate) {
+    if (startTime && endTime && (!endDate || endDate === date)) {
       const [startHour, startMin] = startTime.split(':').map(Number)
       const [endHour, endMin] = endTime.split(':').map(Number)
       const startMinutes = startHour * 60 + startMin

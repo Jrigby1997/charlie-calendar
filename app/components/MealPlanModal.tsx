@@ -303,9 +303,9 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, preferred
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+      <div className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className="sticky top-0 bg-white/10 backdrop-blur-xl border-b border-white/20 p-6 z-10">
+        <div className="shrink-0 bg-white/10 backdrop-blur-xl border-b border-white/20 p-6">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold text-white">Meal Plan</h2>
@@ -321,7 +321,7 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, preferred
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6">
           {loading ? (
             <div className="text-white/60 text-center py-8">Loading...</div>
           ) : (
@@ -385,7 +385,7 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, preferred
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white/10 backdrop-blur-xl border-t border-white/20 p-6">
+        <div className="shrink-0 bg-white/10 backdrop-blur-xl border-t border-white/20 p-6">
           <button
             onClick={onClose}
             className="w-full px-6 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-lg border border-white/30 rounded-xl text-white font-medium transition-all duration-200 hover:scale-105"
@@ -398,9 +398,9 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, preferred
       {/* Recipe Detail View Modal */}
       {viewingRecipeId && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[60] p-4">
-          <div className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+          <div className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
             {/* Header */}
-            <div className="sticky top-0 bg-white/10 backdrop-blur-xl border-b border-white/20 p-6 z-10">
+            <div className="shrink-0 bg-white/10 backdrop-blur-xl border-b border-white/20 p-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-2xl font-bold text-white">
                   {recipeDetails?.name || 'Loading...'}
@@ -415,7 +415,7 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, preferred
             </div>
 
             {/* Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
               {loadingRecipe ? (
                 <div className="text-white/60 text-center py-8">Loading recipe...</div>
               ) : recipeDetails ? (
@@ -476,7 +476,7 @@ export default function MealPlanModal({ isOpen, onClose, selectedDate, preferred
             </div>
 
             {/* Footer */}
-            <div className="sticky bottom-0 bg-white/10 backdrop-blur-xl border-t border-white/20 p-6">
+            <div className="shrink-0 bg-white/10 backdrop-blur-xl border-t border-white/20 p-6">
               <button
                 onClick={handleCloseRecipeView}
                 className="w-full px-6 py-3 bg-white/20 hover:bg-white/30 backdrop-blur-lg border border-white/30 rounded-xl text-white font-medium transition-all duration-200 hover:scale-105"

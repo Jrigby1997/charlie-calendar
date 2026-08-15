@@ -353,13 +353,13 @@ export default function AddRecipeModal({
       rating: rating === '' ? null : Number(rating),
     }
 
+    // The parent (RecipesView) closes the modal on success and keeps it open
+    // on error, so DON'T close here — otherwise a failed save wipes the form.
     if (editingRecipe && onUpdateRecipe) {
       onUpdateRecipe(editingRecipe.id!, recipeData)
     } else {
       onAddRecipe(recipeData)
     }
-
-    onClose()
   }
 
   const handleDelete = () => {

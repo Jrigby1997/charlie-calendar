@@ -12,6 +12,7 @@ export default function SignupPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [needsConfirm, setNeedsConfirm] = useState(false)
   const router = useRouter()
   const { signUp } = useAuth()
 
@@ -32,18 +33,22 @@ export default function SignupPage() {
       return
     }
 
-    const { error } = await signUp(email, password)
+    const { error, needsConfirmation } = await signUp(email, password)
 
     if (error) {
       setError(error.message)
       setLoading(false)
     } else {
       setSuccess(true)
+      setNeedsConfirm(!!needsConfirmation)
       setLoading(false)
-      // Auto-redirect after successful signup
-      setTimeout(() => {
-        router.push('/')
-      }, 2000)
+      // Only auto-redirect when a live session exists. If email confirmation is
+      // required there's no session yet, so redirecting to '/' would bounce to login.
+      if (!needsConfirmation) {
+        setTimeout(() => {
+          router.push('/')
+        }, 2000)
+      }
     }
   }
 
@@ -68,7 +73,11 @@ export default function SignupPage() {
           {success ? (
             <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/50 text-white px-4 py-3 rounded-xl text-center">
               <p className="font-semibold mb-1">Account created successfully!</p>
-              <p className="text-sm">Redirecting to your calendar...</p>
+              <p className="text-sm">
+                {needsConfirm
+                  ? 'Check your email to confirm your account, then sign in.'
+                  : 'Redirecting to your calendar...'}
+              </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -79,6 +88,7 @@ export default function SignupPage() {
                 <input
                   id="email"
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -94,6 +104,7 @@ export default function SignupPage() {
                 <input
                   id="password"
                   type="password"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -109,6 +120,7 @@ export default function SignupPage() {
                 <input
                   id="confirmPassword"
                   type="password"
+                  autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required

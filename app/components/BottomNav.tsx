@@ -31,7 +31,7 @@ export default function BottomNav({ currentView, setCurrentView, onSettingsClick
           key={view}
           onClick={() => setCurrentView(view)}
           className={`
-            flex-1 flex flex-col items-center justify-center gap-0.5
+            relative flex-1 flex flex-col items-center justify-center gap-0.5
             py-2 px-1 min-h-[56px]
             transition-all duration-150
             ${currentView === view

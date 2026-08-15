@@ -10,6 +10,7 @@ import IconButton from './ui/IconButton'
 import GlassButton from './ui/GlassButton'
 import PillToggle from './ui/PillToggle'
 import { useSwipe } from '@/lib/useSwipe'
+import { dateRotationIndex } from '@/lib/rotation'
 
 type FamilyMember = {
   id: number
@@ -31,6 +32,8 @@ type Task = {
   is_rotating: boolean
   rotation_mode: 'completion' | 'date' | null
   current_rotation_index: number
+  is_role: boolean
+  last_rotated_date: string | null
   group_reset_frequency: 'daily' | 'weekly' | 'monthly' | 'never' | null
   rotation_days_interval: number | null
   // Flexible recurrence
@@ -137,9 +140,14 @@ function isDueOnDate(task: Task, date: Date): boolean {
     return task.due_date === toLocalISO(date)
   }
 
-  // Repeating task — enforce recurrence interval
+  // Repeating task — enforce recurrence interval.
+  // Normalize both sides to local midnight so a task created mid-day still
+  // shows on its creation day (and interval math stays whole-day accurate).
   const anchor = new Date(task.created_at)
-  const diffMs = date.getTime() - anchor.getTime()
+  anchor.setHours(0, 0, 0, 0)
+  const target = new Date(date)
+  target.setHours(0, 0, 0, 0)
+  const diffMs = target.getTime() - anchor.getTime()
   if (diffMs < 0) return false
 
   const interval = task.recurrence_interval || 1
@@ -187,7 +195,6 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle, sh
   const [editingTask, setEditingTask] = useState<any>(null)
   const [viewDate, setViewDate]       = useState(new Date())
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null)
-  const today       = toLocalISO(new Date())
   const viewDateISO = toLocalISO(viewDate)
   const viewDateISORef = useRef(viewDateISO)
   useEffect(() => { viewDateISORef.current = viewDateISO }, [viewDateISO])
@@ -370,11 +377,6 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle, sh
     return mp ? mp.total_points - mp.redeemed_points : 0
   }
 
-  function getBalance(memberId: number, currencyType: string): number {
-    const bal = memberBalances.find((b) => b.family_member_id === memberId && b.currency_type === currencyType)
-    return bal ? bal.total_earned - bal.redeemed_amount : 0
-  }
-
   function getTaskCurrencyRewards(taskId: number): TaskCurrencyReward[] {
     const rewards = currencyRewards.filter((r) => r.task_id === taskId)
     // Legacy fallback: if no currency rewards, use task.points as stars
@@ -410,7 +412,11 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle, sh
       .filter((rm) => rm.task_id === task.id)
       .sort((a, b) => a.rotation_order - b.rotation_order)
     if (roster.length === 0) return null
-    const idx = task.current_rotation_index % roster.length
+    // Date-based rotation (and family roles) advance by the calendar; completion
+    // rotation advances current_rotation_index each time the task is completed.
+    const idx = task.rotation_mode === 'date'
+      ? dateRotationIndex(task.last_rotated_date ?? task.created_at, task.rotation_days_interval, roster.length, viewDate)
+      : task.current_rotation_index % roster.length
     return roster[idx]?.family_member_id ?? null
   }
 
@@ -637,7 +643,8 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle, sh
     rotationMemberIds: number[],
     rotationDaysInterval: number,
     recurrenceInterval: number,
-    recurrenceUnit: 'days' | 'weeks' | 'months'
+    recurrenceUnit: 'days' | 'weeks' | 'months',
+    isRole: boolean
   ) {
     if (!user) return
 
@@ -655,6 +662,9 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle, sh
         is_rotating: isRotating,
         rotation_mode: isRotating ? rotationMode : null,
         rotation_days_interval: isRotating && rotationMode === 'date' ? rotationDaysInterval : null,
+        // Anchor for date-based rotation/roles so the calendar-computed holder starts today.
+        last_rotated_date: isRotating && rotationMode === 'date' ? toLocalISO(new Date()) : null,
+        is_role: isRole,
         group_reset_frequency: groupResetFrequency,
         current_rotation_index: 0,
         recurrence_interval: taskType === 'daily' ? recurrenceInterval : 1,
@@ -719,7 +729,8 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle, sh
     rotationMemberIds: number[],
     rotationDaysInterval: number,
     recurrenceInterval: number,
-    recurrenceUnit: 'days' | 'weeks' | 'months'
+    recurrenceUnit: 'days' | 'weeks' | 'months',
+    isRole: boolean
   ) {
     const starReward = taskCurrencyRewards.find((r) => r.currency_type === 'stars')
 
@@ -733,6 +744,7 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle, sh
         is_rotating: isRotating,
         rotation_mode: isRotating ? rotationMode : null,
         rotation_days_interval: isRotating && rotationMode === 'date' ? rotationDaysInterval : null,
+        is_role: isRole,
         group_reset_frequency: groupResetFrequency,
         recurrence_interval: taskType === 'daily' ? recurrenceInterval : 1,
         recurrence_unit: taskType === 'daily' ? recurrenceUnit : 'days',
@@ -825,6 +837,7 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle, sh
       rotation_mode: task.rotation_mode ?? 'completion',
       rotation_members: taskRotationOrder,
       rotation_days_interval: task.rotation_days_interval ?? 7,
+      is_role: task.is_role ?? false,
       recurrence_interval: task.recurrence_interval ?? 1,
       recurrence_unit: task.recurrence_unit ?? 'days',
     })
@@ -1172,8 +1185,10 @@ function TaskTile({
               <span className="ml-1.5 text-[10px] text-sky-300/70 font-normal">📅</span>
             )}
             {task.is_rotating && !completed && (
-              <span className="ml-1.5 text-[10px] text-indigo-300/70 font-normal">
-                {isCurrentRotation ? '🔄 your turn' : '🔄'}
+              <span className={`ml-1.5 text-[10px] font-normal ${task.is_role ? 'text-amber-300/80' : 'text-indigo-300/70'}`}>
+                {task.is_role
+                  ? (isCurrentRotation ? '👑 this week' : '👑')
+                  : (isCurrentRotation ? '🔄 your turn' : '🔄')}
               </span>
             )}
           </p>
@@ -1245,7 +1260,15 @@ function TaskTile({
           )}
         </div>
 
-        {/* Completion Circle */}
+        {/* Completion — family roles have no completion; show a crown for the current holder */}
+        {task.is_role ? (
+          <div
+            className="w-8 h-8 flex items-center justify-center flex-shrink-0 mt-0.5 text-lg"
+            title="Family role — rotates automatically, nothing to check off"
+          >
+            {isCurrentRotation ? '👑' : ''}
+          </div>
+        ) : (
         <button
           onClick={(e) => {
             e.stopPropagation()
@@ -1275,6 +1298,7 @@ function TaskTile({
             </svg>
           )}
         </button>
+        )}
       </div>
     </div>
   )

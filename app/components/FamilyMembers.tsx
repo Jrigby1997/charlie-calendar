@@ -151,7 +151,7 @@ export default function FamilyMembers({ title = 'Family Members' }: FamilyMember
       <img
         src={`/avatars/${member.avatar_url}`}
         alt={member.name}
-        className="w-full h-full"
+        className="w-full h-full object-cover"
       />
     )
   }
