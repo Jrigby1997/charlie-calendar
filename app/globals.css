@@ -340,3 +340,23 @@ html[data-theme="pastel"] .view-scroll::-webkit-scrollbar-thumb:hover {
   padding: 6px;
   border-radius: 50px;
 }
+
+/* Category filter chips — state driven by CSS (per-instance vars set inline) so a
+   tap on a touchscreen doesn't leave a stuck hover, and keyboard focus works. */
+.cat-chip {
+  background-color: var(--chip-bg);
+  border: 1px solid var(--chip-bd);
+  color: var(--chip-fg);
+}
+.cat-chip[data-selected="true"] {
+  background-color: var(--chip-bg-sel);
+  border: 2px solid var(--chip-bd-sel);
+  color: #fff;
+}
+@media (hover: hover) {
+  .cat-chip:not([data-selected="true"]):hover {
+    background-color: var(--chip-bg-h);
+    border-color: var(--chip-bd-h);
+    color: #fff;
+  }
+}

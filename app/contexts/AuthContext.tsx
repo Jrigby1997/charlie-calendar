@@ -8,7 +8,7 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: any }>
-  signUp: (email: string, password: string) => Promise<{ error: any }>
+  signUp: (email: string, password: string) => Promise<{ error: any; needsConfirmation?: boolean }>
   signOut: () => Promise<void>
 }
 
@@ -49,14 +49,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
  
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: window.location.origin,
       },
     })
-    return { error }
+    // When email confirmation is required, Supabase returns no session — the user
+    // must confirm before they can sign in, so callers shouldn't redirect to '/'.
+    return { error, needsConfirmation: !error && !data.session }
   }
 
   const signOut = async () => {

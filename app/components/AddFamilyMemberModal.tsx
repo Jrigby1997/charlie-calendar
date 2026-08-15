@@ -30,50 +30,11 @@ export default function AddFamilyMemberModal({ isOpen, onClose, onAddMember, onU
 
   const isEditMode = !!editMember
 
-  // Load available avatars from the avatars directory
+  // Load available avatars. The set is fixed (public/avatars/avatar_1..60.svg),
+  // so build the list directly instead of firing 360 speculative image requests
+  // (60 numbers × 6 extensions via new Image()) on every mount.
   useEffect(() => {
-    function loadAvatars() {
-      const avatars: string[] = []
-      const promises: Promise<void>[] = []
-
-      // Check for avatars 1-60 (reasonable limit to avoid too many requests)
-      for (let i = 1; i <= 60; i++) {
-        for (const ext of ['svg', 'png', 'jpg', 'jpeg', 'gif', 'webp']) {
-          const filename = `avatar_${i}.${ext}`
-
-          const promise = new Promise<void>((resolve) => {
-            const img = new Image()
-            img.onload = () => {
-              // Check if we already have an avatar for this number
-              const base = `avatar_${i}`
-              if (!avatars.find(a => a.startsWith(base))) {
-                avatars.push(filename)
-              }
-              resolve()
-            }
-            img.onerror = () => {
-              resolve() // Resolve anyway, just don't add the avatar
-            }
-            img.src = `/avatars/${filename}`
-          })
-
-          promises.push(promise)
-        }
-      }
-
-      // Wait for all image loading attempts to complete
-      Promise.all(promises).then(() => {
-        // Sort avatars by number
-        avatars.sort((a, b) => {
-          const aNum = parseInt(a.match(/avatar_(\d+)/)?.[1] || '0')
-          const bNum = parseInt(b.match(/avatar_(\d+)/)?.[1] || '0')
-          return aNum - bNum
-        })
-        setAvailableAvatars(avatars)
-      })
-    }
-
-    loadAvatars()
+    setAvailableAvatars(Array.from({ length: 60 }, (_, i) => `avatar_${i + 1}.svg`))
   }, [])
 
   // Pre-fill form when editing, reset when adding
