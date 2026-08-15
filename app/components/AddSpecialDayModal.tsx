@@ -11,6 +11,8 @@ export interface SpecialDay {
   emoji: string
   color: string | null
   is_recurring: boolean
+  /** Optional direct image URL (a hotlinkable link — we store the URL, not the image bytes). */
+  image_url?: string | null
   created_at?: string
 }
 
@@ -45,6 +47,7 @@ export default function AddSpecialDayModal({ onClose, onSave, editingDay }: AddS
   const [emoji, setEmoji] = useState(editingDay?.emoji ?? '⭐')
   const [color, setColor] = useState(editingDay?.color ?? '')
   const [isRecurring, setIsRecurring] = useState(editingDay?.is_recurring ?? false)
+  const [imageUrl, setImageUrl] = useState(editingDay?.image_url ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -54,7 +57,7 @@ export default function AddSpecialDayModal({ onClose, onSave, editingDay }: AddS
     setSaving(true)
     setError('')
     try {
-      await onSave({ title: title.trim(), date, emoji, color: color || null, is_recurring: isRecurring })
+      await onSave({ title: title.trim(), date, emoji, color: color || null, is_recurring: isRecurring, image_url: imageUrl.trim() || null })
       onClose()
     } catch (e) {
       setError('Failed to save. Please try again.')
@@ -135,6 +138,22 @@ export default function AddSpecialDayModal({ onClose, onSave, editingDay }: AddS
             <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transition-transform ${isRecurring ? 'translate-x-5' : 'translate-x-1'}`} />
           </button>
           <span className="text-white/80 text-sm">Repeat yearly</span>
+        </div>
+
+        {/* Optional photo (direct image URL) */}
+        <div className="mb-5">
+          <label className="block text-sm font-medium text-white/70 mb-1">Photo URL <span className="text-white/40 font-normal">(optional)</span></label>
+          <input
+            type="url"
+            value={imageUrl}
+            onChange={e => setImageUrl(e.target.value)}
+            placeholder="https://…/photo.jpg"
+            className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-white placeholder-white/40 focus:outline-none focus:border-white/40"
+          />
+          <p className="text-white/40 text-xs mt-1">Paste a direct image link. Shown instead of the emoji on the countdown. (Google Photos share links won&apos;t work — use a direct .jpg/.png URL.)</p>
+          {imageUrl.trim() && (
+            <img src={imageUrl} alt="" className="mt-2 w-14 h-14 rounded-full object-cover border border-white/20" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+          )}
         </div>
 
         {error && <p className="text-red-400 text-sm mb-3">{error}</p>}

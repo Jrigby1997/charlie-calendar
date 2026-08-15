@@ -240,10 +240,11 @@ export default function HomescreenView({
     }
   }, [])
 
-  // Special day countdowns — next 90 days
+  // Special day countdowns — next 30 days
   const now = new Date()
-  now.setHours(0,0,0,0)
-  const upcoming: { emoji: string; title: string; date: Date; daysAway: number; color: string | null }[] = []
+  now.setHours(0, 0, 0, 0)
+  const COUNTDOWN_WINDOW_DAYS = 30
+  const upcoming: { emoji: string; title: string; date: Date; daysAway: number; color: string | null; imageUrl: string | null }[] = []
 
   for (const sd of specialDays) {
     let sdDate = new Date(sd.date + 'T00:00:00')
@@ -252,8 +253,8 @@ export default function HomescreenView({
       if (sdDate < now) sdDate = new Date(sdDate.getFullYear() + 1, sdDate.getMonth(), sdDate.getDate())
     }
     const daysAway = Math.round((sdDate.getTime() - now.getTime()) / 86400000)
-    if (daysAway >= 0 && daysAway <= 90) {
-      upcoming.push({ emoji: sd.emoji, title: sd.title, date: sdDate, daysAway, color: sd.color })
+    if (daysAway >= 0 && daysAway <= COUNTDOWN_WINDOW_DAYS) {
+      upcoming.push({ emoji: sd.emoji, title: sd.title, date: sdDate, daysAway, color: sd.color, imageUrl: sd.image_url ?? null })
     }
   }
 
@@ -261,8 +262,8 @@ export default function HomescreenView({
     if (!ev.is_special_day) continue
     const evDate = new Date(ev.date + 'T00:00:00')
     const daysAway = Math.round((evDate.getTime() - now.getTime()) / 86400000)
-    if (daysAway >= 0 && daysAway <= 90) {
-      upcoming.push({ emoji: '⭐', title: ev.title, date: evDate, daysAway, color: null })
+    if (daysAway >= 0 && daysAway <= COUNTDOWN_WINDOW_DAYS) {
+      upcoming.push({ emoji: '⭐', title: ev.title, date: evDate, daysAway, color: null, imageUrl: null })
     }
   }
 
@@ -304,7 +305,28 @@ export default function HomescreenView({
       </div>
 
       {/* Special Day Countdowns */}
-      {/* Always show Breakfast/Lunch/Dinner tiles (mobile-ready) */}
+      {upcoming.length > 0 && (
+        <section>
+          <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider mb-2">⏳ Coming Up</h2>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            {upcoming.map((u, i) => {
+              const border = u.color && colorBorderMap[u.color] ? colorBorderMap[u.color] : 'border-white/15'
+              const label = u.daysAway === 0 ? 'Today!' : u.daysAway === 1 ? 'Tomorrow' : `in ${u.daysAway} days`
+              return (
+                <div key={`${u.title}-${i}`} className={`flex items-center gap-2.5 bg-white/10 rounded-xl border ${border} px-3 py-2 shrink-0`}>
+                  <CountdownAvatar emoji={u.emoji} imageUrl={u.imageUrl} />
+                  <div className="min-w-0">
+                    <p className="text-white text-sm font-medium leading-tight truncate max-w-[11rem]">{u.title}</p>
+                    <p className={`text-xs font-semibold ${u.daysAway === 0 ? 'text-yellow-300' : 'text-white/60'}`}>{label}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Today's meals — always show Breakfast/Lunch/Dinner tiles */}
       <section>
         <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider mb-2">🍽️ Today's Meals</h2>
         <div className="grid grid-cols-3 gap-2">
@@ -541,6 +563,21 @@ function getGreeting() {
 
 function formatFullDate(d: Date) {
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+}
+
+function CountdownAvatar({ emoji, imageUrl }: { emoji: string; imageUrl: string | null }) {
+  const [failed, setFailed] = useState(false)
+  if (imageUrl && !failed) {
+    return (
+      <img
+        src={imageUrl}
+        alt=""
+        className="w-9 h-9 rounded-full object-cover shrink-0 border border-white/20"
+        onError={() => setFailed(true)}
+      />
+    )
+  }
+  return <span className="text-2xl leading-none shrink-0 w-9 text-center">{emoji}</span>
 }
 
 function EventColumn({ title, events, emptyText }: { title: string; events: Event[]; emptyText: string }) {
