@@ -21,8 +21,10 @@ export default function IconButton({
   const dim = size === 'md' ? 'w-12 h-12 text-2xl' : 'w-8 h-8 text-lg'
   return (
     <button
+      type="button"
       onClick={onClick}
       title={title}
+      aria-label={title ?? icon}
       className={`${dim} bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-full transition-all duration-200 border border-white/30 hover:scale-110 flex items-center justify-center font-light shadow-lg ${className}`}
     >
       {icon}

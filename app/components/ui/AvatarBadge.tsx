@@ -36,7 +36,7 @@ export default function AvatarBadge({
       <img
         src={`/avatars/${avatarUrl}`}
         alt={name}
-        className={`w-full h-full object-cover ${!active ? 'opacity-50' : ''}`}
+        className="w-full h-full object-cover"
         onError={() => setImgFailed(true)}
       />
     ) : (
