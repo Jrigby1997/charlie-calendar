@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { SpecialDay } from './AddSpecialDayModal'
 import GlassButton from './ui/GlassButton'
+import { dateRotationIndex } from '@/lib/rotation'
 
 interface Event {
   id: number
@@ -114,6 +115,7 @@ export default function HomescreenView({
 
   // Task completions for today - per member
   const [taskStats, setTaskStats] = useState<Map<number, { total: number; done: number }>>(new Map())
+  const [roles, setRoles] = useState<{ id: number; title: string; holder: FamilyMember | null }[]>([])
 
   // Recipe detail viewer
   const [viewingRecipe, setViewingRecipe] = useState<RecipeDetail | null>(null)
@@ -170,7 +172,7 @@ export default function HomescreenView({
     async function loadTaskStats() {
       const { data: tasks } = await supabase
         .from('tasks')
-        .select('id, task_assignments(family_member_id)')
+        .select('*, task_assignments(family_member_id)')
         .eq('user_id', userId)
         .eq('is_active', true)
 
@@ -189,6 +191,7 @@ export default function HomescreenView({
       }
 
       for (const task of tasks) {
+        if ((task as any).is_role) continue // family roles aren't completable chores — don't count them
         const memberIds: number[] = (task.task_assignments as { family_member_id: number }[]).map(a => a.family_member_id)
         for (const mid of memberIds) {
           const s = stats.get(mid)
@@ -206,6 +209,33 @@ export default function HomescreenView({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, today, familyMembers.length])
+
+  // Load family roles (rotating, date-based) + compute the current holder
+  useEffect(() => {
+    async function loadRoles() {
+      const { data } = await supabase
+        .from('tasks')
+        .select('*, task_rotation_members(family_member_id, rotation_order)')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+      if (!data) { setRoles([]); return }
+      const roleRows = data.filter((t: any) => t.is_role)
+      const computed = roleRows.map((t: any) => {
+        const roster = ((t.task_rotation_members ?? []) as { family_member_id: number; rotation_order: number }[])
+          .slice()
+          .sort((a, b) => a.rotation_order - b.rotation_order)
+        let holder: FamilyMember | null = null
+        if (roster.length > 0) {
+          const idx = dateRotationIndex(t.last_rotated_date ?? t.created_at, t.rotation_days_interval, roster.length)
+          holder = familyMembers.find(m => m.id === roster[idx]?.family_member_id) ?? null
+        }
+        return { id: t.id as number, title: t.title as string, holder }
+      })
+      setRoles(computed)
+    }
+    if (userId) loadRoles()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, familyMembers])
 
   // Load family notepad
   useEffect(() => {
@@ -395,6 +425,35 @@ export default function HomescreenView({
                 </div>
               )
             })}
+          </div>
+        </section>
+      )}
+
+      {/* Family Roles */}
+      {roles.length > 0 && (
+        <section>
+          <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider mb-2">👑 Family Roles</h2>
+          <div className="flex flex-wrap gap-2">
+            {roles.map(r => (
+              <div key={r.id} className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2 border border-white/15">
+                <span className="text-white/70 text-sm">{r.title}</span>
+                <span className="text-white/25">·</span>
+                {r.holder ? (
+                  <span className="flex items-center gap-1.5">
+                    {r.holder.avatar_url ? (
+                      <img src={`/avatars/${r.holder.avatar_url}`} alt={r.holder.name} className="w-6 h-6 rounded-full object-cover" />
+                    ) : (
+                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: r.holder.color }}>
+                        {r.holder.name[0]?.toUpperCase()}
+                      </span>
+                    )}
+                    <span className="text-white text-sm font-semibold">{r.holder.name}</span>
+                  </span>
+                ) : (
+                  <span className="text-white/40 text-sm">unassigned</span>
+                )}
+              </div>
+            ))}
           </div>
         </section>
       )}
