@@ -276,7 +276,7 @@ export default function MealPlanWeekView({ userId, weekStartDay, onDayClick, ref
         amount: ri.amount,
         measurement: ri.measurement,
         ingredient_id: ri.ingredient_id,
-        ingredient_name: Array.isArray(ri.ingredients) ? ri.ingredients[0]?.name : ri.ingredients?.name ?? ''
+        ingredient_name: (Array.isArray(ri.ingredients) ? ri.ingredients[0]?.name : ri.ingredients?.name) ?? ''
       }))
     })
   }

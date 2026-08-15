@@ -99,8 +99,8 @@ export default function WeatherPopup({ date, hourly, units, anchorRect, onClose,
         <p className="text-white/40 text-sm text-center py-4">No hourly data</p>
       ) : (
         <div className="space-y-1">
-          {dayHourly.map((h, i) => (
-            <div key={i} className="flex items-center gap-2 px-1 py-0.5">
+          {dayHourly.map((h) => (
+            <div key={h.time} className="flex items-center gap-2 px-1 py-0.5">
               <span className="text-white/50 text-xs w-10 shrink-0">{formatHour(h.time)}</span>
               <span className="text-base">{weatherEmoji(h.weathercode)}</span>
               <span className="text-white text-sm font-medium w-12">{Math.round(h.temp)}{unitLabel}</span>

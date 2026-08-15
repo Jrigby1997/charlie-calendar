@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { getWeekDays as getWeekDaysUtil, formatDate } from '@/lib/dateUtils'
-import { get } from 'http'
 import SectionCard from './ui/SectionCard'
 import PillToggle from './ui/PillToggle'
 import AvatarFilterGroup from './ui/AvatarFilterGroup'
@@ -153,13 +152,6 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
     }
   }, [targetDate, targetView])
 
-  // Respond to external navigation targets (from Homescreen)
-  useEffect(() => {
-    // @ts-ignore - targetDate/targetView may be injected by parent
-    const anyProps: any = arguments?.[0]
-    // No-op: placeholder for TypeScript compatibility
-  }, [])
-
   // Detect mobile and auto-switch week view to day view on small screens
   useEffect(() => {
     const checkMobile = () => {
@@ -206,13 +198,6 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
   const dayOfMonth = currentDate.getDate()
-
-  // Get the start of the week (Sunday)
-  // Use utility function from dateUtils with weekStartDay preference
-  function getWeekStart(date: Date): Date {
-    const weekDaysArray = getWeekDaysUtil(date, weekStartDay)
-    return weekDaysArray[0]
-  }
 
   // Helper function to format time range
   function formatTimeRange(startTime: string | null, endTime: string | null): string {
@@ -1275,7 +1260,7 @@ export default function CalendarView({ events, onAddEventClick, onEventClick, on
 
       {/* Month View */}
       {view === 'month' && (
-        <div className="grid grid-cols-7 gap-0.5 md:gap-3">
+        <div className="grid grid-cols-7 gap-0.5 md:gap-3 flex-1 min-h-0 overflow-y-auto content-start">
         {/* Day headers */}
         {getOrderedDayNames().map(day => (
           <div key={day} className="text-center font-semibold text-white/90 py-1.5 md:py-3 text-[10px] md:text-sm">

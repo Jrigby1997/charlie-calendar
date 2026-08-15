@@ -187,7 +187,6 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle, sh
   const [editingTask, setEditingTask] = useState<any>(null)
   const [viewDate, setViewDate]       = useState(new Date())
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null)
-  const today       = toLocalISO(new Date())
   const viewDateISO = toLocalISO(viewDate)
   const viewDateISORef = useRef(viewDateISO)
   useEffect(() => { viewDateISORef.current = viewDateISO }, [viewDateISO])
@@ -368,11 +367,6 @@ export default function TasksView({ familyMembers, onShowToast, sectionTitle, sh
     // Legacy fallback
     const mp = memberPoints.find((p) => p.family_member_id === memberId)
     return mp ? mp.total_points - mp.redeemed_points : 0
-  }
-
-  function getBalance(memberId: number, currencyType: string): number {
-    const bal = memberBalances.find((b) => b.family_member_id === memberId && b.currency_type === currencyType)
-    return bal ? bal.total_earned - bal.redeemed_amount : 0
   }
 
   function getTaskCurrencyRewards(taskId: number): TaskCurrencyReward[] {

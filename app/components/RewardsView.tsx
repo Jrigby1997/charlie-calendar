@@ -181,7 +181,7 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle, 
   async function loadHistory() {
     const { data, error } = await supabase
       .from('reward_redemptions')
-      .select('id, reward_id, family_member_id, points_spent, redeemed_at, rewards(title)')
+      .select('id, reward_id, family_member_id, points_spent, redeemed_at, rewards(title, currency_type)')
       .order('redeemed_at', { ascending: false })
       .limit(200)
 
@@ -203,11 +203,6 @@ export default function RewardsView({ familyMembers, onShowToast, sectionTitle, 
       return mp ? mp.total_points - mp.redeemed_points : 0
     }
     return 0
-  }
-
-  /** @deprecated use getAvailableBalance(memberId, 'stars') */
-  function getAvailablePoints(memberId: number): number {
-    return getAvailableBalance(memberId, 'stars')
   }
 
   function getRewardsForMember(memberId: number): Reward[] {

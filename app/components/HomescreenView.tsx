@@ -233,6 +233,13 @@ export default function HomescreenView({
     }, 1000)
   }, [userId])
 
+  // Clear any pending note-save timeout when the component unmounts
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
+
   // Special day countdowns — next 90 days
   const now = new Date()
   now.setHours(0,0,0,0)

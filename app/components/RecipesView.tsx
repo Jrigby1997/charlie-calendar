@@ -110,7 +110,7 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
   // Reset to recipes if ingredients tab is hidden while it's active
   useEffect(() => {
     if (!showIngredients && subView === 'ingredients') setSubView('recipes')
-  }, [showIngredients])
+  }, [showIngredients, subView])
 
   async function loadCategories() {
     try {
@@ -660,7 +660,7 @@ export default function RecipesView({ sectionTitle, userId, weekStartDay = 'Sund
 
       {/* Meal plan — fills remaining height, handles its own internal layout */}
       {subView === 'mealplan' && (
-        <div className="flex-1 min-h-0 min-w-0 overflow-hidden px-3 md:px-6 pb-4 md:pb-6">
+        <div className="flex-1 min-h-0 min-w-0 overflow-y-auto px-3 md:px-6 pb-4 md:pb-6">
           <MealPlanWeekView
             userId={userId}
             weekStartDay={weekStartDay}
