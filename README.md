@@ -35,6 +35,16 @@
 | 31 | ✅ **Special Days Countdown** | Standalone special days (birthday, anniversary, etc.) + flag any event as a special day. Emoji badge on calendar cells. Homescreen shows countdown cards ("X days away") for next 90 days. |
 | 32 | ✅ **Homescreen Tab** | New 🏠 Home tab as default landing page. Sections: Special Day Countdowns, Today & Tomorrow Events, Today's Meals, Task Overview (per-member progress), Family Notepad (shared, debounced-save), Weather Widget. |
 | 33 | ✅ **Weather Integration** | Open-Meteo free API (no key). Weather location + units (°F/°C) in Settings. 3-icon strip (condition/wind/precip) under each date in Day/Week/Month calendar views. WeatherPopup with hourly data. Full weather widget on Homescreen. |
+| 34 | ✅ **Special-Day Countdowns v2** | Homescreen "⏳ Coming Up" strip, 30-day window, optional per-day photo via direct image URL (`special_days.image_url`). |
+| 35 | ✅ **Smart Shopping + Pantry Staples** | "🥫 Staple" toggle per ingredient (`ingredients.is_pantry_staple`); staples skipped when generating the week's shopping list from meal plans. |
+| 36 | ✅ **Chore + Family-Role Rotation** | Unified rotation engine (`tasks.is_role`): rotating chores + non-completable "family roles" (Movie Picker, etc.); date-computed holder (`lib/rotation.ts`); homescreen "👑 Family Roles" board. |
+| 37 | ✅ **Rich Morning Digest** | `/api/push/digest` cron now sends weather + today's meals + events + per-member chores + role holders + overdue maintenance. |
+| 38 | ✅ **Maintenance / Upkeep** | Track vehicles/appliances by miles, time, or uses (oil changes, furnace filters, smoker cleanings). `maintenance_assets` + `maintenance_items`; status math in `lib/maintenance.ts`; homescreen card + digest line. |
+| 39 | 📋 **Home Assistant "Home" Panel** | Smart-home panel (lights/thermostat/locks) talking to a local Home Assistant hub via its REST/WebSocket API. **Not started — fully scoped in [`ROADMAP.md`](ROADMAP.md) §A** (feasible to build before final hardware using a throwaway Docker HA; ~1–3 days once an HA endpoint exists). |
+| 40 | 📋 **Voice Control** | Tap-to-talk app commands on the kitchen display (Web Speech API); device voice via Google Home/Alexa/HA Assist directly. **Scoped in [`ROADMAP.md`](ROADMAP.md) §B.** |
+| 41 | 📋 **Budgeting / Allowance** | Manual allowance module first (free, PIN-gated); Plaid only later, Sandbox-first. **Scoped in [`ROADMAP.md`](ROADMAP.md) §C.** |
+
+> 🗺️ **Parked / planned features are documented in detail in [`ROADMAP.md`](ROADMAP.md)** — read that before starting Home Assistant, Voice, or Budgeting so we don't re-have the scoping conversation.
 
 ---
 
