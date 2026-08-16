@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import webpush from 'web-push'
 import { createClient } from '@supabase/supabase-js'
 import { dateRotationIndex } from '@/lib/rotation'
+import { computeMaintenanceStatus } from '@/lib/maintenance'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -153,6 +154,24 @@ async function buildDigest(userId: string, today: string): Promise<{ title: stri
       if (roleLines.length) lines.push('👑 ' + roleLines.join(' · '))
     }
   } catch { /* tasks/roles best-effort */ }
+
+  // ── Maintenance overdue ──
+  try {
+    const [{ data: mAssets }, { data: mItems }] = await Promise.all([
+      supabaseAdmin.from('maintenance_assets').select('id, odometer').eq('user_id', userId),
+      supabaseAdmin.from('maintenance_items').select('*').eq('user_id', userId),
+    ])
+    if (mAssets && mItems) {
+      const odoById = new Map((mAssets as any[]).map((a) => [a.id, a.odometer]))
+      const overdue = (mItems as any[])
+        .map((it) => ({ it, s: computeMaintenanceStatus(it, odoById.get(it.asset_id)) }))
+        .filter((x) => x.s.state === 'overdue')
+        .map((x) => x.it.name as string)
+      if (overdue.length) {
+        lines.push(`🔧 Overdue: ${overdue.slice(0, 3).join(', ')}${overdue.length > 3 ? ` +${overdue.length - 3}` : ''}`)
+      }
+    }
+  } catch { /* maintenance best-effort */ }
 
   if (lines.length === 0) return null
 
