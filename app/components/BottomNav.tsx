@@ -1,6 +1,6 @@
 'use client'
 
-type View = 'home' | 'calendar' | 'recipes' | 'tasks'
+type View = 'home' | 'calendar' | 'recipes' | 'tasks' | 'maintenance'
 
 interface BottomNavProps {
   currentView: View
@@ -13,6 +13,7 @@ const tabs: { icon: string; label: string; view: View }[] = [
   { icon: '📅', label: 'Calendar', view: 'calendar' },
   { icon: '📖', label: 'Recipes', view: 'recipes' },
   { icon: '✅', label: 'Tasks', view: 'tasks' },
+  { icon: '🔧', label: 'Upkeep', view: 'maintenance' },
 ]
 
 export default function BottomNav({ currentView, setCurrentView, onSettingsClick }: BottomNavProps) {

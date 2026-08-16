@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { SpecialDay } from './AddSpecialDayModal'
 import GlassButton from './ui/GlassButton'
 import { dateRotationIndex } from '@/lib/rotation'
+import { computeMaintenanceStatus } from '@/lib/maintenance'
 
 interface Event {
   id: number
@@ -75,6 +76,7 @@ interface HomescreenViewProps {
   weatherLocation?: string
   onNavigateToDate?: (dateISO: string) => void
   onOpenTasks?: () => void
+  onOpenMaintenance?: () => void
   onEditMeal?: (mealType: string, dateISO: string) => void
   onAddSpecialDay?: () => void
 }
@@ -108,7 +110,7 @@ function toLocalDateISO(d: Date) {
 export default function HomescreenView({
   userId, colorTheme, familyMembers, familySectionTitle,
   specialDays, events, mealPlans, weatherData, weatherUnits, onAddSpecialDay,
-  weatherLocation, onNavigateToDate, onOpenTasks, onEditMeal,
+  weatherLocation, onNavigateToDate, onOpenTasks, onOpenMaintenance, onEditMeal,
 }: HomescreenViewProps) {
   const today = toLocalDateISO(new Date())
   const tomorrow = toLocalDateISO(new Date(Date.now() + 86400000))
@@ -116,6 +118,7 @@ export default function HomescreenView({
   // Task completions for today - per member
   const [taskStats, setTaskStats] = useState<Map<number, { total: number; done: number }>>(new Map())
   const [roles, setRoles] = useState<{ id: number; title: string; holder: FamilyMember | null }[]>([])
+  const [maintenanceDue, setMaintenanceDue] = useState<{ id: number; name: string; asset: string; label: string; state: string }[]>([])
 
   // Recipe detail viewer
   const [viewingRecipe, setViewingRecipe] = useState<RecipeDetail | null>(null)
@@ -236,6 +239,27 @@ export default function HomescreenView({
     if (userId) loadRoles()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, familyMembers])
+
+  // Load maintenance items that are overdue or coming due soon
+  useEffect(() => {
+    async function loadMaintenance() {
+      const [{ data: mAssets }, { data: mItems }] = await Promise.all([
+        supabase.from('maintenance_assets').select('*').eq('user_id', userId),
+        supabase.from('maintenance_items').select('*').eq('user_id', userId),
+      ])
+      if (!mAssets || !mItems) { setMaintenanceDue([]); return }
+      const odoById = new Map((mAssets as any[]).map(a => [a.id, a.odometer]))
+      const nameById = new Map((mAssets as any[]).map(a => [a.id, a.name]))
+      const due = (mItems as any[])
+        .map(it => ({ it, s: computeMaintenanceStatus(it, odoById.get(it.asset_id)) }))
+        .filter(x => x.s.state === 'overdue' || x.s.state === 'soon')
+        .sort((a, b) => (a.s.state === 'overdue' ? 0 : 1) - (b.s.state === 'overdue' ? 0 : 1))
+        .map(x => ({ id: x.it.id as number, name: x.it.name as string, asset: (nameById.get(x.it.asset_id) as string) ?? '', label: x.s.label, state: x.s.state }))
+      setMaintenanceDue(due)
+    }
+    if (userId) loadMaintenance()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId])
 
   // Load family notepad
   useEffect(() => {
@@ -452,6 +476,21 @@ export default function HomescreenView({
                 ) : (
                   <span className="text-white/40 text-sm">unassigned</span>
                 )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Maintenance due */}
+      {maintenanceDue.length > 0 && (
+        <section onClick={() => onOpenMaintenance?.()} className="cursor-pointer">
+          <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider mb-2">🔧 Maintenance</h2>
+          <div className="flex flex-wrap gap-2">
+            {maintenanceDue.slice(0, 6).map(m => (
+              <div key={m.id} className={`flex items-center gap-2 rounded-xl px-3 py-2 border ${m.state === 'overdue' ? 'bg-red-500/15 border-red-400/40' : 'bg-amber-500/15 border-amber-400/40'}`}>
+                <span className="text-white text-sm font-medium">{m.asset ? `${m.asset}: ` : ''}{m.name}</span>
+                <span className={`text-xs font-semibold ${m.state === 'overdue' ? 'text-red-300' : 'text-amber-300'}`}>{m.label}</span>
               </div>
             ))}
           </div>

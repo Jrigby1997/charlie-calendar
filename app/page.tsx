@@ -20,6 +20,7 @@ import PillToggle from './components/ui/PillToggle'
 import BottomNav from './components/BottomNav'
 import { PRESET_INGREDIENTS } from '@/lib/presetIngredients'
 import HomescreenView from './components/HomescreenView'
+import MaintenanceView from './components/MaintenanceView'
 import AddSpecialDayModal, { SpecialDay } from './components/AddSpecialDayModal'
 
 type Event = {
@@ -82,7 +83,7 @@ export default function Home() {
   const [newEventDate, setNewEventDate] = useState<string>('')
   const [newEventTime, setNewEventTime] = useState<string>('')
   const [eventExceptions, setEventExceptions] = useState<any[]>([])
-  const [currentView, setCurrentView] = useState<'home' | 'calendar' | 'recipes' | 'tasks'>('home')
+  const [currentView, setCurrentView] = useState<'home' | 'calendar' | 'recipes' | 'tasks' | 'maintenance'>('home')
   const [visibleMembers, setVisibleMembers] = useState<Set<number>>(new Set())
   const [showUnassigned, setShowUnassigned] = useState(true)
   const [mealPlans, setMealPlans] = useState<any[]>([])
@@ -1578,6 +1579,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
             <NavTab icon="📅" label="Calendar"      active={currentView === 'calendar'}      onClick={() => setCurrentView('calendar')} />
             <NavTab icon="📖" label="Recipes"       active={currentView === 'recipes'}       onClick={() => setCurrentView('recipes')} />
             <NavTab icon="✅" label="Tasks"         active={currentView === 'tasks'}         onClick={() => setCurrentView('tasks')} />
+            <NavTab icon="🔧" label="Upkeep"        active={currentView === 'maintenance'}   onClick={() => setCurrentView('maintenance')} />
           </div>
 
           {/* Settings and Sign Out Buttons */}
@@ -1603,6 +1605,7 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                     weatherLocation={weatherLocationDisplay}
                     onNavigateToDate={(d) => { setCalendarTargetDate(d); setCalendarTargetView('day'); setCurrentView('calendar') }}
                     onOpenTasks={() => { setCurrentView('tasks'); setTasksSubView('tasks') }}
+                    onOpenMaintenance={() => setCurrentView('maintenance')}
                     onEditMeal={(mealType, dateISO) => { setSelectedMealDate(dateISO); setSelectedMealType(mealType); setIsMealModalOpen(true) }}
                     onAddSpecialDay={() => setIsAddSpecialDayOpen(true)}
               />
@@ -1672,6 +1675,14 @@ async function handleDeleteEvent(id: number, deleteScope?: 'single' | 'all' | 'f
                     onTasksSubViewChange={setTasksSubView}
                   />
                 )}
+              </div>
+            ) : currentView === 'maintenance' ? (
+              <div className="h-full p-4">
+                <MaintenanceView
+                  sectionTitle={familyName ? `${familyName} Maintenance` : 'Maintenance'}
+                  userId={user?.id || ''}
+                  onShowToast={showToast}
+                />
               </div>
             ) : null}
         </div>
