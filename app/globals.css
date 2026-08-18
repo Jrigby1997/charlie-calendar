@@ -147,9 +147,33 @@ html[data-theme="pastel"] select {
 .recipe-input::placeholder { color: rgba(255,255,255,0.38); opacity: 1; }
 /* Pastel: dark placeholder on near-white bg — solid color, clearly lighter than typed text */
 html[data-theme="pastel"] .recipe-input::placeholder {
-  color: #bfb3d1 !important;
-  opacity: 0.5 !important;
+  color: #9a86bd !important;
+  opacity: 1 !important;
 }
+
+/* Pastel: make ALL input/textarea placeholders readable on the light panels
+   (plain white/40 placeholders were near-invisible on near-white glass). */
+html[data-theme="pastel"] input::placeholder,
+html[data-theme="pastel"] textarea::placeholder {
+  color: #9a86bd !important;
+  opacity: 1 !important;
+}
+
+/* Pastel: darken light status / badge / button text so it stays readable on the
+   light panels (e.g. "OVERDUE"/"SOON" tags, maintenance status, chips). */
+html[data-theme="pastel"] .text-red-200,
+html[data-theme="pastel"] .text-red-300     { color: #b91c1c !important; }
+html[data-theme="pastel"] .text-amber-200,
+html[data-theme="pastel"] .text-amber-300   { color: #92400e !important; }
+html[data-theme="pastel"] .text-blue-200,
+html[data-theme="pastel"] .text-blue-300    { color: #1e40af !important; }
+html[data-theme="pastel"] .text-indigo-200,
+html[data-theme="pastel"] .text-indigo-300  { color: #3730a3 !important; }
+html[data-theme="pastel"] .text-purple-200,
+html[data-theme="pastel"] .text-purple-300  { color: #6b21a8 !important; }
+html[data-theme="pastel"] .text-emerald-200,
+html[data-theme="pastel"] .text-emerald-300 { color: #065f46 !important; }
+html[data-theme="pastel"] .text-sky-300     { color: #075985 !important; }
 
 /* Semantic filter-all button states */
 .filter-all-active {

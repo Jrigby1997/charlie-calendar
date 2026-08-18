@@ -12,6 +12,9 @@ export interface MaintenanceItemLike {
   last_service_date?: string | null
   last_service_odometer?: number | null
   uses_since_service?: number | null
+  /** Optional secondary time nudge for miles/uses items ("go at least look"). */
+  reminder_interval?: number | null
+  reminder_unit?: string | null
 }
 
 export type MaintenanceState = 'ok' | 'soon' | 'overdue' | 'unknown'
@@ -55,47 +58,67 @@ export function computeMaintenanceStatus(
   today: Date = new Date()
 ): MaintenanceStatus {
   const interval = Math.max(0, item.interval_value || 0)
+  let primary: MaintenanceStatus
 
   if (item.track_type === 'miles') {
     const detail = `every ${fmt(interval)} mi`
     if (assetOdometer == null || item.last_service_odometer == null) {
-      return { state: 'unknown', remaining: null, progress: 0, label: 'Set current mileage', detail }
+      primary = { state: 'unknown', remaining: null, progress: 0, label: 'Set current mileage', detail }
+    } else {
+      const elapsed = assetOdometer - item.last_service_odometer
+      const remaining = interval - elapsed
+      const progress = interval > 0 ? Math.min(1, Math.max(0, elapsed / interval)) : 1
+      const soonThreshold = Math.max(interval * 0.1, 0)
+      const state: MaintenanceState = remaining <= 0 ? 'overdue' : remaining <= soonThreshold ? 'soon' : 'ok'
+      const label = remaining < 0 ? `Overdue by ${plural(remaining, 'mi')}` : remaining === 0 ? 'Due now' : `${fmt(remaining)} mi left`
+      primary = { state, remaining, progress, label, detail }
     }
-    const elapsed = assetOdometer - item.last_service_odometer
-    const remaining = interval - elapsed
-    const progress = interval > 0 ? Math.min(1, Math.max(0, elapsed / interval)) : 1
-    const soonThreshold = Math.max(interval * 0.1, 0)
-    const state: MaintenanceState = remaining <= 0 ? 'overdue' : remaining <= soonThreshold ? 'soon' : 'ok'
-    const label = remaining <= 0 ? `Overdue by ${plural(remaining, 'mi')}` : `${fmt(remaining)} mi left`
-    return { state, remaining, progress, label, detail }
-  }
-
-  if (item.track_type === 'uses') {
+  } else if (item.track_type === 'uses') {
     const detail = `every ${fmt(interval)} use${interval === 1 ? '' : 's'}`
     const used = item.uses_since_service ?? 0
     const remaining = interval - used
     const progress = interval > 0 ? Math.min(1, Math.max(0, used / interval)) : 1
     const state: MaintenanceState = remaining <= 0 ? 'overdue' : remaining <= 1 ? 'soon' : 'ok'
-    const label = remaining <= 0 ? `Overdue by ${plural(remaining, 'use')}` : `${plural(remaining, 'use')} left`
-    return { state, remaining, progress, label, detail }
+    const label = remaining < 0 ? `Overdue by ${plural(remaining, 'use')}` : remaining === 0 ? 'Due now' : `${plural(remaining, 'use')} left`
+    primary = { state, remaining, progress, label, detail }
+  } else {
+    const unit = item.interval_unit || 'days'
+    const detail = `every ${fmt(interval)} ${unit === 'days' ? 'day' : unit.slice(0, -1)}${interval === 1 ? '' : 's'}`
+    if (!item.last_service_date) {
+      primary = { state: 'unknown', remaining: null, progress: 0, label: 'Set last service date', detail }
+    } else {
+      const t = new Date(today); t.setHours(0, 0, 0, 0)
+      const anchor = toLocalMidnight(item.last_service_date)
+      const intervalDays = interval * unitToDays(unit)
+      const elapsedDays = Math.floor((t.getTime() - anchor.getTime()) / 86_400_000)
+      const remaining = Math.round(intervalDays - elapsedDays)
+      const progress = intervalDays > 0 ? Math.min(1, Math.max(0, elapsedDays / intervalDays)) : 1
+      const state: MaintenanceState = remaining <= 0 ? 'overdue' : remaining <= 7 ? 'soon' : 'ok'
+      const label = remaining <= 0 ? `Overdue by ${plural(remaining, 'day')}` : remaining === 0 ? 'Due today' : `${plural(remaining, 'day')} left`
+      primary = { state, remaining, progress, label, detail }
+    }
   }
 
-  // time
-  const unit = item.interval_unit || 'days'
-  const detail = `every ${fmt(interval)} ${unit === 'days' ? 'day' : unit.slice(0, -1)}${interval === 1 ? '' : 's'}`
-  if (!item.last_service_date) {
-    return { state: 'unknown', remaining: null, progress: 0, label: 'Set last service date', detail }
+  // Optional secondary TIME reminder for miles/uses items — a "go at least look"
+  // nudge that fires on elapsed time even if miles/uses aren't up yet.
+  if ((item.track_type === 'miles' || item.track_type === 'uses') && item.reminder_interval && item.last_service_date) {
+    const rUnit = item.reminder_unit || 'months'
+    const rDays = item.reminder_interval * unitToDays(rUnit)
+    const t = new Date(today); t.setHours(0, 0, 0, 0)
+    const anchor = toLocalMidnight(item.last_service_date)
+    const elapsedDays = Math.floor((t.getTime() - anchor.getTime()) / 86_400_000)
+    const rRemaining = Math.round(rDays - elapsedDays)
+    const rProgress = rDays > 0 ? Math.min(1, Math.max(0, elapsedDays / rDays)) : 1
+    const rState: MaintenanceState = rRemaining <= 0 ? 'overdue' : rRemaining <= 7 ? 'soon' : 'ok'
+    const rUnitLabel = rUnit === 'days' ? 'day' : rUnit.slice(0, -1)
+    const reminderDetail = `⏰ ${fmt(item.reminder_interval)} ${rUnitLabel}${item.reminder_interval === 1 ? '' : 's'}`
+    const rank = (s: MaintenanceState) => (s === 'overdue' ? 2 : s === 'soon' ? 1 : 0)
+    if (rank(rState) > rank(primary.state)) {
+      const label = rRemaining <= 0 ? `Time to check (${plural(rRemaining, 'day')} over)` : rRemaining === 0 ? 'Time to check today' : `Check in ${plural(rRemaining, 'day')}`
+      return { state: rState, remaining: rRemaining, progress: Math.max(primary.progress, rProgress), label, detail: `${primary.detail} · ${reminderDetail}` }
+    }
+    return { ...primary, detail: `${primary.detail} · ${reminderDetail}` }
   }
-  const t = new Date(today); t.setHours(0, 0, 0, 0)
-  const anchor = toLocalMidnight(item.last_service_date)
-  const intervalDays = interval * unitToDays(unit)
-  const elapsedDays = Math.floor((t.getTime() - anchor.getTime()) / 86_400_000)
-  const remaining = Math.round(intervalDays - elapsedDays)
-  const progress = intervalDays > 0 ? Math.min(1, Math.max(0, elapsedDays / intervalDays)) : 1
-  const state: MaintenanceState = remaining <= 0 ? 'overdue' : remaining <= 7 ? 'soon' : 'ok'
-  const label =
-    remaining <= 0 ? `Overdue by ${plural(remaining, 'day')}`
-    : remaining === 0 ? 'Due today'
-    : `${plural(remaining, 'day')} left`
-  return { state, remaining, progress, label, detail }
+
+  return primary
 }

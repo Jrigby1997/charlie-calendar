@@ -25,6 +25,8 @@ type MaintenanceItem = {
   last_service_date: string | null
   last_service_odometer: number | null
   uses_since_service: number
+  reminder_interval: number | null
+  reminder_unit: 'days' | 'weeks' | 'months' | null
   notes: string | null
   sort_order: number
 }
@@ -314,6 +316,8 @@ function ItemModal({ userId, assetId, asset, editing, onClose, onSaved, onError 
     editing?.last_service_odometer != null ? String(editing.last_service_odometer) : (asset?.odometer != null ? String(asset.odometer) : '')
   )
   const [usesSoFar, setUsesSoFar] = useState(editing ? String(editing.uses_since_service) : '0')
+  const [reminderInterval, setReminderInterval] = useState(editing?.reminder_interval != null ? String(editing.reminder_interval) : '')
+  const [reminderUnit, setReminderUnit] = useState<'days' | 'weeks' | 'months'>(editing?.reminder_unit ?? 'months')
   const [notes, setNotes] = useState(editing?.notes ?? '')
   const [saving, setSaving] = useState(false)
 
@@ -337,6 +341,16 @@ function ItemModal({ userId, assetId, asset, editing, onClose, onSaved, onError 
       last_service_odometer: trackType === 'miles' ? (lastOdo.trim() === '' ? null : Number(lastOdo)) : null,
       uses_since_service: trackType === 'uses' ? Math.max(0, Number(usesSoFar) || 0) : 0,
       notes: notes.trim() || null,
+    }
+    // Only touch the reminder_* columns when a reminder is set (or being cleared
+    // on an item that had one) so add/edit still works before that migration runs.
+    const wantsReminder = trackType !== 'time' && reminderInterval.trim() !== '' && Number(reminderInterval) > 0
+    if (wantsReminder) {
+      payload.reminder_interval = Number(reminderInterval)
+      payload.reminder_unit = reminderUnit
+    } else if (editing && editing.reminder_interval != null) {
+      payload.reminder_interval = null
+      payload.reminder_unit = null
     }
     const { error } = editing
       ? await supabase.from('maintenance_items').update(payload).eq('id', editing.id).eq('user_id', userId)
@@ -395,6 +409,22 @@ function ItemModal({ userId, assetId, asset, editing, onClose, onSaved, onError 
             <label className="block text-sm text-white/70 mb-1">Uses since last service</label>
             <input type="number" value={usesSoFar} onChange={e => setUsesSoFar(e.target.value)} className="w-full bg-white/10 border border-white/25 rounded-xl px-3 py-2 text-white mb-4 focus:outline-none focus:border-white/45" />
           </>
+        )}
+
+        {trackType !== 'time' && (
+          <div className="mb-4 bg-white/5 border border-white/15 rounded-xl p-3">
+            <label className="block text-sm text-white/80 mb-1">⏰ Also nudge me by time <span className="text-white/50">(optional)</span></label>
+            <div className="flex items-center gap-2">
+              <span className="text-white/60 text-sm">every</span>
+              <input type="number" value={reminderInterval} onChange={e => setReminderInterval(e.target.value)} placeholder="e.g. 6" className="w-20 bg-white/10 border border-white/25 rounded-xl px-3 py-2 text-white placeholder-white/50 focus:outline-none focus:border-white/45" />
+              <select value={reminderUnit} onChange={e => setReminderUnit(e.target.value as any)} className="bg-white/10 border border-white/25 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-white/45">
+                <option value="days" className="bg-gray-800">days</option>
+                <option value="weeks" className="bg-gray-800">weeks</option>
+                <option value="months" className="bg-gray-800">months</option>
+              </select>
+            </div>
+            <p className="text-white/50 text-xs mt-1">Reminds you to at least look, even if the {trackType === 'miles' ? 'mileage' : 'uses'} aren&apos;t up yet.</p>
+          </div>
         )}
 
         <label className="block text-sm text-white/70 mb-1">Notes <span className="text-white/40">(optional)</span></label>
